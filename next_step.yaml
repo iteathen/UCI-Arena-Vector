@@ -1,0 +1,129 @@
+schema_version: 1
+updated: 2026-08-26
+status: foundation_connector_planning
+objective: >
+  Establish UCI Arena Vector as an independent Node-hosted GPU-resident UCI
+  engine that consumes cuda-mcgs, cuda-js, cuda-js-tensor, Book Forge, Timing
+  Evidence, tablebase, Manager and Installer only through explicit public LEGO
+  contracts, with no Vector-maintained native escape path.
+
+product:
+  name: UCI Arena Vector
+  repository: iteathen/UCI-Arena-Vector
+  executable_stem: uci_arena_vector
+
+current_focus:
+  id: VECTOR-CONTRACT-FOUNDATION-001
+  action: >
+    Freeze the first Vector-owned product contracts and issue train: chess
+    Domain/Policy specialization, model-to-Tensor evaluator mapping, UCI/Search
+    Session mapping, Book Forge consumer, Timing Evidence consumer, tablebase
+    authority, observation/evidence, and component/release integration. Build
+    reference fixtures and schemas only; do not lower production GPU search
+    before CUDA-MCGS #122 accepts the universal semantic packet.
+  exit: >
+    Every P0 connector has one owner, one public boundary, exact dependency and
+    acceptance criteria, and no unresolved requirement implies native code,
+    private sibling imports, host-driven search progress, or another component
+    identity impersonation.
+
+upstream_gates:
+  cuda_mcgs:
+    - issue: 113
+      role: root_control_reconciliation
+      priority: P0
+    - issue: 36
+      role: universal_reference
+      priority: P0
+    - issue: 122
+      role: integrated_semantic_acceptance
+      priority: P0
+    - issue: 125
+      role: cuda_js_runtime_adapter
+      priority: P0
+    - issue: 124
+      role: tensor_evaluator_connector
+      priority: P0
+    - issue: 37
+      role: bounded_parallel_native_qualification
+      priority: P0
+    - issue: 123
+      role: external_consumer_readiness
+      priority: P0
+  cuda_js:
+    - issue: 32
+      role: exact_cuda_mcgs_compatible_pair
+      priority: P0
+  cuda_js_tensor:
+    - issue: 22
+      role: cuda_mcgs_consumer_qualification
+      priority: P0
+
+vector_p0_connectors:
+  - id: VECTOR-CHESS-DOMAIN-POLICY-001
+    owner: vector
+    readiness: specification_ready
+  - id: VECTOR-MODEL-TENSOR-002
+    owner: vector
+    readiness: specification_ready
+  - id: VECTOR-UCI-SESSION-003
+    owner: vector
+    readiness: specification_ready
+  - id: VECTOR-BOOK-004
+    owner: vector_plus_book_forge_public_contract
+    readiness: blocked_by_book_forge_consumer_identity_gap
+  - id: VECTOR-TIMING-005
+    owner: vector_plus_evidence_public_contract
+    readiness: specification_ready
+  - id: VECTOR-TABLEBASE-006
+    owner: vector
+    readiness: specification_ready_root_profile
+  - id: VECTOR-OBSERVATION-007
+    owner: vector
+    readiness: specification_ready
+
+native_code_diagnostic:
+  rule: >
+    Vector production never adds C, C++, CUDA C++, PTX, native addons, direct
+    CUDA FFI, or native subprocess search as a workaround. An apparent need for
+    native code is classified before implementation.
+  routing:
+    generic_cuda_mechanism: cuda-js
+    generic_tensor_math: cuda-js-tensor
+    universal_mcgs_semantics: cuda-mcgs
+    product_meaning: Vector JavaScript/restricted Device-JS or published external contract
+    no_natural_owner: architecture_gap_plan
+
+allowed_before_cuda_mcgs_semantic_acceptance:
+  - product contracts and schemas
+  - chess reference/differential fixture design
+  - model semantic/TensorProgram mapping design
+  - Book Forge compatibility correction planning
+  - Timing Evidence consumer contract design
+  - tablebase root-authority contract design
+  - UCI/session mapping design
+  - release/component contract design
+
+blocked_before_cuda_mcgs_semantic_acceptance:
+  - production CUDA-MCGS Search Program lowering
+  - production GPU graph/policy/evaluator integration
+  - native/support/strength/performance claims
+
+p2_non_blockers:
+  - tensor material arena
+  - typed_or_strided_batched_cublaslt
+  - lower_precision_and_tensor_cores
+  - cublasdx_or_cutlass_fusion
+  - cuda_graphs_or_cooperative_execution
+  - multi_gpu
+  - internal_gpu_tablebase_acceleration
+  - speculative_or_prospective_evaluation
+
+validation:
+  - no private sibling-repository imports
+  - no Vector native production source
+  - no host-produced active-search intermediate
+  - exact owner-neutral contracts
+  - finite resources and bounded diagnostics
+  - exact failure cancellation and cleanup semantics
+  - differential chess/model/tablebase oracles before promotion
