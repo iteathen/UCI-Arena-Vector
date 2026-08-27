@@ -1,0 +1,56 @@
+name: Contract or documentation defect
+description: Report a reproducible defect in current Vector-owned specifications, contracts, fixtures, documentation, or tooling.
+title: "[Defect]: "
+labels:
+  - "type: defect"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for a precise report. Vector has no supported production engine yet; use this form for current repository truth, not feature requests or vulnerabilities.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and discussions for this defect.
+          required: true
+        - label: This report contains no credentials, private artifacts, or exploit details.
+          required: true
+        - label: I read STATUS.md and next_step.yaml.
+          required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Affected revision
+      description: Commit SHA or exact document/contract version.
+      placeholder: 0123456789abcdef...
+    validations:
+      required: true
+  - type: textarea
+    id: defect
+    attributes:
+      label: Defect
+      description: What current authoritative statement or behavior is wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction or contradiction
+      description: Provide deterministic steps, inputs, or conflicting authoritative passages.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: ownership
+    attributes:
+      label: Suspected owner and boundary impact
+      description: Identify the local owner if known; say unknown rather than guessing.
+    validations:
+      required: false

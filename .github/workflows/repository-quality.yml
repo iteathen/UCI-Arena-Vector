@@ -1,0 +1,41 @@
+name: Repository quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Repository quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Report runtime
+        run: node --version
+      - name: Validate verifier syntax
+        run: node --check tools/verify-repository.mjs
+      - name: Verify repository policy
+        run: node tools/verify-repository.mjs
+      - name: Reject whitespace errors
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}...HEAD" --
+          elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^ HEAD --
+          fi

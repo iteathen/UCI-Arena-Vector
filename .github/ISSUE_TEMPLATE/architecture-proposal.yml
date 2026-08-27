@@ -1,0 +1,63 @@
+name: Contract or architecture proposal
+description: Propose a scoped Vector-owned contract, connector, lifecycle, or repository improvement.
+title: "[Proposal]: "
+labels:
+  - "type: architecture"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposals must preserve Vector's LEGO ownership and current dependency gates. An apparent need for local native code is an architecture-gap report, not implementation authorization.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and discussions.
+          required: true
+        - label: I read AGENTS.md, STATUS.md, next_step.yaml, and the connector map.
+          required: true
+        - label: This proposal does not disclose a vulnerability or credential.
+          required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Intended outcome
+      description: State the user-visible or contract-visible result, not a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: owner
+    attributes:
+      label: Authoritative owner
+      description: Which component owns the meaning, state, identity, and lifecycle? Why?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: LEGO boundary and rewiring test
+      description: What public seam changes, and what happens if the current neighbor is replaced or removed?
+    validations:
+      required: true
+  - type: textarea
+    id: bounds
+    attributes:
+      label: Bounds, failures, and cleanup
+      description: Describe capacity, cancellation, partial validity, errors, and cleanup.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Decisive evidence
+      description: What is the cheapest test or observation that would falsify the proposal?
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and gates
+      description: Link owning issues and identify what is ready, blocked, or explicitly out of scope.
+    validations:
+      required: false
