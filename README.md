@@ -1,8 +1,23 @@
 # UCI Arena Vector
 
-**UCI Arena Vector** is a GPU-resident chess engine for the UCI Arena suite.
+[![Repository quality](https://github.com/iteathen/UCI-Arena-Vector/actions/workflows/repository-quality.yml/badge.svg)](https://github.com/iteathen/UCI-Arena-Vector/actions/workflows/repository-quality.yml)
+[![License: GPL-3.0](https://img.shields.io/github/license/iteathen/UCI-Arena-Vector)](LICENSE)
+
+**UCI Arena Vector** is an open-source, GPU-resident UCI chess engine. Its goal is to keep chess search, graph work, evaluation, batching, and backup on the GPU after search ignition while retaining a standard UCI boundary for chess interfaces and tournament tooling.
 
 Vector is an independent UCI engine product. It uses the public `cuda-mcgs`, `cuda-js`, and `cuda-js-tensor` libraries, but its product identity and public contracts do not depend on those implementation names remaining permanent.
+
+> [!IMPORTANT]
+> Vector is currently in specification and connector planning. There is no supported engine release or runnable production search yet. Contributions to the active contracts, independent chess oracle design, documentation, and connector reviews are welcome.
+
+## Start here
+
+- [Current status](STATUS.md)
+- [Governed next step](next_step.yaml)
+- [Architecture connector map](docs/architecture/CONNECTOR_MAP.md)
+- [How to contribute](CONTRIBUTING.md)
+- [Project governance](GOVERNANCE.md)
+- [Security policy](SECURITY.md)
 
 ## Product boundary
 
@@ -83,3 +98,17 @@ Hard constraints:
 Specification and connector planning only. Production implementation begins only after the owning contracts are accepted and upstream CUDA-MCGS connector/native gates are dependency-ready.
 
 See `AGENTS.md`, `STATUS.md`, `next_step.yaml`, and `docs/architecture/CONNECTOR_MAP.md` before making changes.
+
+## Contributing
+
+Public contributions are welcome. The most useful work today is careful review of Vector-owned contracts, independently reproducible chess fixtures, boundary analysis, documentation, and issue refinement. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and an existing issue; do not begin production search implementation while its dependency gate is closed.
+
+Questions and design discussions belong in [GitHub Discussions](https://github.com/iteathen/UCI-Arena-Vector/discussions). Reproducible defects and scoped proposals belong in [GitHub Issues](https://github.com/iteathen/UCI-Arena-Vector/issues).
+
+## Security
+
+Do not disclose suspected vulnerabilities in a public issue. Follow [SECURITY.md](SECURITY.md) to report them privately.
+
+## License
+
+UCI Arena Vector is licensed under the [GNU General Public License v3.0](LICENSE).
