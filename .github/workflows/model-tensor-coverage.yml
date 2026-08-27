@@ -1,0 +1,49 @@
+name: Model Tensor Coverage
+
+on:
+  pull_request:
+    paths:
+      - "contracts/cuda-js-tensor-program-capabilities-v1.json"
+      - "test/fixtures/model-tensor-coverage/**"
+      - "tools/verify-model-tensor-coverage.mjs"
+      - "tools/verify-model-tensor-coverage.test.mjs"
+      - ".github/workflows/model-tensor-coverage.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-tensor-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Report runtime
+        run: node --version
+      - name: Check verifier syntax
+        run: node --check tools/verify-model-tensor-coverage.mjs
+      - name: Run coverage verifier tests
+        run: node --test tools/verify-model-tensor-coverage.test.mjs
+      - name: Prove supported synthetic coverage
+        run: >-
+          node tools/verify-model-tensor-coverage.mjs
+          --manifest test/fixtures/model-tensor-coverage/supported-synthetic-v1.json
+          --capabilities contracts/cuda-js-tensor-program-capabilities-v1.json
+      - name: Prove synthetic fixture cannot satisfy real-model readiness
+        shell: bash
+        run: |
+          if node tools/verify-model-tensor-coverage.mjs \
+            --manifest test/fixtures/model-tensor-coverage/supported-synthetic-v1.json \
+            --capabilities contracts/cuda-js-tensor-program-capabilities-v1.json \
+            --require-real; then
+            echo "synthetic fixture incorrectly satisfied the real-model gate" >&2
+            exit 1
+          fi
