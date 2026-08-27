@@ -16,6 +16,7 @@ product:
 current_focus:
   id: VECTOR-CHESS-DOMAIN-POLICY-001
   issue: 2
+  authority: docs/specs/VECTOR-0001-chess-search-product.md
   action: >
     Specify the Vector-owned packed chess state/action/history/terminal contract,
     product MCGS Policy/output semantics, and independent differential oracle
