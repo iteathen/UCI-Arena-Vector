@@ -8,6 +8,15 @@ on:
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "contracts/cuda-js-tensor-program-capabilities-v1.json"
+      - "test/fixtures/model-tensor-coverage/**"
+      - "tools/verify-model-tensor-coverage.mjs"
+      - "tools/verify-model-tensor-coverage.test.mjs"
+      - ".github/workflows/model-tensor-coverage.yml"
   workflow_dispatch:
 
 permissions:
