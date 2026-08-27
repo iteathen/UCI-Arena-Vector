@@ -15,6 +15,7 @@ Vector is an independent UCI engine product. It uses the public `cuda-mcgs`, `cu
 - [Current status](STATUS.md)
 - [Governed next step](next_step.yaml)
 - [Architecture connector map](docs/architecture/CONNECTOR_MAP.md)
+- [Vector-owned chess search product boundary](docs/specs/VECTOR-0001-chess-search-product.md)
 - [How to contribute](CONTRIBUTING.md)
 - [Project governance](GOVERNANCE.md)
 - [Security policy](SECURITY.md)
@@ -30,6 +31,8 @@ Vector owns:
 - adapters for Book Forge opening-book snapshots, Timing Evidence policies, and Syzygy/tablebase resources;
 - composition of those product inputs into public CUDA-MCGS contracts;
 - diagnostics, immutable evidence, release artifacts and component identity.
+
+The normative product boundary is [`VECTOR-0001`](docs/specs/VECTOR-0001-chess-search-product.md). CUDA-MCGS deliberately contains no Vector or chess product specification.
 
 Vector does **not** own:
 

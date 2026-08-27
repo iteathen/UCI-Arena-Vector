@@ -5,6 +5,8 @@
 **Current focus:** issue #2 — chess Domain/Policy contract + independent oracle  
 **Production CUDA-MCGS lowering:** blocked on CUDA-MCGS #122
 
+The chess product boundary is now owned here as [`VECTOR-0001`](docs/specs/VECTOR-0001-chess-search-product.md); CUDA-MCGS supplies only product-neutral framework contracts.
+
 ## Product identity
 
 - Product: **UCI Arena Vector**
