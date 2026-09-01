@@ -3,12 +3,78 @@
 [![Repository quality](https://github.com/iteathen/UCI-Arena-Vector/actions/workflows/repository-quality.yml/badge.svg)](https://github.com/iteathen/UCI-Arena-Vector/actions/workflows/repository-quality.yml)
 [![License: GPL-3.0](https://img.shields.io/github/license/iteathen/UCI-Arena-Vector)](LICENSE)
 
-**UCI Arena Vector** is an open-source, GPU-resident UCI chess engine. Its goal is to keep chess search, graph work, evaluation, batching, and backup on the GPU after search ignition while retaining a standard UCI boundary for chess interfaces and tournament tooling.
+UCI Arena Vector is a planned GPU-resident UCI chess engine product.
 
-Vector is an independent UCI engine product. It uses the public `cuda-mcgs`, `cuda-js`, and `cuda-js-tensor` libraries, but its product identity and public contracts do not depend on those implementation names remaining permanent.
+## Current reality
 
-> [!IMPORTANT]
-> Vector is currently in specification and connector planning. There is no supported engine release or runnable production search yet. Contributions to the active contracts, independent chess oracle design, documentation, and connector reviews are welcome.
+**There is no runnable Vector engine or supported engine release yet.** The repository is currently specification and connector work for the product that will compose public CUDA-MCGS, CUDA-JS, CUDA-JS-Tensor, opening-book, timing-evidence, and tablebase contracts.
+
+What exists today:
+
+- Vector-owned UCI/chess/product contracts and architecture;
+- explicit connector/ownership maps to the supporting libraries and UCI Arena services;
+- repository validation and protected-branch CI;
+- governed dependency/next-step state.
+
+What does **not** exist today:
+
+- a production GPU search runtime;
+- a UCI executable suitable for tournaments;
+- a qualified end-to-end CUDA-MCGS/Tensor/Vector engine pair;
+- engine-strength, latency, or performance claims.
+
+## Verify what exists
+
+```bash
+node tools/verify-repository.mjs
+git diff --check
+```
+
+These checks validate the repository/contracts. They do not prove a chess engine exists or qualify GPU search.
+
+The current dependency-ready action is recorded in [`next_step.yaml`](next_step.yaml); current truth is summarized in [`STATUS.md`](STATUS.md).
+
+## Product boundary
+
+Vector owns:
+
+- UCI protocol behavior and engine lifecycle;
+- chess state, action, history, legality, and terminal semantics;
+- chess-specific MCGS policy, backup, root-result, and analysis semantics;
+- model feature/action/output semantics;
+- adapters for Book Forge opening books, Timing Evidence policies, and Syzygy/tablebase resources;
+- product composition, diagnostics, evidence, and release identity.
+
+Vector does **not** own generic CUDA runtime/compiler/memory behavior, generic tensor mathematics, universal MCGS graph/resource/progress contracts, Book Forge production, Timing Evidence publication, Manager/Installer behavior, or Lichess transport.
+
+A missing generic capability is requested from its public owning library with Vector acceptance criteria. Vector does not deep-import sibling internals or add native escape paths to bypass a missing library contract.
+
+## Intended execution shape
+
+```text
+UCI / Vector product semantics
+        |
+        v
+     CUDA-MCGS
+        |
+        +--> CUDA-JS
+        +--> CUDA-JS-Tensor
+        |
+        v
+       GPU
+```
+
+Book Forge, Timing Evidence, and tablebase integrations enter through Vector-owned adapters. Lichess sees only a future conforming UCI executable.
+
+Detailed connector ownership is in [`docs/architecture/CONNECTOR_MAP.md`](docs/architecture/CONNECTOR_MAP.md).
+
+## Development rule
+
+Once the next connector boundary is accepted and dependency-ready, prefer the thinnest meaningful executable Vector slice through the same public contracts intended for production before expanding architecture further.
+
+Concurrency, optimization, strength machinery, or API breadth is not prioritized because a theoretical ceiling exists. It must be required by the next executable product path or by measured evidence.
+
+No native C/C++/CUDA escape path belongs in Vector. An apparent need for one triggers classification of the missing CUDA-JS, CUDA-JS-Tensor, CUDA-MCGS, or product-owned capability before implementation.
 
 ## Start here
 
@@ -19,96 +85,10 @@ Vector is an independent UCI engine product. It uses the public `cuda-mcgs`, `cu
 - [Project governance](GOVERNANCE.md)
 - [Security policy](SECURITY.md)
 
-## Product boundary
+## Contributing and security
 
-Vector owns:
+Read [`AGENTS.md`](AGENTS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md) before changing behavior. Do not begin production search implementation while its dependency gate is closed.
 
-- UCI protocol behavior and engine lifecycle;
-- chess state/action/history/legality/terminal semantics;
-- chess-specific MCGS policy, backup, root-result and analysis semantics;
-- model package, feature, action-index and output-head semantics;
-- adapters for Book Forge opening-book snapshots, Timing Evidence policies, and Syzygy/tablebase resources;
-- composition of those product inputs into public CUDA-MCGS contracts;
-- diagnostics, immutable evidence, release artifacts and component identity.
-
-Vector does **not** own:
-
-- generic CUDA compilation/runtime/resource mechanisms (`cuda-js`);
-- generic tensor mathematics/planning (`cuda-js-tensor`);
-- universal MCGS graph/evaluator/resource/progress contracts (`cuda-mcgs`);
-- Book Forge acquisition/qualification;
-- Timing Evidence campaign/statistical publication;
-- Manager, Installer, or Lichess transport behavior.
-
-## Architecture
-
-```text
-UCI / product composition
-        |
-        +--> chess contract + root/history admission
-        +--> opening-book adapter
-        +--> timing-policy adapter
-        +--> tablebase adapter
-        +--> model/evaluator adapter
-        |
-        v
-     cuda-mcgs
- universal MCGS library
-     |       |
-     v       v
- cuda-js  cuda-js-tensor
-     ^       |
-     |_______|
-       CUDA GPU
-```
-
-The initial product host is Node.js so Vector can consume the JavaScript libraries directly. This avoids an unnecessary native-to-Node search bridge. Active search, chess transition work, graph work, evaluator work, batching, backup and progress remain device-resident after ignition. Host work is limited to protocol/input admission, pre-ignition composition, externally authoritative root/control changes, bounded asynchronous observation/result consumption, cancellation and teardown.
-
-## LEGO rules
-
-Architecture follows:
-
-```text
-domain truth -> LEGO ownership -> SOLID -> CUPID -> KISS -> evidence
-```
-
-Hard constraints:
-
-- complete module isolation;
-- agnostic interface naming;
-- transient topology;
-- one visible owner for each semantic fact, resource, identity and lifecycle;
-- no sibling-repository internal source imports;
-- no per-node/per-edge/per-evaluator host callbacks after ignition;
-- finite predeclared resources and typed pressure/exhaustion;
-- no hidden CPU search fallback inside a GPU-qualified profile;
-- exact failure, cancellation and cleanup truth;
-- performance/strength/support claims only from exact evidence.
-
-## Suite integration
-
-- Book Forge is an independent producer. Vector consumes immutable published snapshot contracts through its own opening-book adapter.
-- Timing Evidence Service is an independent producer. Vector consumes qualified timing-policy artifacts; timing controls **when to publish**, never GPU search attention/depth/topology/queues/batches.
-- Syzygy/tablebase semantics stay product-owned. The first GPU profile may use exact root resolution or root-safe constraints without inserting CPU tablebase callbacks into active device search.
-- Manager/Installer integrate Vector as a separate component with its own manifest and release identity.
-- Lichess Bot sees Vector only as a conforming UCI executable.
-
-## Current phase
-
-Specification and connector planning only. Production implementation begins only after the owning contracts are accepted and upstream CUDA-MCGS connector/native gates are dependency-ready.
-
-See `AGENTS.md`, `STATUS.md`, `next_step.yaml`, and `docs/architecture/CONNECTOR_MAP.md` before making changes.
-
-## Contributing
-
-Public contributions are welcome. The most useful work today is careful review of Vector-owned contracts, independently reproducible chess fixtures, boundary analysis, documentation, and issue refinement. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and an existing issue; do not begin production search implementation while its dependency gate is closed.
-
-Questions and design discussions belong in [GitHub Discussions](https://github.com/iteathen/UCI-Arena-Vector/discussions). Reproducible defects and scoped proposals belong in [GitHub Issues](https://github.com/iteathen/UCI-Arena-Vector/issues).
-
-## Security
-
-Do not disclose suspected vulnerabilities in a public issue. Follow [SECURITY.md](SECURITY.md) to report them privately.
-
-## License
+Report vulnerabilities privately according to [`SECURITY.md`](SECURITY.md), not through public issues.
 
 UCI Arena Vector is licensed under the [GNU General Public License v3.0](LICENSE).

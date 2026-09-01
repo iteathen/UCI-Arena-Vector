@@ -2,6 +2,12 @@
 
 Thank you for helping build Vector. The project welcomes precise, reviewable contributions that preserve its GPU-resident design and independent LEGO boundary.
 
+## AI-assisted development
+
+Vector may use substantial AI-agent assistance in coding, research, review, and documentation. AI output is working material, not validation evidence. Contributors and maintainers remain responsible for understanding the change and for every correctness, provenance, security, compatibility, and qualification claim attached to it.
+
+AI-assisted contributions are welcome under the same contract, review, and validation bar as any other contribution. Routine AI use does not require a prompt log; disclose material assistance when it affects provenance, licensing, security review, reproducibility, or another repository requirement. Do not cite model agreement or model-to-model review as proof of correctness.
+
 ## Before you start
 
 1. Read [AGENTS.md](AGENTS.md), [STATUS.md](STATUS.md), and [next_step.yaml](next_step.yaml).
