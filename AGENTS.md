@@ -39,6 +39,17 @@ Specifications protect real ownership and product semantics; they are not an end
 
 PR/closure evidence must state which blocker class changed, the exact evidence supporting that transition, what remains unproven, and which downstream composed capability is newly unblocked.
 
+## Public surface gate
+
+Vector's public entry points must make the absence or presence of a runnable engine impossible to misunderstand.
+
+- README order is current executable/validatable state → exact validation commands → unsupported/unqualified product claims → concise ownership boundary → architecture/roadmap links.
+- Until a runnable engine exists, say so on the first screen. Do not let intended GPU-resident architecture read like shipped capability.
+- State current limits directly instead of adding prose defending why they are not permanent architectural ceilings.
+- Performance, latency, strength, platform, and compatibility claims require exact evidence and remain adjacent to their limitations.
+- New compatibility, migration, process, concurrency, optimization, or strength machinery must name a present consumer/deployment dependency, concrete recovery need, next executable product requirement, or measured bottleneck.
+- Before 1.0, compatibility shims without an actual external/deployed/persisted beneficiary are normally removed rather than preserved as ceremonial migration surface.
+
 ## Design hierarchy
 
 ```text
