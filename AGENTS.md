@@ -17,6 +17,28 @@ Vector is not a CUDA runtime, tensor framework, MCGS framework, opening-book pro
 5. Plans/research notes.
 6. Historical or superseded material.
 
+## Portfolio readiness gate
+
+Before selecting, expanding, reviewing, or closing meaningful work, ask: **what is the highest-risk unproven boundary currently preventing the next real composed capability?**
+
+Unless accepted Vector authority or the actual dependency graph requires a different order, prioritize:
+
+1. security/correctness boundary defects;
+2. missing foundational producer capability required by a dependency-ready Vector path;
+3. missing qualification/evidence/infrastructure for an implemented required capability;
+4. missing thin end-to-end Vector composition proof through public CUDA-MCGS, CUDA-JS, CUDA-JS-Tensor, Book Forge, Timing Evidence, tablebase, or UCI contracts as applicable;
+5. measured performance, concurrency, latency, or strength bottlenecks required by the product;
+6. convenience/API expansion;
+7. community/presentation polish.
+
+Keep architectural disposition, implementation status, qualification/support status, and priority separate. Missing GPU/host/CI/service evidence is an evidence or qualification-infrastructure gap unless an implementation is independently falsified; do not manufacture a product or library code fix for absent evidence. Qualification infrastructure is product infrastructure when a release/support claim depends on it.
+
+Cross-repository dependencies are public capability edges. Vector states the required public capability and acceptance criteria; the owning producer implements and qualifies it without importing Vector-specific policy. If a need naturally belongs in CUDA-JS, CUDA-JS-Tensor, CUDA-MCGS, Book Forge, Timing Evidence, or another published owner, stop and classify that dependency rather than deep-importing internals or creating a local escape path.
+
+Specifications protect real ownership and product semantics; they are not an end state. Once the next connector/boundary is sufficiently specified and dependency-ready, prefer the thinnest meaningful executable Vector slice through the same public contracts intended for production over additional speculative layering. Do not prioritize concurrency, optimization, strength machinery, or API breadth merely because a theoretical ceiling exists; require a measured product bottleneck or the next real vertical path.
+
+PR/closure evidence must state which blocker class changed, the exact evidence supporting that transition, what remains unproven, and which downstream composed capability is newly unblocked.
+
 ## Design hierarchy
 
 ```text
