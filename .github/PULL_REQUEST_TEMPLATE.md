@@ -6,6 +6,17 @@ Closes #
 
 Describe the outcome and the authoritative owner of each changed contract, fact, state, or lifecycle.
 
+## Portfolio readiness transition
+
+State the highest-risk unproven boundary addressed, its blocker class before this PR, the exact evidence supporting the transition, remaining unproven boundaries, and the downstream composed capability newly unblocked.
+
+Blocker class: security/correctness defect / missing foundational capability / qualification-evidence-infrastructure gap / missing vertical composition proof / measured performance-concurrency-strength bottleneck / convenience-API expansion / community-presentation polish.
+
+- [ ] Architecture disposition, implementation status, qualification/support status, and priority remain separate.
+- [ ] Evidence/infrastructure gaps are not represented as code defects without independent falsification.
+- [ ] Cross-repository needs use public capability edges with producer ownership and Vector acceptance criteria.
+- [ ] Added specification, concurrency, optimization, strength machinery, or API breadth is justified by the next executable product boundary or measured need.
+
 ## LEGO boundary
 
 - [ ] Internal names and types remain true if the current neighbor is replaced or removed.
