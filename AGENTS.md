@@ -50,6 +50,13 @@ Vector's public entry points must make the absence or presence of a runnable eng
 - New compatibility, migration, process, concurrency, optimization, or strength machinery must name a present consumer/deployment dependency, concrete recovery need, next executable product requirement, or measured bottleneck.
 - Before 1.0, compatibility shims without an actual external/deployed/persisted beneficiary are normally removed rather than preserved as ceremonial migration surface.
 
+## AI-assisted development accountability
+
+- AI-generated code, prose, analysis, and model review are working material, never authority, an independent oracle, or validation evidence.
+- The contributor or maintainer remains accountable for understanding the change and for every domain, correctness, lifecycle, provenance, compatibility, performance, and qualification claim.
+- Apply the same public-contract tests, review, evidence, provenance, and cleanup gates regardless of how much of the change was agent-produced.
+- Keep AI disclosure brief and factual in `CONTRIBUTING.md`; do not generate defensive AI-process documents or treat model agreement as proof.
+
 ## Design hierarchy
 
 ```text
