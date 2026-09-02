@@ -9,7 +9,7 @@
   "tensor_contract": {
     "provider_package": "cuda-js-tensor",
     "provider_version": "0.1.0-alpha.6",
-    "provider_revision": "9ecc1d78bca989ec456c897dec215e82ce4cd311",
+    "provider_revision": "44376e151ab854c81d65df79db1717478ae8ce5b",
     "tensor_program_contract": "SPEC-0004-tensor-program-v1"
   },
   "inputs": [
