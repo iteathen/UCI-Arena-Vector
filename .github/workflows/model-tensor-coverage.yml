@@ -3,6 +3,8 @@ name: Model Tensor Coverage
 on:
   pull_request:
     paths:
+      - "STATUS.md"
+      - "next_step.yaml"
       - "contracts/cuda-js-tensor-program-capabilities-v1.json"
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"
@@ -12,6 +14,8 @@ on:
     branches:
       - main
     paths:
+      - "STATUS.md"
+      - "next_step.yaml"
       - "contracts/cuda-js-tensor-program-capabilities-v1.json"
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"

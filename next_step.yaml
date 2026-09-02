@@ -1,6 +1,6 @@
 schema_version: 2
-updated: 2026-08-26
-status: chess_domain_policy_contract_ready
+updated: 2026-09-01
+status: chess_domain_policy_contract_ready_model_tensor_real_freeze_author_qualified_with_public_tensor_gaps
 objective: >
   Build UCI Arena Vector as an independent Node-hosted GPU-resident UCI engine
   that consumes cuda-mcgs, cuda-js, cuda-js-tensor, Book Forge, Timing Evidence,
@@ -33,7 +33,11 @@ current_focus:
 parallel_dependency_safe_work:
   - issue: 3
     id: VECTOR-MODEL-TENSOR-002
-    scope: model package, feature/head semantics and TensorProgram mapping design only
+    scope: >
+      Preserve the frozen LatticeKnight real-model evidence, coordinate generic
+      Tensor owner issue #32, and prepare exact TensorProgram mapping only after
+      the missing public semantics are accepted. No local math workaround and no
+      production adapter before CUDA-MCGS #122/#124.
   - issue: 4
     id: VECTOR-UCI-SESSION-003
     scope: bounded UCI grammar and accepted-Search-Session mapping design only
@@ -49,9 +53,6 @@ parallel_dependency_safe_work:
 
 upstream_gates:
   cuda_mcgs:
-    - issue: 113
-      role: root_control_reconciliation
-      priority: P0
     - issue: 36
       role: universal_reference
       priority: P0
@@ -74,14 +75,60 @@ upstream_gates:
     - issue: 32
       role: exact_cuda_mcgs_compatible_pair
       priority: P0
-    - pull_request: 151
-      role: current alpha16 compatible_pair_handoff_state
   cuda_js_tensor:
     - issue: 22
       role: cuda_mcgs_consumer_qualification
       priority: P0
-    - pull_request: 26
-      role: consumer_qualification_priority_state
+    - issue: 32
+      role: first_real_model_erf_gather_concat_capability_gap
+      priority: P0
+      blocks_vector_issue: 3
+
+first_real_model_gate:
+  vector_issue: 3
+  pull_request: 16
+  branch: model/3-latticeknight-real-coverage
+  evidence_commit: f39cc8575da509f7365b70d74f67c11f24d502bb
+  model:
+    id: compact_chessformer_gab_v1
+    display_name: LatticeKnight-4M
+    source_repository: iteathen/the_restaurant
+    source_revision: 8c7d75672cee36aa2a39fbddf713041552770b22
+    package_path: model_packages/compact_chessformer_gab_v1.json
+    package_blob: 326ba7dd0584438a911baf5051e5f1bedd831274
+    spec_path: specs/compact_chessformer_gab_v1.yaml
+    run_id: run_1784364601_12348
+    checkpoint_batch: 54499
+    checkpoint_sha256: 62dec13c22a4414db6b78ea9b6ca76bcf6f29a16a963c01d13d947d158b09c7e
+    tensor_count: 227
+    parameter_count: 3637988
+    parameter_dtype: f32
+    parameter_bytes: 14551952
+  tensor_provider:
+    package: cuda-js-tensor
+    version: 0.1.0-alpha.6
+    revision: 44376e151ab854c81d65df79db1717478ae8ce5b
+    tensor_program_contract: SPEC-0004-tensor-program-v1
+  coverage:
+    status: frozen_real_model_capability_gap
+    real_model_ready: false
+    minimum_input_bytes_per_item: 4352
+    minimum_output_bytes_per_item: 16652
+    workspace_bytes_per_item: unresolved
+    missing_public_capabilities:
+      - concat
+      - gather
+      - unary:erf
+    next_gate_after_capabilities: exact TensorProgram/TensorPlan workspace bound
+  evidence:
+    model_tensor_coverage_run: 33575101719
+    repository_quality_run: 33575101751
+    permanent_tests: 13/13
+  rule: >
+    Restaurant is model provenance only. Vector must not import Restaurant
+    runtime/native source. Missing generic tensor semantics belong to
+    cuda-js-tensor #32; exact model math must not be approximated merely to fit
+    the current public API.
 
 external_contract_gates:
   book_forge:
@@ -106,7 +153,7 @@ vector_connectors:
   - issue: 3
     id: VECTOR-MODEL-TENSOR-002
     priority: P0
-    readiness: specification_ready_production_blocked_by_cuda_mcgs_122_124
+    readiness: real_model_frozen_public_tensor_capability_gap_blocked_by_tensor_32_and_production_by_cuda_mcgs_122_124
   - issue: 4
     id: VECTOR-UCI-SESSION-003
     priority: P0
@@ -146,7 +193,8 @@ allowed_before_cuda_mcgs_semantic_acceptance:
   - product contracts and schemas
   - chess reference/differential fixture design
   - restricted Device-JS feasibility for product modules
-  - model semantic/TensorProgram mapping design
+  - frozen real-model provenance and public Tensor capability coverage
+  - exact model semantic/TensorProgram mapping design after owner capabilities exist
   - Book Forge consumer contract coordination
   - Timing Evidence consumer contract design
   - tablebase reusable-library coverage assessment and root-authority contract
@@ -176,3 +224,4 @@ validation:
   - finite resources and bounded diagnostics
   - exact failure cancellation and cleanup semantics
   - differential chess/model/tablebase oracles before promotion
+  - real model readiness fails closed on typed public-library capability gaps
