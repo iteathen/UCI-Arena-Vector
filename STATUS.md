@@ -1,6 +1,6 @@
 # UCI Arena Vector Status
 
-**Updated:** 2026-09-01  
+**Updated:** 2026-09-01
 **Phase:** specification/reference and connector planning  
 **Current focus:** issue #2 — chess Domain/Policy contract + independent oracle  
 **Production CUDA-MCGS lowering:** blocked on CUDA-MCGS #122
