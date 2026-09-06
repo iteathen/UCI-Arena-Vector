@@ -34,6 +34,14 @@ function preTanhCapabilitiesWithTanh() {
   extended.operations.unary = [...extended.operations.unary, 'tanh'];
   return extended;
 }
+function currentManifestFor(extensionIds, tensorProgramContract) {
+  const manifest = realCopy();
+  const retained = new Set(extensionIds);
+  const extensionOperations = new Set(['gelu-erf', 'value-tanh', 'underpromotion-gather', 'policy-concat']);
+  manifest.operations = manifest.operations.filter((operation) => !extensionOperations.has(operation.id) || retained.has(operation.id));
+  manifest.tensor_contract.tensor_program_contract = tensorProgramContract;
+  return manifest;
+}
 
 test('legacy synthetic fixture preserves its pinned v1 capability snapshot behavior', () => {
   const result = verifyModelTensorCoverage(syntheticCopy(), legacyCapabilities);
@@ -107,6 +115,33 @@ test('exact protected tanh pair selects canonical SPEC-0010 then SPEC-0011 mixed
   assert.equal(result.status, 'frozen_real_model_workspace_unresolved');
   assert.equal(result.real_model_ready, false);
   rejectsCode(() => verifyModelTensorCoverage(realCopy(), currentCapabilities, { requireReal: true }), 'VECTOR_MODEL_WORKSPACE_UNRESOLVED');
+});
+
+test('current v3 snapshot selects all four exact TensorProgram contract states', () => {
+  const cases = [
+    {
+      extensions: [],
+      contract: 'SPEC-0004-tensor-program-v1',
+    },
+    {
+      extensions: ['gelu-erf', 'underpromotion-gather', 'policy-concat'],
+      contract: 'SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1',
+    },
+    {
+      extensions: ['value-tanh'],
+      contract: 'SPEC-0004-tensor-program-v1+SPEC-0011-tanh-v1',
+    },
+    {
+      extensions: ['gelu-erf', 'value-tanh', 'underpromotion-gather', 'policy-concat'],
+      contract: 'SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1',
+    },
+  ];
+  for (const { extensions, contract } of cases) {
+    const result = verifyModelTensorCoverage(currentManifestFor(extensions, contract), currentCapabilities);
+    assert.equal(result.tensor_program_contract, contract);
+    assert.equal(result.required_tensor_program_contract, contract);
+    assert.deepEqual(result.missing_capabilities, []);
+  }
 });
 
 test('current extension operations require the exact mixed TensorProgram contract', () => {
