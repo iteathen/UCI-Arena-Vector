@@ -61,12 +61,18 @@ Vector's public entry points must make the absence or presence of a runnable eng
 
 ```text
 domain truth
-  -> LEGO ownership
+  -> LEGO ownership, studs/surfaces, and attention-bounded containment
   -> SOLID responsibility
   -> CUPID composability
   -> KISS among complete designs
   -> exact evidence
 ```
+
+LEGO is the outer architecture rule. **Vector itself is the outermost LEGO.** Its supported product inputs, outputs, protocol/control surfaces, library contracts, events/results, and lifecycle entry/exit points are its public **studs/surfaces**. Large product sections, subsystems, components, and large objects should preferentially be compositions of smaller child LEGOs when that preserves cohesion and keeps each reasoning unit inside one agent's full attention. A parent owns its externally visible responsibility and hides child topology; callers connect through deliberate studs/surfaces rather than drilling into private children.
+
+A LEGO is too large when one agent cannot load and actively reason about its complete authoritative working set—contract/studs/surfaces, implementation, invariants, lifecycle/resource/failure rules, tests/conformance, and immediate dependency/consumer interfaces—with substantial headroom for reasoning, evidence, and review. Context fit is a first-class boundary criterion alongside semantic ownership, lifecycle cohesion, failure/resource containment, substitution/change boundaries, volatility, and execution locality. When the full-attention envelope is exceeded, recursively split at the strongest real seam or narrow scope. Do not create arbitrary modules that duplicate truth, share mutable ownership, chatter constantly across boundaries, or require neighbors to know private internals.
+
+Inside a valid LEGO, SOLID structures responsibilities and dependency direction, CUPID shapes that implementation, and KISS removes only remaining unjustified complexity. A lower-level principle may not defeat a higher-level one.
 
 ## Mandatory LEGO rules
 
@@ -81,6 +87,14 @@ Ports, events, properties and internal interfaces describe local facts/actions r
 ### Transient topology
 
 External connections are replaceable. Vector modules operate against public contracts so libraries/services can be swapped without rewriting unrelated internals.
+
+### Stud/surface integrity
+
+Public connection surfaces expose owned contracts, never mutable internals or private child topology. A consumer must not reach through one Vector LEGO to couple directly to an encapsulated child.
+
+### Full-attention sizing
+
+A very large section or object should be a parent LEGO composed from smaller private child LEGOs when that preserves one external responsibility while restoring full attention to each internal unit. File count and line count do not define the split; real semantic, lifecycle, resource/failure, substitution/change, execution, and context seams do.
 
 ## Native-code diagnostic — hard rule
 
