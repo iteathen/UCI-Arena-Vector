@@ -27,6 +27,7 @@ function preTanhRealCopy() {
   const manifest = realCopy();
   manifest.tensor_contract.provider_revision = '62cc5f1076766219fc6e3561eee86cdd66803813';
   manifest.tensor_contract.tensor_program_contract = 'SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1';
+  manifest.resources.workspace_bytes_per_item = null;
   return manifest;
 }
 function preTanhCapabilitiesWithTanh() {
@@ -59,8 +60,9 @@ test('synthetic evidence cannot satisfy the first-real-model gate', () => {
 
 test('frozen LatticeKnight model retains exact immutable source checkpoint and parameter provenance on the current pair', () => {
   const result = verifyModelTensorCoverage(realCopy(), currentCapabilities);
-  assert.equal(result.status, 'frozen_real_model_workspace_unresolved');
-  assert.equal(result.real_model_ready, false);
+  assert.equal(result.status, 'covered_real_model');
+  assert.equal(result.real_model_ready, true);
+  assert.equal(result.tensor_provider_revision, '0da2c70a0a10df908a33e842aa4ba3dbd7605c48');
   assert.deepEqual(result.model_provenance, {
     repository: 'iteathen/the_restaurant',
     revision: '8c7d75672cee36aa2a39fbddf713041552770b22',
@@ -77,7 +79,7 @@ test('frozen LatticeKnight model retains exact immutable source checkpoint and p
   assert.equal(result.checkpoint.parameterBytes, 14551952);
   assert.equal(result.minimum_input_bytes_per_item, 4352);
   assert.equal(result.minimum_output_bytes_per_item, 16652);
-  assert.equal(result.declared_resources.workspaceBytesPerItem, null);
+  assert.equal(result.declared_resources.workspaceBytesPerItem, 33_194_524);
 });
 
 test('historical pre-tanh Tensor closes erf/gather/concat and exposes only value tanh as the semantic gap', () => {
@@ -95,7 +97,7 @@ test('historical pre-tanh real-model readiness fails closed on value tanh', () =
   assert.deepEqual(error.detail.missing_capabilities.map(({ kind, operator }) => [kind, operator]), [['unary', 'tanh']]);
 });
 
-test('historical v2 test-only tanh injection reaches workspace without modeling SPEC-0011 composition', () => {
+test('historical v2 test-only tanh injection reaches unresolved workspace without modeling SPEC-0011 composition', () => {
   const capabilities = preTanhCapabilitiesWithTanh();
   const manifest = preTanhRealCopy();
   const result = verifyModelTensorCoverage(manifest, capabilities);
@@ -106,15 +108,17 @@ test('historical v2 test-only tanh injection reaches workspace without modeling 
   rejectsCode(() => verifyModelTensorCoverage(manifest, capabilities, { requireReal: true }), 'VECTOR_MODEL_WORKSPACE_UNRESOLVED');
 });
 
-test('exact protected tanh pair selects canonical SPEC-0010 then SPEC-0011 mixed TensorProgram contract before workspace', () => {
+test('current exact Tensor pair selects canonical SPEC-0010 then SPEC-0011 mixed contract with frozen workspace', () => {
   const result = verifyModelTensorCoverage(realCopy(), currentCapabilities);
-  assert.equal(result.tensor_provider_revision, '3a62bc47017aa10198eb1640b66f6b71a608b562');
+  assert.equal(result.tensor_provider_revision, '0da2c70a0a10df908a33e842aa4ba3dbd7605c48');
   assert.equal(result.tensor_program_contract, 'SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1');
   assert.equal(result.required_tensor_program_contract, result.tensor_program_contract);
   assert.deepEqual(result.missing_capabilities, []);
-  assert.equal(result.status, 'frozen_real_model_workspace_unresolved');
-  assert.equal(result.real_model_ready, false);
-  rejectsCode(() => verifyModelTensorCoverage(realCopy(), currentCapabilities, { requireReal: true }), 'VECTOR_MODEL_WORKSPACE_UNRESOLVED');
+  assert.equal(result.status, 'covered_real_model');
+  assert.equal(result.real_model_ready, true);
+  assert.equal(result.declared_resources.workspaceBytesPerItem, 33_194_524);
+  const required = verifyModelTensorCoverage(realCopy(), currentCapabilities, { requireReal: true });
+  assert.equal(required.status, 'covered_real_model');
 });
 
 test('current v3 snapshot selects all four exact TensorProgram contract states', () => {
