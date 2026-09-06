@@ -1,12 +1,12 @@
-schema_version: 6
-updated: 2026-09-05
-status: first_real_model_fp32_candidate_workspace_unresolved
+schema_version: 7
+updated: 2026-09-06
+status: first_real_model_fp32_resource_gate_protected_oracle_next
 objective: >
   Build UCI Arena Vector as an independent Node-hosted GPU-resident UCI engine
-  through public cuda-mcgs, cuda-js-tensor and cuda-js contracts only. Resolve
-  exact model correctness, TensorProgram/TensorPlan/resource coverage and the
-  independent oracle before product integration, native qualification,
-  performance or strength work.
+  through public cuda-mcgs, cuda-js-tensor and cuda-js contracts only. The first
+  real FP32 TensorProgram/TensorPlan/callable/resource gate is protected; resolve
+  the independent checkpoint-bound numerical oracle before evaluator integration,
+  native qualification, performance or strength work.
 
 product:
   name: UCI Arena Vector
@@ -16,46 +16,44 @@ product:
   boundary_proposal: docs/specs/VECTOR-0001-chess-search-product.md
 
 current_focus:
-  id: VECTOR-MODEL-TENSOR-003
+  id: VECTOR-MODEL-ORACLE-003
   issue: 3
-  name: frozen LatticeKnight FP32 qualification-candidate TensorProgram/TensorPlan workspace and oracle
+  name: frozen LatticeKnight FP32 independent checkpoint-bound policy/value oracle
   state: >
-    Protected Vector PR #22 freezes FP32 only as the explicit LatticeKnight
-    correctness qualification candidate. Merge
-    118feaee28c7497e0ed4c027687793e840c95bc1 has protected tree
-    e877751ff809fafbedd7071d05c5fc7c53f719fc, with protected Model Tensor
-    Coverage 34015432262 and Repository quality 34015432259 both successful.
-    Precision profile latticeknight-4m-inference-precision-v1 binds
-    selectionRole=qualification_candidate, candidate=fp32, computeDtype=f32 and
-    public I/O f32. Frozen producer promotion/default activation remain pending
-    and false; training FP16 autocast is not inference-selection authority. On
-    this FP32 candidate the exact protected Tensor pair selects the canonical
-    SPEC-0010+SPEC-0011 mixed TensorProgram contract with zero coarse operation
-    gaps, but workspace remains null and no complete concrete TensorProgram or
-    TensorPlan resource result has yet been frozen.
+    Vector PR #24 is protected-complete at merge
+    ca3cce162a73a664a789f6a27a819097ec994bd6 / tree
+    2182527aa9cd058824d3658a549a2f8224d18db5 with protected Repository quality
+    34023725885 and Model Tensor Coverage 34023725845 both successful. The current
+    exact public pair is cuda-js-tensor@0.1.0-alpha.6 at
+    0da2c70a0a10df908a33e842aa4ba3dbd7605c48 over cuda-js@0.1.0-alpha.18 at
+    45a9ef15537b52d6fd7c615b7e596676dfd00587. The frozen FP32 mapping now has one
+    exact normalized TensorProgram/TensorPlan, typed callable ABI and exact
+    workspace/resource facts. Per-item workspace is 33194524 bytes; capacity 2
+    requires 66389048 bytes and remains under the public 67108864-byte default;
+    capacity 3 requires 99583572 bytes and fails closed with
+    TENSOR_DEVICE_WORKSPACE_LIMIT before compiler work. No new generic Tensor or
+    CUDA capability gap remains. Producer precision promotion/default activation
+    remain pending/false and are separate from this correctness candidate.
   action: >
-    Construct one exact normalized FP32 LatticeKnight TensorProgram from the
-    frozen product-owned graph and checkpoint layout using only public
-    cuda-js-tensor. Create the corresponding TensorPlan and existing public
-    item-device callable profile where applicable, and derive exact material,
-    per-item workspace, parameter/input/output and callable resource facts from
-    the actual normalized program rather than the coarse operation inventory.
-    Then compare full and partial item batches against an independent frozen-model
-    oracle and prove exact package/target identity and terminal cleanup. If the
-    concrete model demonstrates a missing generic Tensor math/dtype/item/ABI/
-    workspace capability, route it to CUDA-JS-Tensor #22; if it demonstrates a
-    missing consumer-neutral CUDA mechanism, route it to CUDA-JS. Do not change
-    model math/precision, insert compensating casts, widen f16/bf16 erf/tanh, or
-    create a Vector-private/native path.
+    Obtain or independently produce checkpoint-bound policy/value oracle vectors
+    for the exact frozen checkpoint SHA-256
+    62dec13c22a4414db6b78ea9b6ca76bcf6f29a16a963c01d13d947d158b09c7e.
+    Bind each oracle case to exact input bytes/features and checkpoint identity,
+    then compare the protected public Tensor mapping for full capacity-2 occupancy
+    and partial admitted occupancy without deriving expected outputs from the
+    Vector mapper under test. Prove tolerance policy, mismatch failure behavior
+    and terminal cleanup. If independent evidence demonstrates a generic Tensor
+    or CUDA defect, route it to its natural owner; do not add a Vector-private or
+    native workaround.
   exit: >
-    The frozen FP32 qualification candidate has complete implemented public
-    operation/spec/resource coverage, one exact normalized TensorProgram/
-    TensorPlan and workspace bound, a typed policy/value output ABI, full and
-    partial item-batch oracle results, exact package/target identity and terminal
-    cleanup; every uncovered generic requirement is routed to exactly one natural
-    owner. Producer FP32/fp16 promotion/default selection remains a separate
-    producer qualification fact and is not required to call this correctness
-    candidate complete.
+    The frozen FP32 qualification candidate has independent checkpoint-bound
+    policy/value reference outputs, full and partial admitted-item comparisons
+    through the protected public Tensor path, explicit numerical tolerances,
+    exact package/checkpoint/input identity, mismatch falsifiers and terminal
+    cleanup. Only then may the first-real-model correctness gate be called
+    complete and CUDA-MCGS #124 consume the public generic callable/resource
+    facts for evaluator integration. Producer FP32/fp16 promotion/default
+    selection remains a separate producer qualification fact.
 
 parallel_dependency_ready_work:
   - repository: iteathen/CUDA-MCGS
@@ -64,8 +62,8 @@ parallel_dependency_ready_work:
     scope: >
       evaluator-free CUDA-free external Vector consumer of exact packed protected
       cuda-mcgs public exports for pre-ignition resolve/compose/provenance/error/retryability.
-      This lane is independent of the real-model workspace/oracle gate and does
-      not close physical/native support gates.
+      This lane is independent of the model oracle gate and does not close
+      physical/native support gates.
 
 completed_upstream:
   cuda_mcgs:
@@ -74,31 +72,45 @@ completed_upstream:
     - "#125 public CUDA-JS runtime adapter"
     - "#228 public CUDA-JS adapter/profile correction at 5b7b4c7e918ca3e8e812c6e22e58bf1621061bc6"
   cuda_js:
-    - "protected SPEC-0030-tanh-v1 public f32/f64 gpu.math.tanh at d1a8edef5bd06c402a5c14c8945269f206520174 / tree 4e71779e19132fedbaa60bacee7db84b0692e1ae"
+    - "public f32/f64 SPEC-0030-tanh-v1 implementation provenance at d1a8edef5bd06c402a5c14c8945269f206520174"
+    - "#213/#216 bounded Device-JS/compiler admission correction protected at 45a9ef15537b52d6fd7c615b7e596676dfd00587; post-merge verify 34020219808 and node-compatibility 34020219809 succeeded"
   cuda_js_tensor:
     - "#32 ordinary SPEC-0010 erf/static-gather/ordered-concat at 02ae07777632cfa8b527bd5482a59dbff472e4d5"
     - "#52 device-callable unary:erf at 23e3795b3f22162e3705f0f2c659400f69f86ed7"
     - "#37 device-callable gather/concat child at 999f8b56077f051b2e90a64eebc0a0cf59a659bc"
-    - "#61 accepted/implemented SPEC-0011 f32/f64 unary:tanh at 3a62bc47017aa10198eb1640b66f6b71a608b562 / tree 6b8ca9dd802c0f24f93b8cf612d8ba576e932857; protected verify 34012270778"
+    - "#61 unary:tanh implementation provenance at 3a62bc47017aa10198eb1640b66f6b71a608b562"
+    - "#68 exact lower-pair refresh protected at 0da2c70a0a10df908a33e842aa4ba3dbd7605c48 / tree 1330080e112870b696c05dcd2b6d48aece91b1dc; post-merge verify 34020688142"
+    - "#22 records the generic real-model callable/workspace result from protected Vector #24"
   vector:
     - "#3 / PR #19 exact Tensor capability refresh at 3d1ae4a00a601259a7ea0a1cd6b8a485132ca459 / tree 8014741e58a643010e008faca81a9d59aeac5b51"
     - "#3 / PR #22 FP32 qualification-candidate precision evidence at 118feaee28c7497e0ed4c027687793e840c95bc1 / tree e877751ff809fafbedd7071d05c5fc7c53f719fc"
-    - "protected Model Tensor Coverage 34015432262 and Repository quality 34015432259 succeeded; exact FP32 candidate has zero coarse operation gaps and stops at VECTOR_MODEL_WORKSPACE_UNRESOLVED"
+    - "#3 / PR #24 exact TensorProgram/TensorPlan/callable/resource gate protected at ca3cce162a73a664a789f6a27a819097ec994bd6 / tree 2182527aa9cd058824d3658a549a2f8224d18db5; protected Repository quality 34023725885 and Model Tensor Coverage 34023725845 succeeded"
 
 exact_tensor_pair:
   tensor_package: cuda-js-tensor@0.1.0-alpha.6
-  tensor_revision: 3a62bc47017aa10198eb1640b66f6b71a608b562
-  tensor_tree: 6b8ca9dd802c0f24f93b8cf612d8ba576e932857
+  tensor_revision: 0da2c70a0a10df908a33e842aa4ba3dbd7605c48
+  tensor_tree: 1330080e112870b696c05dcd2b6d48aece91b1dc
+  tensor_tanh_implementation_revision: 3a62bc47017aa10198eb1640b66f6b71a608b562
   cuda_js_package: cuda-js@0.1.0-alpha.18
-  cuda_js_revision: d1a8edef5bd06c402a5c14c8945269f206520174
+  cuda_js_revision: 45a9ef15537b52d6fd7c615b7e596676dfd00587
+  cuda_js_tanh_implementation_revision: d1a8edef5bd06c402a5c14c8945269f206520174
   tensor_program_contract: SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1
+  tensor_device_contract: SPEC-0009-item-parallel-device-tensor-program-v1+SPEC-0009-gather-concat-v1
   fp32_candidate_missing_capabilities: []
-  workspace_bytes_per_item: null
-  current_gate: VECTOR_MODEL_WORKSPACE_UNRESOLVED
+  plan_distinct_bytes_item_capacity_1: 24457004
+  workspace_elements_per_item: 8298631
+  workspace_bytes_per_item: 33194524
+  workspace_bytes_capacity_2: 66389048
+  default_workspace_limit_bytes: 67108864
+  capacity_3_required_workspace_bytes: 99583572
+  capacity_3_failure: TENSOR_DEVICE_WORKSPACE_LIMIT
+  current_gate: VECTOR_MODEL_INDEPENDENT_ORACLE_REQUIRED
   claim_limit: >
-    This exact pair is qualified here only for the frozen FP32 correctness
-    candidate and portable/software/package evidence. SPEC-0010 erf and
-    SPEC-0011 tanh remain f32/f64 only; no native/provider/hardware claim follows.
+    The exact pair is qualified here for frozen FP32 portable/software/package
+    TensorProgram/callable/resource evidence only. The coverage verifier's
+    covered_real_model status is not numerical-parity, evaluator-readiness,
+    native/provider or hardware evidence. SPEC-0010 erf and SPEC-0011 tanh remain
+    f32/f64 only.
 
 frozen_model:
   id: compact_chessformer_gab_v1
@@ -132,23 +144,32 @@ frozen_model:
   producer_promotion_ready: false
   producer_default_activation_ready: false
 
+oracle_evidence_state:
+  checkpoint_bound_reference_outputs_present_in_repository: false
+  feature_golden_vectors_are_numerical_model_oracle: false
+  producer_parity_report_status: pending_native_onnx_runtime_measurement
+  rule: >
+    Expected policy/value outputs must come from an execution path independent of
+    the Vector Tensor mapper and must be bound to the exact checkpoint and input
+    case. Do not use mapper-derived outputs as the reference oracle.
+
 next_cross_repo:
   - issue: 3
     owner: UCI-Arena-Vector
-    role: own concrete frozen model/package/checkpoint/head/precision semantics, construct the exact product TensorProgram through public Tensor contracts, and own independent product numerical-oracle meaning
+    role: own the independent checkpoint-bound policy/value numerical oracle and the remaining first-real-model correctness decision
   - issue: 22
     owner: CUDA-JS-Tensor
-    role: own any resulting consumer-neutral complete TensorProgram/TensorPlan coverage, item ABI, workspace/resource and callable facts demonstrated by the frozen real model
+    role: retain the protected consumer-neutral TensorProgram/TensorPlan item-ABI workspace/resource and callable facts; receive only a generic defect if the independent oracle demonstrates one
   - issue: 124
     owner: CUDA-MCGS
-    role: consume only the resulting public generic callable/resource facts while retaining evaluator request identity/batch/scatter/publication/search lifecycle
+    role: after the model correctness/oracle gate completes, consume only public generic callable/resource facts while retaining evaluator request identity/batch/scatter/publication/search lifecycle
   - issue: 2
     owner: cuda-nn
     role: compare direct Tensor composition with reusable NN semantics after concrete model mapping exists; no automatic adoption
 
 hardware_gates:
-  - "CUDA-JS #32 / CUDA-MCGS physical compatible-pair qualification requires real NVIDIA evidence and a fresh live pair freeze"
-  - "CUDA-JS #4 Ubuntu native support remains separate and directly exposed physical-NVIDIA gated"
+  - "CUDA-JS / CUDA-MCGS physical compatible-pair qualification requires real NVIDIA evidence and a fresh live pair freeze"
+  - "CUDA-JS Ubuntu native support remains separate and directly exposed physical-NVIDIA gated"
   - "portable/model coverage cannot promote native or physical support"
 
 hard_rules:
@@ -156,6 +177,7 @@ hard_rules:
   - no Python in this portfolio
   - no private sibling-repository imports
   - no host-produced active-search intermediate after ignition
+  - no self-derived expected outputs presented as an independent numerical oracle
   - exact model math or precision is not changed merely to fit an existing library surface
   - accepted-but-unimplemented Tensor authority is not reported as implemented capability
   - generic CUDA gaps route to cuda-js
