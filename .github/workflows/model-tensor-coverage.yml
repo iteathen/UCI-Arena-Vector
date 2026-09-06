@@ -1,0 +1,118 @@
+name: Model Tensor Coverage
+
+on:
+  pull_request:
+    paths:
+      - "STATUS.md"
+      - "next_step.yaml"
+      - "contracts/cuda-js-tensor-program-capabilities-v1.json"
+      - "contracts/cuda-js-tensor-program-capabilities-v2.json"
+      - "contracts/cuda-js-tensor-program-capabilities-v3.json"
+      - "test/fixtures/model-tensor-coverage/**"
+      - "tools/verify-model-tensor-coverage.mjs"
+      - "tools/verify-model-tensor-coverage.test.mjs"
+      - "tools/verify-model-inference-precision.mjs"
+      - "tools/verify-model-inference-precision.test.mjs"
+      - ".github/workflows/model-tensor-coverage.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "STATUS.md"
+      - "next_step.yaml"
+      - "contracts/cuda-js-tensor-program-capabilities-v1.json"
+      - "contracts/cuda-js-tensor-program-capabilities-v2.json"
+      - "contracts/cuda-js-tensor-program-capabilities-v3.json"
+      - "test/fixtures/model-tensor-coverage/**"
+      - "tools/verify-model-tensor-coverage.mjs"
+      - "tools/verify-model-tensor-coverage.test.mjs"
+      - "tools/verify-model-inference-precision.mjs"
+      - "tools/verify-model-inference-precision.test.mjs"
+      - ".github/workflows/model-tensor-coverage.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-tensor-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Report runtime
+        run: node --version
+      - name: Check verifier syntax
+        run: |
+          node --check tools/verify-model-tensor-coverage.mjs
+          node --check tools/verify-model-inference-precision.mjs
+      - name: Run coverage verifier tests
+        run: node --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs
+      - name: Prove legacy supported synthetic coverage
+        run: >-
+          node tools/verify-model-tensor-coverage.mjs
+          --manifest test/fixtures/model-tensor-coverage/supported-synthetic-v1.json
+          --capabilities contracts/cuda-js-tensor-program-capabilities-v1.json
+      - name: Prove synthetic fixture cannot satisfy real-model readiness
+        shell: bash
+        run: |
+          if node tools/verify-model-tensor-coverage.mjs \
+            --manifest test/fixtures/model-tensor-coverage/supported-synthetic-v1.json \
+            --capabilities contracts/cuda-js-tensor-program-capabilities-v1.json \
+            --require-real; then
+            echo "synthetic fixture incorrectly satisfied the real-model gate" >&2
+            exit 1
+          fi
+      - name: Prove exact FP32 qualification candidate covers model math on the protected Tensor pair
+        shell: bash
+        run: |
+          output=$(node tools/verify-model-inference-precision.mjs \
+            --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v3.json \
+            --capabilities contracts/cuda-js-tensor-program-capabilities-v3.json)
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(0, "utf8"));
+            const mixed = "SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1";
+            if (body.status !== "frozen_real_model_workspace_unresolved") process.exit(1);
+            if (body.real_model_ready !== false) process.exit(1);
+            if (body.tensor_provider_revision !== "3a62bc47017aa10198eb1640b66f6b71a608b562") process.exit(1);
+            if (body.tensor_program_contract !== mixed) process.exit(1);
+            if (body.required_tensor_program_contract !== mixed) process.exit(1);
+            if (!Array.isArray(body.missing_capabilities) || body.missing_capabilities.length !== 0) process.exit(1);
+            if (body.declared_resources?.workspaceBytesPerItem !== null) process.exit(1);
+            if (body.inference_precision?.selectionRole !== "qualification_candidate") process.exit(1);
+            if (body.inference_precision?.candidate !== "fp32") process.exit(1);
+            if (body.inference_precision?.computeDtype !== "f32") process.exit(1);
+            if (body.inference_precision?.publicIoDtype !== "f32") process.exit(1);
+            if (body.inference_precision?.producerPromotionReady !== false) process.exit(1);
+            if (body.inference_precision?.producerDefaultActivationReady !== false) process.exit(1);
+            if (body.inference_precision?.trainingPrecisionAuthority !== "not_inference_selection") process.exit(1);
+          '
+      - name: Prove current FP32 candidate readiness stops only at unresolved TensorPlan workspace
+        shell: bash
+        run: |
+          set +e
+          output=$(node tools/verify-model-inference-precision.mjs \
+            --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v3.json \
+            --capabilities contracts/cuda-js-tensor-program-capabilities-v3.json \
+            --require-real 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "real model incorrectly satisfied readiness with unresolved TensorPlan workspace" >&2
+            exit 1
+          fi
+          printf '%s\n' "$output" | node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(0, "utf8"));
+            if (body.code !== "VECTOR_MODEL_WORKSPACE_UNRESOLVED") process.exit(1);
+          '

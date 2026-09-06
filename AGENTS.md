@@ -17,6 +17,46 @@ Vector is not a CUDA runtime, tensor framework, MCGS framework, opening-book pro
 5. Plans/research notes.
 6. Historical or superseded material.
 
+## Portfolio readiness gate
+
+Before selecting, expanding, reviewing, or closing meaningful work, ask: **what is the highest-risk unproven boundary currently preventing the next real composed capability?**
+
+Unless accepted Vector authority or the actual dependency graph requires a different order, prioritize:
+
+1. security/correctness boundary defects;
+2. missing foundational producer capability required by a dependency-ready Vector path;
+3. missing qualification/evidence/infrastructure for an implemented required capability;
+4. missing thin end-to-end Vector composition proof through public CUDA-MCGS, CUDA-JS, CUDA-JS-Tensor, Book Forge, Timing Evidence, tablebase, or UCI contracts as applicable;
+5. measured performance, concurrency, latency, or strength bottlenecks required by the product;
+6. convenience/API expansion;
+7. community/presentation polish.
+
+Keep architectural disposition, implementation status, qualification/support status, and priority separate. Missing GPU/host/CI/service evidence is an evidence or qualification-infrastructure gap unless an implementation is independently falsified; do not manufacture a product or library code fix for absent evidence. Qualification infrastructure is product infrastructure when a release/support claim depends on it.
+
+Cross-repository dependencies are public capability edges. Vector states the required public capability and acceptance criteria; the owning producer implements and qualifies it without importing Vector-specific policy. If a need naturally belongs in CUDA-JS, CUDA-JS-Tensor, CUDA-MCGS, Book Forge, Timing Evidence, or another published owner, stop and classify that dependency rather than deep-importing internals or creating a local escape path.
+
+Specifications protect real ownership and product semantics; they are not an end state. Once the next connector/boundary is sufficiently specified and dependency-ready, prefer the thinnest meaningful executable Vector slice through the same public contracts intended for production over additional speculative layering. Do not prioritize concurrency, optimization, strength machinery, or API breadth merely because a theoretical ceiling exists; require a measured product bottleneck or the next real vertical path.
+
+PR/closure evidence must state which blocker class changed, the exact evidence supporting that transition, what remains unproven, and which downstream composed capability is newly unblocked.
+
+## Public surface gate
+
+Vector's public entry points must make the absence or presence of a runnable engine impossible to misunderstand.
+
+- README order is current executable/validatable state → exact validation commands → unsupported/unqualified product claims → concise ownership boundary → architecture/roadmap links.
+- Until a runnable engine exists, say so on the first screen. Do not let intended GPU-resident architecture read like shipped capability.
+- State current limits directly instead of adding prose defending why they are not permanent architectural ceilings.
+- Performance, latency, strength, platform, and compatibility claims require exact evidence and remain adjacent to their limitations.
+- New compatibility, migration, process, concurrency, optimization, or strength machinery must name a present consumer/deployment dependency, concrete recovery need, next executable product requirement, or measured bottleneck.
+- Before 1.0, compatibility shims without an actual external/deployed/persisted beneficiary are normally removed rather than preserved as ceremonial migration surface.
+
+## AI-assisted development accountability
+
+- AI-generated code, prose, analysis, and model review are working material, never authority, an independent oracle, or validation evidence.
+- The contributor or maintainer remains accountable for understanding the change and for every domain, correctness, lifecycle, provenance, compatibility, performance, and qualification claim.
+- Apply the same public-contract tests, review, evidence, provenance, and cleanup gates regardless of how much of the change was agent-produced.
+- Keep AI disclosure brief and factual in `CONTRIBUTING.md`; do not generate defensive AI-process documents or treat model agreement as proof.
+
 ## Design hierarchy
 
 ```text

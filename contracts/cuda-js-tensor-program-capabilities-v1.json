@@ -1,0 +1,28 @@
+{
+  "contract": "vector-cuda-js-tensor-capabilities-v1",
+  "provider_package": "cuda-js-tensor",
+  "provider_version": "0.1.0-alpha.6",
+  "provider_revision": "9ecc1d78bca989ec456c897dec215e82ce4cd311",
+  "tensor_program_contract": "SPEC-0004-tensor-program-v1",
+  "limits": {
+    "max_inputs": 256,
+    "max_nodes": 4096,
+    "max_outputs": 256,
+    "max_rank": 16
+  },
+  "dtypes": ["u32", "u64", "i32", "f16", "bf16", "f32", "f64"],
+  "operations": {
+    "fill": null,
+    "copy": null,
+    "cast": null,
+    "reshape": null,
+    "permute": null,
+    "slice": null,
+    "broadcast": null,
+    "contiguous": null,
+    "unary": ["neg", "abs", "exp", "log", "sqrt"],
+    "binary": ["add", "sub", "mul", "div", "minimum", "maximum"],
+    "reduce": ["sum", "product", "minimum", "maximum"],
+    "matmul": null
+  }
+}
