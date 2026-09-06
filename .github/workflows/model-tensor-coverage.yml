@@ -58,7 +58,7 @@ jobs:
       - name: Install exact protected Tensor public package
         run: >-
           npm install --no-save --package-lock=false --ignore-scripts
-          https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/3a62bc47017aa10198eb1640b66f6b71a608b562
+          https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/0da2c70a0a10df908a33e842aa4ba3dbd7605c48
       - name: Report runtime
         run: node --version
       - name: Check verifier syntax
