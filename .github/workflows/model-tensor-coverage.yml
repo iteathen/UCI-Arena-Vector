@@ -59,6 +59,16 @@ jobs:
         run: >-
           npm install --no-save --package-lock=false --ignore-scripts
           https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/3a62bc47017aa10198eb1640b66f6b71a608b562
+      - name: Experimentally apply candidate Device-JS admission bounds
+        run: >-
+          node -e 'const fs=require("node:fs");
+          const p="node_modules/cuda-js/components/device-js/src/translator.mjs";
+          let source=fs.readFileSync(p,"utf8");
+          for (const [before,after] of [["const SOURCE_LIMIT = 1_048_576;","const SOURCE_LIMIT = 4_194_304;"],["const AST_NODE_LIMIT = 20_000;","const AST_NODE_LIMIT = 1_048_576;"]]) {
+            if (!source.includes(before)) throw new Error(`expected pinned guard not found: ${before}`);
+            source=source.replace(before,after);
+          }
+          fs.writeFileSync(p,source);'
       - name: Report runtime
         run: node --version
       - name: Check verifier syntax
