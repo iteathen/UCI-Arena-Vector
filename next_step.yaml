@@ -1,6 +1,6 @@
-schema_version: 3
+schema_version: 4
 updated: 2026-09-05
-status: first_real_model_current_tensor_coverage
+status: first_real_model_tensor_tanh_handoff
 objective: >
   Build UCI Arena Vector as an independent Node-hosted GPU-resident UCI engine
   through public cuda-mcgs, cuda-js-tensor and cuda-js contracts only. Resolve
@@ -16,22 +16,26 @@ product:
 current_focus:
   id: VECTOR-MODEL-TENSOR-003
   issue: 3
-  name: corrected frozen LatticeKnight public Tensor coverage
+  name: protected Tensor tanh handoff then frozen LatticeKnight workspace/oracle
+  state: >
+    The frozen model and corrected operation inventory are protected. CUDA-JS now
+    supplies public f32/f64 gpu.math.tanh at d1a8edef5bd06c402a5c14c8945269f206520174.
+    CUDA-JS-Tensor has accepted SPEC-0011 unary:tanh at
+    3f34e3153b75e5059a6473ee52c95c7b662a62ed, but Tensor #61 implementation/evidence
+    remains open. The frozen Vector verifier snapshot therefore still truthfully fails
+    closed on tanh until an implemented protected Tensor capability is rebound.
   action: >
-    Requalify the already-frozen compact_chessformer_gab_v1 evidence against
-    protected cuda-js-tensor@0.1.0-alpha.6@62cc5f1076766219fc6e3561eee86cdd66803813.
-    Preserve exact producer/checkpoint provenance. Require the additive SPEC-0010
-    TensorProgram contract when erf/gather/concat are present. Include the value
-    head's final tanh, which the older coverage packet omitted. Prove whether tanh
-    is a genuine generic Tensor capability gap or an independently justified
-    public composition with acceptable frozen-model numerical equivalence. Do not
-    silently replace it. After capability coverage closes, build/freeze one complete
-    f32 TensorProgram/TensorPlan and exact workspace/resource bound, then compare
-    full and partial item batches with the independent model oracle.
+    Do not rediscover or work around tanh. Track Tensor #61 as the natural generic
+    implementation owner. When its exact protected result exists, refresh Vector's
+    cuda-js-tensor capability snapshot and rerun the frozen real-model verifier. Only
+    after tanh is implementation-covered, build and freeze one complete f32
+    TensorProgram/TensorPlan with exact workspace/resource bounds and compare full and
+    partial item batches against the independent frozen-model oracle. Keep exact
+    producer/checkpoint provenance and do not silently substitute an algebraic tanh.
   exit: >
-    One exact frozen real model has complete public operation/spec/resource coverage,
-    an exact normalized TensorProgram/TensorPlan and workspace bound, and an explicit
-    oracle result; every uncovered generic requirement is routed to exactly one
+    One exact frozen real model has complete implemented public operation/spec/resource
+    coverage, an exact normalized TensorProgram/TensorPlan and workspace bound, and an
+    explicit oracle result; every uncovered generic requirement is routed to exactly one
     natural owner without Vector-private/native workaround.
 
 parallel_dependency_ready_work:
@@ -41,20 +45,23 @@ parallel_dependency_ready_work:
     scope: >
       evaluator-free CUDA-free external Vector consumer of exact packed protected
       cuda-mcgs public exports for pre-ignition resolve/compose/provenance/error/retryability.
-      This does not close physical/native support gates.
+      This lane is independent of Tensor #61 and does not close physical/native support gates.
 
 completed_upstream:
   cuda_mcgs:
     - "#122 integrated semantic acceptance"
     - "#109 public package/interface baseline"
     - "#125 public CUDA-JS runtime adapter"
+    - "#228 public CUDA-JS adapter/profile correction at 5b7b4c7e918ca3e8e812c6e22e58bf1621061bc6"
   cuda_js:
-    - "public Tensor lower peer cuda-js@0.1.0-alpha.18@30d11a5d38dd7b9987bc8bac4ac67c2fcf8fee60"
+    - "currently integrated Tensor lower peer before tanh: cuda-js@0.1.0-alpha.18@30d11a5d38dd7b9987bc8bac4ac67c2fcf8fee60"
+    - "protected SPEC-0030-tanh-v1 public f32/f64 gpu.math.tanh at d1a8edef5bd06c402a5c14c8945269f206520174"
   cuda_js_tensor:
     - "#32 ordinary SPEC-0010 erf/static-gather/ordered-concat at 02ae07777632cfa8b527bd5482a59dbff472e4d5"
     - "#52 device-callable unary:erf at 23e3795b3f22162e3705f0f2c659400f69f86ed7"
     - "#37 device-callable gather/concat child at 999f8b56077f051b2e90a64eebc0a0cf59a659bc"
-    - "post-#37 status reconciliation at 62cc5f1076766219fc6e3561eee86cdd66803813"
+    - "pre-tanh implementation snapshot at 62cc5f1076766219fc6e3561eee86cdd66803813"
+    - "accepted SPEC-0011 unary:tanh authority at 3f34e3153b75e5059a6473ee52c95c7b662a62ed; implementation remains #61"
 
 frozen_model:
   id: compact_chessformer_gab_v1
@@ -74,12 +81,15 @@ frozen_model:
   output_bytes_per_item: 16652
 
 next_cross_repo:
+  - issue: 61
+    owner: CUDA-JS-Tensor
+    role: implement accepted f32/f64 unary:tanh through exact public CUDA-JS only
   - issue: 3
     owner: UCI-Arena-Vector
-    role: model/package/head semantics and exact TensorProgram construction
+    role: refresh exact provider snapshot after #61, then own model/package/head semantics, TensorProgram construction, workspace and oracle
   - issue: 22
     owner: CUDA-JS-Tensor
-    role: consumer-neutral real-model Tensor coverage outcome; accept a child only for demonstrated generic Tensor gaps
+    role: consumer-neutral real-model Tensor coverage outcome after implemented tanh and oracle evidence
   - issue: 124
     owner: CUDA-MCGS
     role: evaluator request identity/batch/scatter/publication/search lifecycle after callable/resource facts are known
@@ -88,8 +98,8 @@ next_cross_repo:
     role: compare direct Tensor composition with reusable NN semantics after concrete model mapping exists; no automatic adoption
 
 hardware_gates:
-  - "CUDA-JS #32 / CUDA-MCGS physical compatible-pair qualification requires real NVIDIA evidence"
-  - "CUDA-JS #4 Ubuntu native support remains separate"
+  - "CUDA-JS #32 / CUDA-MCGS physical compatible-pair qualification requires real NVIDIA evidence and a fresh live pair freeze"
+  - "CUDA-JS #4 Ubuntu native support remains separate and directly exposed physical-NVIDIA gated"
   - "portable/model coverage cannot promote native or physical support"
 
 hard_rules:
@@ -97,6 +107,7 @@ hard_rules:
   - no private sibling-repository imports
   - no host-produced active-search intermediate after ignition
   - exact model math is not changed merely to fit an existing library surface
+  - accepted-but-unimplemented Tensor authority is not reported as implemented capability
   - generic CUDA gaps route to cuda-js
   - generic Tensor math/item gaps route to cuda-js-tensor
   - reusable NN semantics route to cuda-nn only if issue #2 justifies them
