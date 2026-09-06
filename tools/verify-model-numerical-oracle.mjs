@@ -141,7 +141,6 @@ export function normalizeOracleReceipt(raw) {
   const model = normalizeModelIdentity(raw.model, 'oracle.model');
   exact(raw.oracle, ['owner_repository', 'owner_revision', 'execution_contract', 'runtime', 'artifact', 'independence'], 'VECTOR_MODEL_ORACLE_INDEPENDENCE_INVALID', 'oracle.oracle');
   exactString(raw.oracle.owner_repository, PRODUCER_REPOSITORY, 'oracle.oracle.owner_repository', 'VECTOR_MODEL_ORACLE_INDEPENDENCE_INVALID');
-  if (raw.oracle.owner_repository === 'iteathen/UCI-Arena-Vector') fail('VECTOR_MODEL_ORACLE_INDEPENDENCE_INVALID', 'Vector cannot own its own expected numerical outputs.');
   if (typeof raw.oracle.owner_revision !== 'string' || !HEX_40.test(raw.oracle.owner_revision)) fail('VECTOR_MODEL_ORACLE_INDEPENDENCE_INVALID', 'oracle.oracle.owner_revision must be an exact Git revision.');
   exactString(raw.oracle.owner_revision, PRODUCER_REVISION, 'oracle.oracle.owner_revision', 'VECTOR_MODEL_ORACLE_INDEPENDENCE_INVALID');
   exactString(raw.oracle.execution_contract, 'native_onnx_numeric_parity', 'oracle.oracle.execution_contract', 'VECTOR_MODEL_ORACLE_INDEPENDENCE_INVALID');
@@ -239,14 +238,11 @@ export function normalizeObservationReceipt(raw, oracle) {
 
 function compareHead(expected, observed, criterion, head, scenarioId, itemId) {
   let maxAbsoluteError = 0;
-  let maxRelativeError = 0;
   for (let index = 0; index < expected.values.length; index += 1) {
     const reference = expected.values[index];
     const actual = observed.values[index];
     const absoluteError = Math.abs(actual - reference);
-    const relativeError = reference === 0 ? (absoluteError === 0 ? 0 : Number.POSITIVE_INFINITY) : absoluteError / Math.abs(reference);
     if (absoluteError > maxAbsoluteError) maxAbsoluteError = absoluteError;
-    if (relativeError > maxRelativeError) maxRelativeError = relativeError;
     const allowed = criterion.absoluteTolerance + criterion.relativeTolerance * Math.abs(reference);
     if (absoluteError > allowed) {
       fail('VECTOR_MODEL_ORACLE_MISMATCH', `${scenarioId}/${itemId}/${head}[${index}] exceeds the declared numerical criterion.`, {
@@ -261,7 +257,7 @@ function compareHead(expected, observed, criterion, head, scenarioId, itemId) {
       });
     }
   }
-  return Object.freeze({ maxAbsoluteError, maxRelativeError });
+  return Object.freeze({ maxAbsoluteError });
 }
 
 export function compareModelNumericalOracle(oracleRaw, observationRaw) {
@@ -280,7 +276,8 @@ export function compareModelNumericalOracle(oracleRaw, observationRaw) {
   }
   return Object.freeze({
     contract: RESULT_CONTRACT,
-    status: 'matched_independent_checkpoint_oracle',
+    status: 'comparison_passed',
+    readiness: 'requires_reviewed_product_decision',
     model: MODEL_ID,
     checkpoint_sha256: CHECKPOINT_SHA256,
     tensor_provider_revision: TENSOR_REVISION,
