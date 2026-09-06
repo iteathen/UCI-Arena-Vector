@@ -7,7 +7,11 @@ import { CoverageError, verifyModelTensorCoverage } from './verify-model-tensor-
 const MANIFEST_V2 = 'vector-model-tensor-coverage-v2';
 const MANIFEST_V3 = 'vector-model-tensor-coverage-v3';
 const RESULT_V3 = 'vector-model-tensor-coverage-result-v3';
+const LATTICEKNIGHT_PROFILE = 'latticeknight-4m-inference-precision-v1';
+const LATTICEKNIGHT_MODEL = 'compact_chessformer_gab_v1';
+const LATTICEKNIGHT_SOURCE_REVISION = '8c7d75672cee36aa2a39fbddf713041552770b22';
 const PRECISION_FIELDS = new Set([
+  'profile',
   'selection_role',
   'candidate',
   'compute_dtype',
@@ -52,6 +56,10 @@ function boolean(value, field) {
 
 export function normalizeInferencePrecision(raw, manifest) {
   exact(raw, PRECISION_FIELDS, 'VECTOR_MODEL_PRECISION_INVALID', 'inference_precision');
+  if (raw.profile !== LATTICEKNIGHT_PROFILE) fail('VECTOR_MODEL_PRECISION_INVALID', `inference_precision.profile must equal ${LATTICEKNIGHT_PROFILE}.`);
+  if (manifest.model.id !== LATTICEKNIGHT_MODEL || manifest.model.source.revision !== LATTICEKNIGHT_SOURCE_REVISION) {
+    fail('VECTOR_MODEL_PRECISION_INVALID', 'The LatticeKnight precision profile is bound to one frozen producer model/revision.');
+  }
   if (!SELECTION_ROLES.has(raw.selection_role)) fail('VECTOR_MODEL_PRECISION_INVALID', 'inference_precision.selection_role is not recognized.');
   if (!Object.hasOwn(CANDIDATE_COMPUTE_DTYPE, raw.candidate)) fail('VECTOR_MODEL_PRECISION_INVALID', 'inference_precision.candidate is not a producer-supported precision candidate.');
   if (raw.compute_dtype !== CANDIDATE_COMPUTE_DTYPE[raw.candidate]) fail('VECTOR_MODEL_PRECISION_INVALID', 'inference_precision.compute_dtype does not match the selected producer candidate.');
@@ -77,6 +85,7 @@ export function normalizeInferencePrecision(raw, manifest) {
   }
 
   return Object.freeze({
+    profile: raw.profile,
     selectionRole: raw.selection_role,
     candidate: raw.candidate,
     computeDtype: raw.compute_dtype,
@@ -97,11 +106,11 @@ export function verifyModelInferencePrecisionCoverage(manifest, capabilityRecord
   if (manifest.source_class !== 'frozen_real_model') fail('VECTOR_MODEL_SOURCE_CLASS_INVALID', 'v3 precision evidence is reserved for a frozen real model.');
   if (manifest.coverage_scope !== 'model_semantic_capability_matrix_v1') fail('VECTOR_MODEL_COVERAGE_SCOPE_INVALID', 'v3 coverage_scope must remain model_semantic_capability_matrix_v1.');
 
-  const precision = normalizeInferencePrecision(manifest.inference_precision, manifest);
   const delegated = structuredClone(manifest);
   delegated.contract = MANIFEST_V2;
   delete delegated.inference_precision;
   const coverage = verifyModelTensorCoverage(delegated, capabilityRecord, options);
+  const precision = normalizeInferencePrecision(manifest.inference_precision, manifest);
 
   return Object.freeze({
     ...coverage,
