@@ -55,15 +55,7 @@ current_focus:
     facts for evaluator integration. Producer FP32/fp16 promotion/default
     selection remains a separate producer qualification fact.
 
-parallel_dependency_ready_work:
-  - repository: iteathen/CUDA-MCGS
-    issue: 123
-    id: MCGS-EXTERNAL-CONSUMER-123
-    scope: >
-      evaluator-free CUDA-free external Vector consumer of exact packed protected
-      cuda-mcgs public exports for pre-ignition resolve/compose/provenance/error/retryability.
-      This lane is independent of the model oracle gate and does not close
-      physical/native support gates.
+parallel_dependency_ready_work: []
 
 completed_upstream:
   cuda_mcgs:
@@ -85,6 +77,7 @@ completed_upstream:
     - "#3 / PR #19 exact Tensor capability refresh at 3d1ae4a00a601259a7ea0a1cd6b8a485132ca459 / tree 8014741e58a643010e008faca81a9d59aeac5b51"
     - "#3 / PR #22 FP32 qualification-candidate precision evidence at 118feaee28c7497e0ed4c027687793e840c95bc1 / tree e877751ff809fafbedd7071d05c5fc7c53f719fc"
     - "#3 / PR #24 exact TensorProgram/TensorPlan/callable/resource gate protected at ca3cce162a73a664a789f6a27a819097ec994bd6 / tree 2182527aa9cd058824d3658a549a2f8224d18db5; protected Repository quality 34023725885 and Model Tensor Coverage 34023725845 succeeded"
+    - "#27 / PR #29 evaluator-free CUDA-free installed CUDA-MCGS external-consumer falsifier protected at cf07cb51e868a002dffaf178c769b21f16b63c9e / tree 0b8649efadd10086cba1c0687d3b2ab07c87f2c2; requalified candidate ce4abc0d27dc3316528c4c177b7c9599788d0767 passed Repository quality 34054854320 and External Consumer 34054854364 on Ubuntu/Windows against exact CUDA-MCGS e4ff2614006dea054359560827dda9b93d9fe6cd; advances MCGS #123 without closing its physical gate"
 
 exact_tensor_pair:
   tensor_package: cuda-js-tensor@0.1.0-alpha.6
