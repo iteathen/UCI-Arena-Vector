@@ -2,7 +2,7 @@
   "contract": "vector-cuda-js-tensor-capabilities-v3",
   "provider_package": "cuda-js-tensor",
   "provider_version": "0.1.0-alpha.6",
-  "provider_revision": "3a62bc47017aa10198eb1640b66f6b71a608b562",
+  "provider_revision": "0da2c70a0a10df908a33e842aa4ba3dbd7605c48",
   "tensor_program_contracts": {
     "base": "SPEC-0004-tensor-program-v1",
     "spec0010": "SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1",
