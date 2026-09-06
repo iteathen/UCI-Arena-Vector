@@ -1,94 +1,37 @@
 # UCI Arena Vector
 
-[![Repository quality](https://github.com/iteathen/UCI-Arena-Vector/actions/workflows/repository-quality.yml/badge.svg)](https://github.com/iteathen/UCI-Arena-Vector/actions/workflows/repository-quality.yml)
-[![License: GPL-3.0](https://img.shields.io/github/license/iteathen/UCI-Arena-Vector)](LICENSE)
+UCI Arena Vector is a planned GPU-resident chess engine with a standard UCI interface, intended for chess GUIs and the UCI Arena suite.
 
-UCI Arena Vector is a planned GPU-resident UCI chess engine product.
+**There is no runnable Vector engine or supported engine release yet.**
 
-## Current reality
+## What exists
 
-**There is no runnable Vector engine or supported engine release yet.** The repository is currently specification and connector work for the product that will compose public CUDA-MCGS, CUDA-JS, CUDA-JS-Tensor, opening-book, timing-evidence, and tablebase contracts.
+The repository contains chess/UCI product contracts, architecture and connector maps, model-to-Tensor coverage tooling, and repository validation. Current work addresses the first model's precision, workspace/resource requirements, and independent numerical evidence.
 
-What exists today:
+There is no qualified end-to-end GPU engine, tournament executable, or engine-strength, latency, or performance claim.
 
-- Vector-owned UCI/chess/product contracts and architecture;
-- explicit connector/ownership maps to the supporting libraries and UCI Arena services;
-- repository validation and protected-branch CI;
-- governed dependency/next-step state.
+## Intended engine
 
-What does **not** exist today:
+Vector aims to combine GPU-resident Monte Carlo Graph Search and tensor evaluation through public CUDA-MCGS, CUDA-JS, and CUDA-JS-Tensor libraries. Planned product integrations include opening books, timing policies, and tablebase resources.
 
-- a production GPU search runtime;
-- a UCI executable suitable for tournaments;
-- a qualified end-to-end CUDA-MCGS/Tensor/Vector engine pair;
-- engine-strength, latency, or performance claims.
-
-## Verify what exists
-
-```bash
-node tools/verify-repository.mjs
-git diff --check
-```
-
-These checks validate the repository/contracts. They do not prove a chess engine exists or qualify GPU search.
-
-The current dependency-ready action is recorded in [`next_step.yaml`](next_step.yaml); current truth is summarized in [`STATUS.md`](STATUS.md).
-
-## Product boundary
-
-Vector owns:
-
-- UCI protocol behavior and engine lifecycle;
-- chess state, action, history, legality, and terminal semantics;
-- chess-specific MCGS policy, backup, root-result, and analysis semantics;
-- model feature/action/output semantics;
-- adapters for Book Forge opening books, Timing Evidence policies, and Syzygy/tablebase resources;
-- product composition, diagnostics, evidence, and release identity.
-
-Vector does **not** own generic CUDA runtime/compiler/memory behavior, generic tensor mathematics, universal MCGS graph/resource/progress contracts, Book Forge production, Timing Evidence publication, Manager/Installer behavior, or Lichess transport.
-
-A missing generic capability is requested from its public owning library with Vector acceptance criteria. Vector does not deep-import sibling internals or add native escape paths to bypass a missing library contract.
-
-## Intended execution shape
-
-```text
-UCI / Vector product semantics
-        |
-        v
-     CUDA-MCGS
-        |
-        +--> CUDA-JS
-        +--> CUDA-JS-Tensor
-        |
-        v
-       GPU
-```
-
-Book Forge, Timing Evidence, and tablebase integrations enter through Vector-owned adapters. Lichess sees only a future conforming UCI executable.
-
-Detailed connector ownership is in [`docs/architecture/CONNECTOR_MAP.md`](docs/architecture/CONNECTOR_MAP.md).
-
-## Development rule
-
-Once the next connector boundary is accepted and dependency-ready, prefer the thinnest meaningful executable Vector slice through the same public contracts intended for production before expanding architecture further.
-
-Concurrency, optimization, strength machinery, or API breadth is not prioritized because a theoretical ceiling exists. It must be required by the next executable product path or by measured evidence.
-
-No native C/C++/CUDA escape path belongs in Vector. An apparent need for one triggers classification of the missing CUDA-JS, CUDA-JS-Tensor, CUDA-MCGS, or product-owned capability before implementation.
+Vector owns chess rules, UCI behavior, model inputs/outputs, and engine lifecycle. Generic search, tensor mathematics, and CUDA execution remain with their libraries. See the [connector map](docs/architecture/CONNECTOR_MAP.md) for the integration design.
 
 ## Start here
 
-- [Current status](STATUS.md)
-- [Governed next step](next_step.yaml)
-- [Architecture connector map](docs/architecture/CONNECTOR_MAP.md)
-- [How to contribute](CONTRIBUTING.md)
-- [Project governance](GOVERNANCE.md)
-- [Security policy](SECURITY.md)
+Start with [current status](STATUS.md) to assess development progress and unresolved dependencies. There are no engine installation instructions yet.
 
-## Contributing and security
+Contributors can validate repository structure from a Git checkout with Node.js and Git available:
 
-Read [`AGENTS.md`](AGENTS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md) before changing behavior. Do not begin production search implementation while its dependency gate is closed.
+```bash
+git clone https://github.com/iteathen/UCI-Arena-Vector.git
+cd UCI-Arena-Vector
+node tools/verify-repository.mjs
+```
 
-Report vulnerabilities privately according to [`SECURITY.md`](SECURITY.md), not through public issues.
+This validates repository documents and contracts, not chess-engine operation.
 
-UCI Arena Vector is licensed under the [GNU General Public License v3.0](LICENSE).
+- [Next development step](next_step.yaml).
+- [Proposed chess search product boundary](docs/specs/VECTOR-0001-chess-search-product.md).
+- [Contributing](CONTRIBUTING.md) and [developer instructions](AGENTS.md).
+- [Support](SUPPORT.md), [governance](GOVERNANCE.md), and [private security reporting](SECURITY.md).
+- [GNU GPL v3 license](LICENSE).

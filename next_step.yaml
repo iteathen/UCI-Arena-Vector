@@ -13,6 +13,7 @@ product:
   repository: iteathen/UCI-Arena-Vector
   executable_stem: uci_arena_vector
   parent_issue: 1
+  boundary_proposal: docs/specs/VECTOR-0001-chess-search-product.md
 
 current_focus:
   id: VECTOR-MODEL-TENSOR-003
