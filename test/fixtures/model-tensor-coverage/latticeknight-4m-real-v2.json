@@ -25,8 +25,8 @@
   "tensor_contract": {
     "provider_package": "cuda-js-tensor",
     "provider_version": "0.1.0-alpha.6",
-    "provider_revision": "62cc5f1076766219fc6e3561eee86cdd66803813",
-    "tensor_program_contract": "SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1"
+    "provider_revision": "3a62bc47017aa10198eb1640b66f6b71a608b562",
+    "tensor_program_contract": "SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1"
   },
   "inputs": [
     { "name": "features", "dtype": "f32", "shape": [1, 17, 8, 8] }

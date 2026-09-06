@@ -7,6 +7,7 @@ on:
       - "next_step.yaml"
       - "contracts/cuda-js-tensor-program-capabilities-v1.json"
       - "contracts/cuda-js-tensor-program-capabilities-v2.json"
+      - "contracts/cuda-js-tensor-program-capabilities-v3.json"
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
@@ -19,6 +20,7 @@ on:
       - "next_step.yaml"
       - "contracts/cuda-js-tensor-program-capabilities-v1.json"
       - "contracts/cuda-js-tensor-program-capabilities-v2.json"
+      - "contracts/cuda-js-tensor-program-capabilities-v3.json"
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
@@ -62,31 +64,42 @@ jobs:
             echo "synthetic fixture incorrectly satisfied the real-model gate" >&2
             exit 1
           fi
-      - name: Freeze real LatticeKnight model against current protected Tensor capabilities
-        run: >-
-          node tools/verify-model-tensor-coverage.mjs
-          --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v2.json
-          --capabilities contracts/cuda-js-tensor-program-capabilities-v2.json
-      - name: Prove current real-model readiness fails only on value tanh
+      - name: Prove exact protected Tensor pair covers model math and selects canonical mixed contract
+        shell: bash
+        run: |
+          output=$(node tools/verify-model-tensor-coverage.mjs \
+            --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v2.json \
+            --capabilities contracts/cuda-js-tensor-program-capabilities-v3.json)
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(0, "utf8"));
+            const mixed = "SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1";
+            if (body.status !== "frozen_real_model_workspace_unresolved") process.exit(1);
+            if (body.real_model_ready !== false) process.exit(1);
+            if (body.tensor_provider_revision !== "3a62bc47017aa10198eb1640b66f6b71a608b562") process.exit(1);
+            if (body.tensor_program_contract !== mixed) process.exit(1);
+            if (body.required_tensor_program_contract !== mixed) process.exit(1);
+            if (!Array.isArray(body.missing_capabilities) || body.missing_capabilities.length !== 0) process.exit(1);
+            if (body.declared_resources?.workspaceBytesPerItem !== null) process.exit(1);
+          '
+      - name: Prove exact current real-model readiness stops only at unresolved TensorPlan workspace
         shell: bash
         run: |
           set +e
           output=$(node tools/verify-model-tensor-coverage.mjs \
             --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v2.json \
-            --capabilities contracts/cuda-js-tensor-program-capabilities-v2.json \
+            --capabilities contracts/cuda-js-tensor-program-capabilities-v3.json \
             --require-real 2>&1)
           status=$?
           set -e
           printf '%s\n' "$output"
           if [ "$status" -eq 0 ]; then
-            echo "real model incorrectly satisfied readiness while tanh is uncovered" >&2
+            echo "real model incorrectly satisfied readiness with unresolved TensorPlan workspace" >&2
             exit 1
           fi
           printf '%s\n' "$output" | node -e '
             const fs = require("node:fs");
             const body = JSON.parse(fs.readFileSync(0, "utf8"));
-            if (body.code !== "VECTOR_MODEL_TENSOR_CAPABILITY_GAP") process.exit(1);
-            const gaps = body.detail?.missing_capabilities?.map(({ kind, operator }) => [kind, operator]);
-            const expected = [["unary", "tanh"]];
-            if (JSON.stringify(gaps) !== JSON.stringify(expected)) process.exit(1);
+            if (body.code !== "VECTOR_MODEL_WORKSPACE_UNRESOLVED") process.exit(1);
           '
