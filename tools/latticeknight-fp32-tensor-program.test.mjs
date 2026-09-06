@@ -17,6 +17,9 @@ const MIXED_CONTRACT = 'SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-
 const DEVICE_CONTRACT = 'SPEC-0009-item-parallel-device-tensor-program-v1+SPEC-0009-gather-concat-v1';
 const PROGRAM_IDENTITY = 'tensor-program-v1:3ef2b2fafdc3bbfa8b676668198b6f1bc91f0657adb3d04bf8e0a3c2d3644358';
 const PLAN_IDENTITY = 'tensor-plan-v1:ae83f14f81e5417aed2695f1153266470370d6aecb6c3f6114ab50c201a13dba';
+const DEVICE_PROGRAM_IDENTITY = 'tensor-device-program-v1:70d86fd70c97d8b585eb89a9a1cace19572f1d1fe27df11e155f9ce355eed2fb';
+const WORKSPACE_BYTES_PER_ITEM = 33_194_524;
+const WORKSPACE_ELEMENTS_PER_ITEM = 8_298_631;
 const PLAN_UNRESOLVED = [
   'runtime-input-aliasing',
   'session-device-compatibility',
@@ -86,16 +89,8 @@ test('root-public Tensor callable compilation owns exact item ABI and workspace'
       itemInputs: ['features'],
     });
 
-    process.stdout.write(`${JSON.stringify({
-      schema: 'vector-latticeknight-fp32-callable-measurement-v1',
-      compatibilityIdentity: deviceProgram.compatibilityIdentity,
-      totalWorkspaceBytes: deviceProgram.totalWorkspaceBytes,
-      workspacePerItemElements: deviceProgram.workspace[0]?.perItemElements ?? null,
-      parameterCount: deviceProgram.parameters.length,
-      libraryFormat: deviceProgram.library.format,
-    })}\n`);
-
     assert.equal(deviceProgram.contract, DEVICE_CONTRACT);
+    assert.equal(deviceProgram.compatibilityIdentity, DEVICE_PROGRAM_IDENTITY);
     assert.equal(deviceProgram.itemCapacity, 1);
     assert.deepEqual(deviceProgram.itemInputs, ['features']);
     assert.deepEqual(deviceProgram.inputs.map(({ name, itemVarying }) => [name, itemVarying]), [
@@ -107,13 +102,13 @@ test('root-public Tensor callable compilation owns exact item ABI and workspace'
       ['policy', 4162],
       ['value', 1],
     ]);
-    assert(Number.isSafeInteger(deviceProgram.totalWorkspaceBytes) && deviceProgram.totalWorkspaceBytes > 0);
-    assert(deviceProgram.totalWorkspaceBytes <= 64 * 1024 * 1024);
+    assert.equal(deviceProgram.totalWorkspaceBytes, WORKSPACE_BYTES_PER_ITEM);
     assert.equal(deviceProgram.workspace.length, 1);
     assert.equal(deviceProgram.workspace[0].dtype, 'f32');
-    assert.equal(deviceProgram.workspace[0].byteLength, deviceProgram.totalWorkspaceBytes);
+    assert.equal(deviceProgram.workspace[0].perItemElements, WORKSPACE_ELEMENTS_PER_ITEM);
+    assert.equal(deviceProgram.workspace[0].byteLength, WORKSPACE_BYTES_PER_ITEM);
+    assert.equal(deviceProgram.parameters.length, 7);
     assert.equal(deviceProgram.parameters.length, deviceProgram.function.parameters.length);
-    assert(deviceProgram.parameters.length <= 64);
     assert.equal(deviceProgram.function.name, 'tensorRunItem');
     assert.equal(deviceProgram.function.returns, 'u32');
     assert.equal(deviceProgram.library.format, 'ptx');
