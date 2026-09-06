@@ -3,7 +3,7 @@
 **Updated:** 2026-09-06
 **Phase:** first-real-model FP32 independent numerical-oracle qualification
 **Current focus:** issue #3 — compare the protected frozen LatticeKnight FP32 public Tensor mapping against an independent checkpoint-bound oracle for full and partial admitted-item occupancy
-**Parallel public-package falsifier:** CUDA-MCGS #123 evaluator-free/CUDA-free external consumer
+**Parallel public-package result:** CUDA-MCGS #123 evaluator-free/CUDA-free external-consumer slice is protected-complete through Vector #27/#29; overall #123 remains open on its separate physical compatible-pair gate
 
 ## Product identity
 
@@ -26,8 +26,10 @@ Protected semantic/runtime foundations required by Vector are complete:
 - #122 integrated search/evaluator semantic acceptance — complete;
 - #109 public package/interface baseline — complete;
 - #125 public CUDA-JS runtime adapter — complete;
-- #123 external evaluator-free public-package consumer falsifier — parallel consumer lane;
+- #123 evaluator-free CUDA-free installed-package downstream slice — protected-complete through Vector #27/#29; overall #123 remains open on the separate physical compatible-pair gate;
 - #124 Tensor evaluator request/batch/scatter/publication connector — open and downstream of completion of the first-real-model correctness gate.
+
+Vector #27 / PR #29 protected the first real unrelated-repository installed-package falsifier as squash merge `cf07cb51e868a002dffaf178c769b21f16b63c9e`, tree `0b8649efadd10086cba1c0687d3b2ab07c87f2c2`. The final requalified candidate `ce4abc0d27dc3316528c4c177b7c9599788d0767` tested exact protected CUDA-MCGS package revision `e4ff2614006dea054359560827dda9b93d9fe6cd`; Repository quality `34054854320` and CUDA-MCGS External Consumer `34054854364` succeeded on Ubuntu and Windows. This is evaluator-absent, stateless, pre-ignition package evidence only. It establishes no native/provider/hardware, Tensor/model, chess/UCI, performance or release readiness.
 
 CUDA-MCGS protected #228 reconciles its public CUDA-JS adapter with current publication/header-profile, operation-capacity, public-kernel identity and bound-resource mechanics. That is framework/runtime-adapter maintenance, not Vector product semantics. Physical CUDA-MCGS/CUDA-JS support remains a separate hardware evidence gate.
 
@@ -107,11 +109,10 @@ No Restaurant runtime/native source is imported into Vector production; producer
 ## Current priority order
 
 1. **#3 independent FP32 model oracle:** obtain or produce checkpoint-bound independent policy/value reference vectors for the exact frozen checkpoint, then compare full and partial admitted-item occupancy against the protected public Tensor mapping with exact identity and cleanup.
-2. **CUDA-MCGS #123 parallel consumer falsifier:** prove Vector can consume the exact public `cuda-mcgs` package in an evaluator-free/CUDA-free pre-ignition slice without private imports.
-3. **Tensor #22 / CUDA-MCGS #124:** Tensor #22 retains the now-protected generic resource/callable record; #124 may consume only public generic facts after the first-real-model correctness/oracle gate is complete, while evaluator request/batch/scatter/publication/search lifecycle remains CUDA-MCGS-owned.
-4. **#2 / #4 product correctness:** chess Domain/Policy oracle and UCI/Search-Session adapter on accepted MCGS semantics.
-5. Book/timing/tablebase/release integration after producer/public-contract gates.
-6. Native/platform/performance/strength work only after exact correctness/library coverage and physical evidence exist.
+2. **Tensor #22 / CUDA-MCGS #124:** Tensor #22 retains the now-protected generic resource/callable record; #124 may consume only public generic facts after the first-real-model correctness/oracle gate is complete, while evaluator request/batch/scatter/publication/search lifecycle remains CUDA-MCGS-owned.
+3. **#2 / #4 product correctness:** chess Domain/Policy oracle and UCI/Search-Session adapter on accepted MCGS semantics.
+4. Book/timing/tablebase/release integration after producer/public-contract gates.
+5. Native/platform/performance/strength work only after exact correctness/library coverage and physical evidence exist.
 
 `cuda-nn` remains optional. Its #2 justification gate must compare direct Vector -> Tensor composition with a reusable NN layer after concrete model mapping exists; repository existence does not force adoption.
 
