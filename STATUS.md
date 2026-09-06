@@ -1,8 +1,8 @@
 # UCI Arena Vector Status
 
-**Updated:** 2026-09-05  
-**Phase:** first-real-model public-library coverage and external-consumer preparation  
-**Current focus:** issue #3 — exact LatticeKnight model-to-Tensor coverage; corrected `unary:tanh` gap  
+**Updated:** 2026-09-05
+**Phase:** first-real-model public-library coverage and external-consumer preparation
+**Current focus:** issue #3 — exact LatticeKnight model-to-Tensor coverage; corrected `unary:tanh` gap
 **Parallel public-package falsifier:** CUDA-MCGS #123 evaluator-free/CUDA-free external consumer
 
 ## Product identity
