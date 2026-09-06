@@ -34,6 +34,15 @@ const PLAN_UNRESOLVED = [
   'cleanup-graph',
 ];
 
+function countBy(records, selector) {
+  const counts = new Map();
+  for (const record of records) {
+    const key = selector(record);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort(([left], [right]) => left.localeCompare(right));
+}
+
 test('frozen LatticeKnight FP32 candidate constructs one exact public TensorProgram/TensorPlan', () => {
   const result = buildLatticeKnightFp32TensorProgram({ itemCapacity: 1 });
 
@@ -42,10 +51,66 @@ test('frozen LatticeKnight FP32 candidate constructs one exact public TensorProg
   assert.equal(result.parameterLayout.tensorCount, 227);
   assert.equal(result.parameterLayout.elementCount, 3_637_988);
   assert.equal(result.parameterLayout.byteLength, 14_551_952);
+  assert.deepEqual(
+    [0, 2, 211, 213, 219, 226].map((index) => {
+      const entry = result.parameterLayout.entries[index];
+      return {
+        storageIndex: entry.storageIndex,
+        name: entry.name,
+        shape: [...entry.shape],
+        elementOffset: entry.elementOffset,
+        elementCount: entry.elementCount,
+        byteOffset: entry.byteOffset,
+        byteLength: entry.byteLength,
+      };
+    }),
+    [
+      { storageIndex: 0, name: 'token_projection.weight', shape: [256, 17], elementOffset: 0, elementCount: 4352, byteOffset: 0, byteLength: 17_408 },
+      { storageIndex: 2, name: 'gab_shared_templates', shape: [4096, 32], elementOffset: 4608, elementCount: 131_072, byteOffset: 18_432, byteLength: 524_288 },
+      { storageIndex: 211, name: 'encoder.final_norm.weight', shape: [256], elementOffset: 3_521_856, elementCount: 256, byteOffset: 14_087_424, byteLength: 1024 },
+      { storageIndex: 213, name: 'policy.source.weight', shape: [128, 256], elementOffset: 3_522_368, elementCount: 32_768, byteOffset: 14_089_472, byteLength: 131_072 },
+      { storageIndex: 219, name: 'policy.promotion_delta.weight', shape: [3, 32], elementOffset: 3_604_352, elementCount: 96, byteOffset: 14_417_408, byteLength: 384 },
+      { storageIndex: 226, name: 'value.output.bias', shape: [1], elementOffset: 3_637_987, elementCount: 1, byteOffset: 14_551_948, byteLength: 4 },
+    ],
+  );
+  assert.deepEqual(result.constantLayout.entries.map(({ name, index, value }) => [name, index, value]), [
+    ['zero', 0, 0],
+    ['one', 1, 1],
+    ['two', 2, 2],
+    ['sqrt2', 3, 1.4142135381698608],
+    ['layerNormEpsilon', 4, 0.000009999999747378752],
+    ['width32', 5, 32],
+    ['width64', 6, 64],
+    ['width256', 7, 256],
+    ['attentionScale', 8, 5.656854152679443],
+    ['policyScale', 9, 11.313708305358887],
+  ]);
   assert.equal(result.program.contract, MIXED_CONTRACT);
   assert.equal(result.program.compatibilityIdentity, PROGRAM_IDENTITY);
   assert.equal(result.program.nodes.length, 2216);
   assert.equal(result.program.nodes.filter(({ materialization }) => materialization === 'materialize').length, 1340);
+  assert.deepEqual(countBy(result.program.nodes, ({ op }) => op), [
+    ['binary', 729],
+    ['concat', 10],
+    ['contiguous', 4],
+    ['gather', 3],
+    ['matmul', 273],
+    ['permute', 1],
+    ['reduce', 197],
+    ['reshape', 379],
+    ['slice', 496],
+    ['unary', 124],
+  ]);
+  assert.deepEqual(countBy(result.program.nodes.filter(({ op }) => op === 'unary'), ({ options }) => options.operator), [
+    ['erf', 25],
+    ['exp', 64],
+    ['sqrt', 34],
+    ['tanh', 1],
+  ]);
+  assert.deepEqual(countBy(result.program.nodes.filter(({ op }) => op === 'reduce'), ({ options }) => options.operator), [
+    ['maximum', 64],
+    ['sum', 133],
+  ]);
   assert.equal(result.plan.contract, 'SPEC-0004-static-tensor-plan-v1');
   assert.equal(result.plan.compatibilityIdentity, PLAN_IDENTITY);
   assert.equal(result.plan.allocations.length, 1340);
@@ -58,12 +123,6 @@ test('frozen LatticeKnight FP32 candidate constructs one exact public TensorProg
   ]);
   assert.equal(TensorProgram.create(JSON.parse(JSON.stringify(result.program.canonical))).compatibilityIdentity, result.program.compatibilityIdentity);
   assert.equal(result.program.nodes.some(({ op }) => op === 'fill'), false);
-  const operations = new Set(result.program.nodes.map(({ op }) => op));
-  for (const required of ['matmul', 'unary', 'binary', 'reduce', 'gather', 'concat', 'contiguous', 'reshape', 'permute', 'slice']) {
-    assert(operations.has(required), `missing concrete operation ${required}`);
-  }
-  assert(result.program.nodes.some(({ op, options }) => op === 'unary' && options.operator === 'erf'));
-  assert(result.program.nodes.some(({ op, options }) => op === 'unary' && options.operator === 'tanh'));
 });
 
 test('static distinct-resource accounting scales exactly with item capacity', () => {
