@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { openCudaRuntimeForTesting } from 'cuda-js/testing';
 import {
   TensorProgram,
   TensorSession,
@@ -61,7 +62,8 @@ test('static distinct-resource accounting scales exactly with item capacity', ()
 
 test('root-public Tensor callable compilation owns exact item ABI and workspace', { timeout: 60_000 }, async () => {
   const result = buildLatticeKnightFp32TensorProgram({ itemCapacity: 1 });
-  const session = await TensorSession.open();
+  const runtime = await openCudaRuntimeForTesting({ compiler: true });
+  const session = await TensorSession.open(runtime);
   try {
     const deviceProgram = await compileTensorDeviceProgram(session, result.plan, {
       itemCapacity: 1,
@@ -93,7 +95,9 @@ test('root-public Tensor callable compilation owns exact item ABI and workspace'
     assert.equal(JSON.stringify(deviceProgram).includes('function tensorRunItem'), false);
     assert.equal(JSON.stringify(deviceProgram.canonical).includes('__device__'), false);
   } finally {
-    const report = await session.close();
-    assert.equal(report.graceful, true);
+    const sessionReport = await session.close();
+    assert.equal(sessionReport.graceful, true);
+    const runtimeReport = await runtime.close();
+    assert.equal(runtimeReport.graceful, true);
   }
 });
