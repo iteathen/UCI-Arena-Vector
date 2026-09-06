@@ -1,8 +1,8 @@
 # UCI Arena Vector Status
 
 **Updated:** 2026-09-05
-**Phase:** first-real-model exact TensorProgram/TensorPlan workspace and oracle qualification
-**Current focus:** issue #3 — complete frozen LatticeKnight workspace/resource and independent oracle evidence on the protected exact Tensor pair
+**Phase:** first-real-model precision, TensorProgram/TensorPlan workspace and oracle qualification
+**Current focus:** issue #3 — resolve frozen LatticeKnight inference precision, then complete exact workspace/resource and independent oracle evidence
 **Parallel public-package falsifier:** CUDA-MCGS #123 evaluator-free/CUDA-free external consumer
 
 ## Product identity
@@ -69,26 +69,28 @@ The first model remains durably frozen from the qualified evidence packet:
 - input `[1,17,8,8]` f32 = 4,352 bytes/item;
 - outputs `[1,4162]` policy + `[1,1]` value = 16,652 bytes/item.
 
-Protected reassessment had found one correctness omission in the older coverage packet: the frozen value head is `[mean_pool, layer_norm, linear 256->128, relu, linear 128->1, tanh]`, but the old operation inventory did not include its final `tanh`. That omission is now closed by protected exact-pair coverage rather than a local approximation.
+Protected reassessment had found one correctness omission in the older coverage packet: the frozen value head is `[mean_pool, layer_norm, linear 256->128, relu, linear 128->1, tanh]`, but the old operation inventory did not include its final `tanh`. That omission is now closed for the current f32 semantic projection by protected exact-pair coverage rather than a local approximation.
 
-Vector capability snapshot v3 preserves v1/v2 as historical evidence and models all four exact current TensorProgram states:
+Vector capability snapshot v3 preserves v1/v2 as historical evidence and models all four exact current TensorProgram contract states:
 
 - base: `SPEC-0004-tensor-program-v1`;
 - SPEC-0010 only: `SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1`;
 - SPEC-0011 only: `SPEC-0004-tensor-program-v1+SPEC-0011-tanh-v1`;
 - mixed: `SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1`.
 
-The canonical child order is SPEC-0010 then SPEC-0011. The frozen LatticeKnight operation set selects the mixed contract exactly. `erf`, gather, concat and f32 tanh are all implemented public Tensor capabilities; the refreshed verifier reports `missing_capabilities: []`.
+The canonical child order is SPEC-0010 then SPEC-0011. The frozen LatticeKnight operation-kind inventory selects the mixed contract exactly, and the current coarse f32 coverage projection reports `missing_capabilities: []`. This is not a claim that every listed operator is available at every Tensor dtype: SPEC-0010 `erf` and SPEC-0011 `tanh` remain f32/f64 only.
 
-Protected Vector #3 / PR #19 integrated this exact-pair evidence at merge `3d1ae4a00a601259a7ea0a1cd6b8a485132ca459`, tree `8014741e58a643010e008faca81a9d59aeac5b51`. The merge tree exactly equals the reviewed candidate tree. Protected `Repository quality` run `34012907270` and protected `Model Tensor Coverage` run `34012907280` both succeeded.
+Protected Vector #3 / PR #19 integrated this exact-pair evidence at merge `3d1ae4a00a601259a7ea0a1cd6b8a485132ca459`, tree `8014741e58a643010e008faca81a9d59aeac5b51`. The merge tree exactly equals the reviewed candidate tree. Protected `Repository quality` run `34012907270` and protected `Model Tensor Coverage` run `34012907280` both succeeded. In that current coarse verifier, `--require-real` reaches only `VECTOR_MODEL_WORKSPACE_UNRESOLVED`; workspace remains intentionally `null`.
 
-The current first real-model gate is therefore demonstrated, not predicted: `--require-real` reaches only `VECTOR_MODEL_WORKSPACE_UNRESOLVED`. Workspace remains intentionally `null`; no byte count is yet frozen. The next work must construct the exact normalized concrete model TensorProgram/TensorPlan from product-owned model semantics, derive the generic workspace/resource facts through public Tensor machinery, and then compare full and partial item batches against an independent frozen-model oracle.
+A subsequent authority read found an additional fact that must be resolved before freezing the concrete program: the immutable producer package declares `architecture_settings.float_precision: fp16_autocast` and `precision_policy.amp_enabled: true` with `amp_dtype: fp16`. The input/output contract and checkpoint parameters are f32, but that does not by itself prove an all-f32 inference graph. The exact operation-level inference dtype policy is therefore still an open product-evidence question. Vector must resolve whether autocast is training-only, inference-active or operation-selective before assigning Tensor dtypes. It must not widen f16/bf16 `erf` or `tanh`, insert compensating casts, or substitute alternative math merely to fit current Tensor support.
 
-No Restaurant runtime/native source is imported into Vector production; only immutable producer provenance and declarative model/checkpoint facts are evidence inputs. Existing downstream implementation may be read as evidence when necessary, but it is not a private/native execution path for Vector or Tensor.
+The next work is therefore: resolve the model-owned inference precision semantics first; construct the exact normalized concrete TensorProgram/TensorPlan with those dtypes through public Tensor machinery; derive exact generic workspace/resource facts from that program; then compare full and partial item batches against an independent frozen-model oracle.
+
+No Restaurant runtime/native source is imported into Vector production; only immutable producer provenance and declarative model/checkpoint facts are evidence inputs. Existing downstream implementation may be inspected as evidence when the declarative authority is insufficient, but it is not a private/native execution path for Vector or Tensor.
 
 ## Current priority order
 
-1. **#3 workspace/oracle:** build/freeze one exact LatticeKnight f32 TensorProgram/TensorPlan through public CUDA-JS-Tensor, derive exact workspace/resource bounds, and run the independent full/partial-batch oracle campaign. Route any newly demonstrated generic Tensor or CUDA gap to its natural owner.
+1. **#3 precision/workspace/oracle:** resolve the frozen producer's `fp16_autocast` inference meaning, then build/freeze one exact LatticeKnight TensorProgram/TensorPlan through public CUDA-JS-Tensor, derive exact workspace/resource bounds, and run the independent full/partial-batch oracle campaign. Route any newly demonstrated generic Tensor or CUDA gap to its natural owner.
 2. **CUDA-MCGS #123 parallel consumer falsifier:** prove Vector can consume the exact public `cuda-mcgs` package in an evaluator-free/CUDA-free pre-ignition slice without private imports.
 3. **Tensor #22 / CUDA-MCGS #124:** record the complete generic Tensor coverage/workspace/callable result under Tensor #22, then let #124 consume only those public facts for evaluator request identity/batching/scatter/publication while search lifecycle remains CUDA-MCGS-owned.
 4. **#2 / #4 product correctness:** chess Domain/Policy oracle and UCI/Search-Session adapter on the already accepted MCGS semantics.
@@ -101,10 +103,11 @@ No Restaurant runtime/native source is imported into Vector production; only imm
 
 Stop and route rather than work around if:
 
-- exact model math would be changed merely to fit an existing library surface;
-- a generic Tensor mathematical/item/workspace capability is missing;
+- exact model math or precision would be changed merely to fit an existing library surface;
+- a generic Tensor mathematical/item/ABI/workspace capability is missing;
 - a generic CUDA compiler/runtime/provider mechanism is missing;
 - a private sibling source/type or native Vector path seems necessary;
 - active search would need a CPU-produced intermediate;
 - CUDA libraries would need chess/UCI/model-head/book/timing/tablebase semantics;
+- accepted-but-unimplemented authority is being reported as implemented capability;
 - portable evidence is being used to claim physical/native support.
