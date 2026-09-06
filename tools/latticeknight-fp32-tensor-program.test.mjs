@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { openCudaRuntimeForTesting } from 'cuda-js/testing';
 import {
+  CUDA_JS_TENSOR_COMPATIBILITY,
   TensorProgram,
   TensorSession,
   compileTensorDeviceProgram,
@@ -80,43 +81,50 @@ test('static distinct-resource accounting scales exactly with item capacity', ()
 });
 
 test('root-public Tensor callable compilation owns exact item ABI and workspace', { timeout: 60_000 }, async () => {
+  assert.equal(CUDA_JS_TENSOR_COMPATIBILITY.package.version, '0.1.0-alpha.6');
+  assert.equal(CUDA_JS_TENSOR_COMPATIBILITY.cudaJs.version, '0.1.0-alpha.18');
+  assert.equal(CUDA_JS_TENSOR_COMPATIBILITY.cudaJs.protectedMainRevision, '45a9ef15537b52d6fd7c615b7e596676dfd00587');
+
   const result = buildLatticeKnightFp32TensorProgram({ itemCapacity: 1 });
   const runtime = await openCudaRuntimeForTesting({ compiler: true });
-  const session = await TensorSession.open(runtime);
   try {
-    const deviceProgram = await compileTensorDeviceProgram(session, result.plan, {
-      itemCapacity: 1,
-      itemInputs: ['features'],
-    });
+    const session = await TensorSession.open(runtime);
+    try {
+      const deviceProgram = await compileTensorDeviceProgram(session, result.plan, {
+        itemCapacity: 1,
+        itemInputs: ['features'],
+      });
 
-    assert.equal(deviceProgram.contract, DEVICE_CONTRACT);
-    assert.equal(deviceProgram.compatibilityIdentity, DEVICE_PROGRAM_IDENTITY);
-    assert.equal(deviceProgram.itemCapacity, 1);
-    assert.deepEqual(deviceProgram.itemInputs, ['features']);
-    assert.deepEqual(deviceProgram.inputs.map(({ name, itemVarying }) => [name, itemVarying]), [
-      ['features', true],
-      ['parameters', false],
-      ['constants', false],
-    ]);
-    assert.deepEqual(deviceProgram.outputs.map(({ name, perItemElements }) => [name, perItemElements]), [
-      ['policy', 4162],
-      ['value', 1],
-    ]);
-    assert.equal(deviceProgram.totalWorkspaceBytes, WORKSPACE_BYTES_PER_ITEM);
-    assert.equal(deviceProgram.workspace.length, 1);
-    assert.equal(deviceProgram.workspace[0].dtype, 'f32');
-    assert.equal(deviceProgram.workspace[0].perItemElements, WORKSPACE_ELEMENTS_PER_ITEM);
-    assert.equal(deviceProgram.workspace[0].byteLength, WORKSPACE_BYTES_PER_ITEM);
-    assert.equal(deviceProgram.parameters.length, 7);
-    assert.equal(deviceProgram.parameters.length, deviceProgram.function.parameters.length);
-    assert.equal(deviceProgram.function.name, 'tensorRunItem');
-    assert.equal(deviceProgram.function.returns, 'u32');
-    assert.equal(deviceProgram.library.format, 'ptx');
-    assert.equal(JSON.stringify(deviceProgram).includes('function tensorRunItem'), false);
-    assert.equal(JSON.stringify(deviceProgram.canonical).includes('__device__'), false);
+      assert.equal(deviceProgram.contract, DEVICE_CONTRACT);
+      assert.equal(deviceProgram.compatibilityIdentity, DEVICE_PROGRAM_IDENTITY);
+      assert.equal(deviceProgram.itemCapacity, 1);
+      assert.deepEqual(deviceProgram.itemInputs, ['features']);
+      assert.deepEqual(deviceProgram.inputs.map(({ name, itemVarying }) => [name, itemVarying]), [
+        ['features', true],
+        ['parameters', false],
+        ['constants', false],
+      ]);
+      assert.deepEqual(deviceProgram.outputs.map(({ name, perItemElements }) => [name, perItemElements]), [
+        ['policy', 4162],
+        ['value', 1],
+      ]);
+      assert.equal(deviceProgram.totalWorkspaceBytes, WORKSPACE_BYTES_PER_ITEM);
+      assert.equal(deviceProgram.workspace.length, 1);
+      assert.equal(deviceProgram.workspace[0].dtype, 'f32');
+      assert.equal(deviceProgram.workspace[0].perItemElements, WORKSPACE_ELEMENTS_PER_ITEM);
+      assert.equal(deviceProgram.workspace[0].byteLength, WORKSPACE_BYTES_PER_ITEM);
+      assert.equal(deviceProgram.parameters.length, 7);
+      assert.equal(deviceProgram.parameters.length, deviceProgram.function.parameters.length);
+      assert.equal(deviceProgram.function.name, 'tensorRunItem');
+      assert.equal(deviceProgram.function.returns, 'u32');
+      assert.equal(deviceProgram.library.format, 'ptx');
+      assert.equal(JSON.stringify(deviceProgram).includes('function tensorRunItem'), false);
+      assert.equal(JSON.stringify(deviceProgram.canonical).includes('__device__'), false);
+    } finally {
+      const sessionReport = await session.close();
+      assert.equal(sessionReport.graceful, true);
+    }
   } finally {
-    const sessionReport = await session.close();
-    assert.equal(sessionReport.graceful, true);
     const runtimeReport = await runtime.close();
     assert.equal(runtimeReport.graceful, true);
   }
