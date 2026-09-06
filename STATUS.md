@@ -1,9 +1,9 @@
 # UCI Arena Vector Status
 
-**Updated:** 2026-08-26  
-**Phase:** specification/reference and connector planning  
-**Current focus:** issue #2 — chess Domain/Policy contract + independent oracle  
-**Production CUDA-MCGS lowering:** blocked on CUDA-MCGS #122
+**Updated:** 2026-09-05
+**Phase:** first-real-model public-library coverage and external-consumer preparation
+**Current focus:** issue #3 — exact LatticeKnight model-to-Tensor coverage; corrected `unary:tanh` gap
+**Parallel public-package falsifier:** CUDA-MCGS #123 evaluator-free/CUDA-free external consumer
 
 ## Product identity
 
@@ -13,120 +13,87 @@
 - Product role: independent GPU-resident UCI chess engine for the UCI Arena suite
 - Parent plan: #1
 
-## Architecture state
+Vector remains a product layer. Chess, UCI, concrete model/package/head meaning, opening-book use, timing application and tablebase policy stay here. CUDA-MCGS, CUDA-JS-Tensor and CUDA-JS are consumed only through public contracts. Vector production gets no C/C++/CUDA/PTX/native-FFI escape path.
 
-Selected initial host architecture:
-
-- Node.js product/composition/UCI layer;
-- restricted Device-JS chess/search/evaluator product modules;
-- `cuda-mcgs` universal search framework;
-- `cuda-js-tensor` dense evaluator mathematics;
-- `cuda-js` CUDA runtime/toolchain;
-- no Vector-maintained native source.
-
-This deliberately avoids a native-to-Node search bridge. The existing `uci-arena-engine` is an independent product/reference oracle, not a runtime dependency.
-
-The hard architectural diagnostic is now explicit in `AGENTS.md`: **if Vector appears to need native code, that is evidence of missing reusable library/boundary coverage and must be classified before implementation.**
-
-## Upstream dependency state
+## Current upstream state
 
 ### CUDA-MCGS
 
-Current P0 dependency chain:
+Protected semantic/runtime foundations required by Vector are complete:
 
-1. #113 root/advance/reroot/attention reconciliation;
-2. #36 complete universal reference/conformance;
-3. #122 integrated semantic acceptance;
-4. #125 public CUDA-JS runtime adapter;
-5. #124 public CUDA-JS-Tensor evaluator connector;
-6. #37 bounded parallel native qualification;
-7. CUDA-JS #32 exact compatible pair;
-8. #123 external-consumer embedding readiness.
+- #122 integrated search/evaluator semantic acceptance — complete;
+- #109 public package/interface baseline — complete;
+- #125 public CUDA-JS runtime adapter — complete;
+- #123 external evaluator-free public-package consumer falsifier — current parallel consumer lane;
+- #124 Tensor evaluator request/batch/scatter/publication connector — open and downstream of the real-model public coverage facts.
 
-Open architecture/control PR: CUDA-MCGS #126.
+Physical CUDA-MCGS/CUDA-JS support remains a separate hardware evidence gate and is not implied by portable consumer work.
 
 ### CUDA-JS
 
-Current package baseline recorded by the CUDA-MCGS/Tensor handoff is `cuda-js@0.1.0-alpha.16` at protected `main@4971302cfb48431c0843126a59d5884d84a81641`.
-
-No new generic CUDA-JS mechanism is currently proven necessary for Vector's first functional search profile. Any discovered generic CUDA/native-mechanism need routes there rather than into Vector.
-
-Open control-state PR: CUDA-JS #151.
+The exact lower peer currently consumed by protected Tensor is `cuda-js@0.1.0-alpha.18@30d11a5d38dd7b9987bc8bac4ac67c2fcf8fee60`. No new generic CUDA mechanism is currently demonstrated by the Vector model coverage campaign. Physical/native support issues remain evidence-gated.
 
 ### CUDA-JS-Tensor
 
-`cuda-js-tensor@0.1.0-alpha.6` / SPEC-0009 provides an item-parallel device-callable Tensor mechanism. Tensor issue #22 tracks CUDA-MCGS/Vector consumer qualification.
+Current protected provider revision for this coverage packet is:
 
-Open priority PR: CUDA-JS-Tensor #26.
+`cuda-js-tensor@0.1.0-alpha.6@62cc5f1076766219fc6e3561eee86cdd66803813`
 
-Result arena, typed/strided-batched cuBLASLt, lower precision, Tensor Cores and fusion providers are optimization lanes, not current correctness blockers.
+Protected Tensor capability foundations on the first evaluator path are complete:
 
-## Vector issue train
+- #32 ordinary SPEC-0010 `unary:erf`, bounded static gather and ordered concat;
+- #52 device-callable f32/f64 `unary:erf`;
+- #37 device-callable non-axis-0 static gather/ordered concat child.
 
-### P0
+Tensor #22 remains the cross-repository real-model readiness outcome. It does not imply an unidentified Tensor implementation gap.
 
-- #2 — chess Domain/Policy specialization and independent differential oracle.
-- #3 — model package -> CUDA-JS-Tensor evaluator adapter.
-- #4 — UCI lifecycle -> CUDA-MCGS Search Session mapping.
-- #5 — Book Forge opening-book consumer adapter.
-- #6 — Timing Evidence policy + live-clock consumer adapter.
-- #7 — endgame tablebase integration + reusable library coverage assessment.
+## First real model coverage — Vector #3
 
-### P1
+The first model remains durably frozen from the prior qualified evidence packet:
 
-- #8 — component/release/Manager/Installer/UCI-consumer integration.
+- model: LatticeKnight-4M / `compact_chessformer_gab_v1`;
+- producer: `iteathen/the_restaurant@8c7d75672cee36aa2a39fbddf713041552770b22`;
+- package: `model_packages/compact_chessformer_gab_v1.json`;
+- package Git blob: `326ba7dd0584438a911baf5051e5f1bedd831274`;
+- spec: `specs/compact_chessformer_gab_v1.yaml`;
+- run/checkpoint: `run_1784364601_12348`, batch `54499`;
+- checkpoint SHA-256: `62dec13c22a4414db6b78ea9b6ca76bcf6f29a16a963c01d13d947d158b09c7e`;
+- 227 tensors / 3,637,988 f32 parameters / 14,551,952 parameter bytes;
+- input `[1,17,8,8]` f32 = 4,352 bytes/item;
+- outputs `[1,4162]` policy + `[1,1]` value = 16,652 bytes/item.
 
-## Confirmed external connector gaps
+Fresh current-main reassessment found one correctness omission in the older coverage packet: the frozen value head is `[mean_pool, layer_norm, linear 256->128, relu, linear 128->1, tanh]`, but the old operation inventory did not include its final `tanh`.
 
-### Book Forge
+The current capability projection therefore distinguishes exact TensorProgram identities:
 
-Current Book Forge public output hard-codes `consumer_component_id: uci_arena.engine`. Vector must not impersonate that product.
+- base: `SPEC-0004-tensor-program-v1`;
+- extension: `SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1`.
 
-- Owner issue: `iteathen/uci-arena-book-forge#35`.
-- Vector consumer: #5.
+`erf`, `gather` and `concat` are now covered by protected public Tensor authority. The corrected frozen-model coverage must fail closed on exactly one remaining semantic requirement, `unary:tanh`, unless an independently reviewed mathematically/numerically equivalent public composition is demonstrated against the frozen model oracle. A formula is not silently accepted merely because it is algebraically equivalent.
 
-### Timing Evidence
+If/when tanh coverage is closed, the next known gate is the complete static TensorProgram/TensorPlan plus exact workspace/resource bound. Numerical parity against the frozen checkpoint remains separately required before evaluator readiness.
 
-No producer defect is currently proven. Evidence target identity is already expressed through exact engine/model/provider facts rather than one engine component id.
+No Restaurant runtime/native source is imported; only immutable producer provenance and declarative architecture/checkpoint facts are evidence inputs.
 
-- Population-policy publication owner: `iteathen/uci-arena-evidence-service#46`.
-- Vector consumer/application: #6.
+## Current priority order
 
-### Tablebases
+1. **#3 correctness/coverage:** prove the corrected LatticeKnight public Tensor capability matrix, route `tanh` to the natural owner if genuinely missing, then build/freeze the complete f32 TensorProgram/TensorPlan and workspace bound.
+2. **CUDA-MCGS #123 parallel consumer falsifier:** prove Vector can consume the exact public `cuda-mcgs` package in an evaluator-free/CUDA-free pre-ignition slice without private imports.
+3. **Tensor #22 / CUDA-MCGS #124:** once model callable/resource facts are complete, connect evaluator request identity/batching/scatter/publication through public Tensor/CUDA-JS only.
+4. **#2 / #4 product correctness:** chess Domain/Policy oracle and UCI/Search-Session adapter on the already accepted MCGS semantics.
+5. Book/timing/tablebase/release integration after their producer/public-contract gates.
+6. Native/platform/performance/strength work only after exact correctness/library coverage and physical evidence exist.
 
-No reusable Node-compatible tablebase library has yet been identified. Vector #7 owns the coverage assessment.
-
-If the only implementation path appears to be a native Fathom/Syzygy addon inside Vector, stop: create/extract a reusable library/contract instead. Product-specific WDL/DTZ/history/rule-50 semantics stay in Vector; only reusable mechanism belongs in a library.
-
-### Installer / suite topology
-
-Installer's canonical architecture still describes six products and one engine brick. Vector is a seventh independent product and must coexist without adopting `uci_arena.engine` identity.
-
-- Owner issue: `iteathen/uci-arena-installer#186`.
-- Vector release integration: #8.
-
-## Current next action
-
-Execute issue #2 at the **contract/reference level only**:
-
-1. define exact packed state/action/history/value domains and units;
-2. define state/transposition/history identity and root restriction semantics;
-3. define independently replaceable Domain vs Policy/output responsibilities;
-4. assemble a reproducible differential fixture/oracle corpus covering legal moves, transitions, draw/terminal rules, castling, en-passant, promotions and history collisions;
-5. assess restricted Device-JS expressibility and file any genuinely generic library gap before implementation.
-
-Parallel dependency-safe work is allowed on #3, #4, #6, #7 and #8 at the specification/contract level. #5 is blocked on Book Forge #35 for final public contract.
-
-Do **not** implement production CUDA-MCGS search lowering before #122 accepts the universal semantic packet.
+`cuda-nn` remains optional. Its #2 justification gate must compare direct Vector -> Tensor composition with a reusable NN layer after this concrete model mapping is explicit; the existence of the repository does not force Vector adoption.
 
 ## Hard stop conditions
 
-Stop and revise the plan if:
+Stop and route rather than work around if:
 
-- a Vector change appears to require native code;
-- a sibling repository's private source/type is needed;
-- a CUDA library must learn chess/UCI/book/timing/tablebase/model-head semantics;
-- active search needs a CPU-produced intermediate;
-- a producer contract requires Vector to impersonate another component identity;
-- a first-profile optimization becomes a de facto correctness dependency without evidence;
-- an external product-specific need is being mislabeled as a universal library primitive merely to avoid a proper product adapter.
+- exact model math would be changed merely to fit an existing library surface;
+- a generic Tensor mathematical/item capability is missing;
+- a generic CUDA compiler/runtime/provider mechanism is missing;
+- a private sibling source/type or native Vector path seems necessary;
+- active search would need a CPU-produced intermediate;
+- CUDA libraries would need chess/UCI/model-head/book/timing/tablebase semantics;
+- portable evidence is being used to claim physical/native support.
