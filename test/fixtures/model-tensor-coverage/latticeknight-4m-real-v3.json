@@ -23,6 +23,7 @@
     }
   },
   "inference_precision": {
+    "profile": "latticeknight-4m-inference-precision-v1",
     "selection_role": "qualification_candidate",
     "candidate": "fp32",
     "compute_dtype": "f32",
