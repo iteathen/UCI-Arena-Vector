@@ -192,7 +192,7 @@ test('root-public Tensor callable compilation owns exact item ABI and workspace'
   }
 });
 
-test('capacity-two qualification profile freezes bounded full/partial item workspace while capacity three fails closed', { timeout: 90_000 }, async () => {
+test('capacity-two qualification profile freezes bounded workspace while capacity three fails closed', { timeout: 90_000 }, async () => {
   assert.equal(QUALIFICATION_WORKSPACE_BYTES, WORKSPACE_BYTES_PER_ITEM * QUALIFICATION_ITEM_CAPACITY);
   assert(QUALIFICATION_WORKSPACE_BYTES < DEFAULT_DEVICE_WORKSPACE_LIMIT);
   assert(WORKSPACE_BYTES_PER_ITEM * 3 > DEFAULT_DEVICE_WORKSPACE_LIMIT);
