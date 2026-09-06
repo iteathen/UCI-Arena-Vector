@@ -11,6 +11,7 @@ on:
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
+      - "tools/verify-model-inference-precision.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
   push:
     branches:
@@ -24,6 +25,7 @@ on:
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
+      - "tools/verify-model-inference-precision.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
   workflow_dispatch:
 
@@ -48,7 +50,7 @@ jobs:
       - name: Check verifier syntax
         run: node --check tools/verify-model-tensor-coverage.mjs
       - name: Run coverage verifier tests
-        run: node --test tools/verify-model-tensor-coverage.test.mjs
+        run: node --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs
       - name: Prove legacy supported synthetic coverage
         run: >-
           node tools/verify-model-tensor-coverage.mjs
