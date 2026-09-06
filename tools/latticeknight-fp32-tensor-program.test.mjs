@@ -21,6 +21,9 @@ const PLAN_IDENTITY = 'tensor-plan-v1:ae83f14f81e5417aed2695f1153266470370d6aecb
 const DEVICE_PROGRAM_IDENTITY = 'tensor-device-program-v1:70d86fd70c97d8b585eb89a9a1cace19572f1d1fe27df11e155f9ce355eed2fb';
 const WORKSPACE_BYTES_PER_ITEM = 33_194_524;
 const WORKSPACE_ELEMENTS_PER_ITEM = 8_298_631;
+const QUALIFICATION_ITEM_CAPACITY = 2;
+const QUALIFICATION_WORKSPACE_BYTES = 66_389_048;
+const DEFAULT_DEVICE_WORKSPACE_LIMIT = 67_108_864;
 const PLAN_UNRESOLVED = [
   'runtime-input-aliasing',
   'session-device-compatibility',
@@ -65,7 +68,7 @@ test('frozen LatticeKnight FP32 candidate constructs one exact public TensorProg
 
 test('static distinct-resource accounting scales exactly with item capacity', () => {
   const one = buildLatticeKnightFp32TensorProgram({ itemCapacity: 1 });
-  const two = buildLatticeKnightFp32TensorProgram({ itemCapacity: 2 });
+  const two = buildLatticeKnightFp32TensorProgram({ itemCapacity: QUALIFICATION_ITEM_CAPACITY });
 
   assert.equal(two.program.contract, MIXED_CONTRACT);
   assert.equal(two.program.nodes.length, one.program.nodes.length);
@@ -73,10 +76,10 @@ test('static distinct-resource accounting scales exactly with item capacity', ()
     { name: 'policy', shape: [2, 4162], dtype: 'f32' },
     { name: 'value', shape: [2, 1], dtype: 'f32' },
   ]);
-  assert.equal(two.plan.totalDistinctBytes, one.plan.totalDistinctBytes * 2);
+  assert.equal(two.plan.totalDistinctBytes, one.plan.totalDistinctBytes * QUALIFICATION_ITEM_CAPACITY);
   assert.equal(two.plan.allocations.length, one.plan.allocations.length);
   for (let index = 0; index < one.plan.allocations.length; index += 1) {
-    assert.equal(two.plan.allocations[index].byteLength, one.plan.allocations[index].byteLength * 2);
+    assert.equal(two.plan.allocations[index].byteLength, one.plan.allocations[index].byteLength * QUALIFICATION_ITEM_CAPACITY);
   }
 });
 
@@ -120,6 +123,69 @@ test('root-public Tensor callable compilation owns exact item ABI and workspace'
       assert.equal(deviceProgram.library.format, 'ptx');
       assert.equal(JSON.stringify(deviceProgram).includes('function tensorRunItem'), false);
       assert.equal(JSON.stringify(deviceProgram.canonical).includes('__device__'), false);
+    } finally {
+      const sessionReport = await session.close();
+      assert.equal(sessionReport.graceful, true);
+    }
+  } finally {
+    const runtimeReport = await runtime.close();
+    assert.equal(runtimeReport.graceful, true);
+  }
+});
+
+test('capacity-two qualification profile freezes bounded full/partial item workspace while capacity three fails closed', { timeout: 90_000 }, async () => {
+  assert.equal(QUALIFICATION_WORKSPACE_BYTES, WORKSPACE_BYTES_PER_ITEM * QUALIFICATION_ITEM_CAPACITY);
+  assert(QUALIFICATION_WORKSPACE_BYTES < DEFAULT_DEVICE_WORKSPACE_LIMIT);
+  assert(WORKSPACE_BYTES_PER_ITEM * 3 > DEFAULT_DEVICE_WORKSPACE_LIMIT);
+
+  const two = buildLatticeKnightFp32TensorProgram({ itemCapacity: QUALIFICATION_ITEM_CAPACITY });
+  const three = buildLatticeKnightFp32TensorProgram({ itemCapacity: 3 });
+  const runtime = await openCudaRuntimeForTesting({ compiler: true });
+  try {
+    const session = await TensorSession.open(runtime);
+    try {
+      const deviceProgram = await compileTensorDeviceProgram(session, two.plan, {
+        itemCapacity: QUALIFICATION_ITEM_CAPACITY,
+        itemInputs: ['features'],
+      });
+
+      assert.equal(deviceProgram.contract, DEVICE_CONTRACT);
+      assert.equal(deviceProgram.itemCapacity, QUALIFICATION_ITEM_CAPACITY);
+      assert.equal(deviceProgram.canonical.profile.maxWorkspaceBytes, DEFAULT_DEVICE_WORKSPACE_LIMIT);
+      assert.deepEqual(deviceProgram.itemInputs, ['features']);
+      assert.deepEqual(deviceProgram.inputs.map(({ name, itemVarying }) => [name, itemVarying]), [
+        ['features', true],
+        ['parameters', false],
+        ['constants', false],
+      ]);
+      assert.deepEqual(deviceProgram.outputs.map(({ name, perItemElements, elementCount, byteLength }) => [name, perItemElements, elementCount, byteLength]), [
+        ['policy', 4162, 8324, 33_296],
+        ['value', 1, 2, 8],
+      ]);
+      assert.equal(deviceProgram.totalWorkspaceBytes, QUALIFICATION_WORKSPACE_BYTES);
+      assert.equal(deviceProgram.workspace.length, 1);
+      assert.equal(deviceProgram.workspace[0].dtype, 'f32');
+      assert.equal(deviceProgram.workspace[0].perItemElements, WORKSPACE_ELEMENTS_PER_ITEM);
+      assert.equal(deviceProgram.workspace[0].elementCount, WORKSPACE_ELEMENTS_PER_ITEM * QUALIFICATION_ITEM_CAPACITY);
+      assert.equal(deviceProgram.workspace[0].byteLength, QUALIFICATION_WORKSPACE_BYTES);
+      assert.equal(deviceProgram.parameters.length, 7);
+      assert.equal(deviceProgram.function.name, 'tensorRunItem');
+      assert.equal(deviceProgram.function.returns, 'u32');
+      assert.equal(deviceProgram.library.format, 'ptx');
+
+      await assert.rejects(
+        compileTensorDeviceProgram(session, three.plan, {
+          itemCapacity: 3,
+          itemInputs: ['features'],
+        }),
+        (error) => {
+          assert.equal(error.code, 'TENSOR_DEVICE_WORKSPACE_LIMIT');
+          assert.equal(error.category, 'pressure');
+          assert.equal(error.details.required, WORKSPACE_BYTES_PER_ITEM * 3);
+          assert.equal(error.details.maximum, DEFAULT_DEVICE_WORKSPACE_LIMIT);
+          return true;
+        },
+      );
     } finally {
       const sessionReport = await session.close();
       assert.equal(sessionReport.graceful, true);
