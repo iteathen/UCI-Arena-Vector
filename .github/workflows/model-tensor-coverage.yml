@@ -9,10 +9,13 @@ on:
       - "contracts/cuda-js-tensor-program-capabilities-v2.json"
       - "contracts/cuda-js-tensor-program-capabilities-v3.json"
       - "test/fixtures/model-tensor-coverage/**"
+      - "test/fixtures/model-oracle/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
       - "tools/verify-model-inference-precision.mjs"
       - "tools/verify-model-inference-precision.test.mjs"
+      - "tools/verify-model-numerical-oracle.mjs"
+      - "tools/verify-model-numerical-oracle.test.mjs"
       - "tools/latticeknight-fp32-tensor-program.mjs"
       - "tools/latticeknight-fp32-tensor-program.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
@@ -26,10 +29,13 @@ on:
       - "contracts/cuda-js-tensor-program-capabilities-v2.json"
       - "contracts/cuda-js-tensor-program-capabilities-v3.json"
       - "test/fixtures/model-tensor-coverage/**"
+      - "test/fixtures/model-oracle/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
       - "tools/verify-model-inference-precision.mjs"
       - "tools/verify-model-inference-precision.test.mjs"
+      - "tools/verify-model-numerical-oracle.mjs"
+      - "tools/verify-model-numerical-oracle.test.mjs"
       - "tools/latticeknight-fp32-tensor-program.mjs"
       - "tools/latticeknight-fp32-tensor-program.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
@@ -65,9 +71,15 @@ jobs:
         run: |
           node --check tools/verify-model-tensor-coverage.mjs
           node --check tools/verify-model-inference-precision.mjs
+          node --check tools/verify-model-numerical-oracle.mjs
           node --check tools/latticeknight-fp32-tensor-program.mjs
       - name: Run coverage verifier tests
-        run: node --experimental-ffi --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs tools/latticeknight-fp32-tensor-program.test.mjs
+        run: >-
+          node --experimental-ffi --test
+          tools/verify-model-tensor-coverage.test.mjs
+          tools/verify-model-inference-precision.test.mjs
+          tools/verify-model-numerical-oracle.test.mjs
+          tools/latticeknight-fp32-tensor-program.test.mjs
       - name: Prove legacy supported synthetic coverage
         run: >-
           node tools/verify-model-tensor-coverage.mjs
