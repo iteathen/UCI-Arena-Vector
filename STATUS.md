@@ -1,8 +1,8 @@
 # UCI Arena Vector Status
 
 **Updated:** 2026-09-05
-**Phase:** first-real-model public-library coverage and external-consumer preparation
-**Current focus:** issue #3 — Tensor #61 handoff, then exact LatticeKnight TensorProgram/TensorPlan workspace and oracle
+**Phase:** first-real-model precision, TensorProgram/TensorPlan workspace and oracle qualification
+**Current focus:** issue #3 — resolve frozen LatticeKnight inference precision, then complete exact workspace/resource and independent oracle evidence
 **Parallel public-package falsifier:** CUDA-MCGS #123 evaluator-free/CUDA-free external consumer
 
 ## Product identity
@@ -31,27 +31,28 @@ CUDA-MCGS protected #228 also reconciles its public CUDA-JS adapter with the cur
 
 ### CUDA-JS
 
-The Tensor package currently integrated before tanh implementation still consumes `cuda-js@0.1.0-alpha.18@30d11a5d38dd7b9987bc8bac4ac67c2fcf8fee60`.
+The exact CUDA-JS lower peer selected by the protected Tensor implementation is now:
 
-The missing lower scalar mechanism is no longer open: CUDA-JS protected-integrated `SPEC-0030-tanh-v1` at `d1a8edef5bd06c402a5c14c8945269f206520174`, reviewed tree `4e71779e19132fedbaa60bacee7db84b0692e1ae`, exposing public same-kind f32/f64 `gpu.math.tanh`. That lower result is portable/software/package capability; it does not promote native/provider support.
+`cuda-js@0.1.0-alpha.18@d1a8edef5bd06c402a5c14c8945269f206520174`
+
+That protected revision supplies accepted/implemented public same-kind f32/f64 `SPEC-0030-tanh-v1` through `gpu.math.tanh`, reviewed tree `4e71779e19132fedbaa60bacee7db84b0692e1ae`. This is portable/software/package capability only; it does not promote native/provider or physical NVIDIA support.
 
 No additional generic CUDA mechanism is currently demonstrated by the Vector model coverage campaign. Physical/native support issues remain evidence-gated.
 
 ### CUDA-JS-Tensor
 
-The frozen Vector verifier snapshot remains bound to the pre-tanh implementation baseline:
+The protected current Vector capability projection is bound exactly to:
 
-`cuda-js-tensor@0.1.0-alpha.6@62cc5f1076766219fc6e3561eee86cdd66803813`
+`cuda-js-tensor@0.1.0-alpha.6@3a62bc47017aa10198eb1640b66f6b71a608b562`
 
-Protected Tensor capability foundations on the first evaluator path are complete:
+Protected Tensor foundations on the first evaluator path are complete:
 
 - #32 ordinary SPEC-0010 `unary:erf`, bounded static gather and ordered concat;
 - #52 device-callable f32/f64 `unary:erf`;
-- #37 device-callable non-axis-0 static gather/ordered concat child.
+- #37 device-callable non-axis-0 static gather/ordered concat child;
+- #61 accepted/implemented f32/f64 SPEC-0011 `unary:tanh` through public CUDA-JS, protected merge `3a62bc47017aa10198eb1640b66f6b71a608b562`, tree `6b8ca9dd802c0f24f93b8cf612d8ba576e932857`, protected post-merge verify `34012270778` success.
 
-Tensor has now also accepted the consumer-backed additive `SPEC-0011` f32/f64 `unary:tanh` semantic child at protected merge `3f34e3153b75e5059a6473ee52c95c7b662a62ed`. Tensor #61 owns implementation/evidence through the protected public CUDA-JS `gpu.math.tanh` lower mechanism. Until #61 is protected-qualified and Vector refreshes its exact capability snapshot, the current real-model verifier must continue to fail closed on tanh rather than pretending accepted authority is implemented capability.
-
-Tensor #22 remains the cross-repository real-model readiness outcome.
+Tensor #22 remains the cross-repository owner of the resulting generic real-model TensorProgram/TensorPlan coverage, workspace/resource, callable and oracle-boundary facts. Vector retains the concrete model/package/checkpoint/head and product-oracle meaning.
 
 ## First real model coverage — Vector #3
 
@@ -68,24 +69,30 @@ The first model remains durably frozen from the qualified evidence packet:
 - input `[1,17,8,8]` f32 = 4,352 bytes/item;
 - outputs `[1,4162]` policy + `[1,1]` value = 16,652 bytes/item.
 
-Protected reassessment found one correctness omission in the older coverage packet: the frozen value head is `[mean_pool, layer_norm, linear 256->128, relu, linear 128->1, tanh]`, but the old operation inventory did not include its final `tanh`.
+Protected reassessment had found one correctness omission in the older coverage packet: the frozen value head is `[mean_pool, layer_norm, linear 256->128, relu, linear 128->1, tanh]`, but the old operation inventory did not include its final `tanh`. That omission is now closed for the current f32 semantic projection by protected exact-pair coverage rather than a local approximation.
 
-The currently frozen implementation capability projection therefore distinguishes exact TensorProgram identities:
+Vector capability snapshot v3 preserves v1/v2 as historical evidence and models all four exact current TensorProgram contract states:
 
 - base: `SPEC-0004-tensor-program-v1`;
-- extension: `SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1`.
+- SPEC-0010 only: `SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1`;
+- SPEC-0011 only: `SPEC-0004-tensor-program-v1+SPEC-0011-tanh-v1`;
+- mixed: `SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1`.
 
-`erf`, `gather` and `concat` are covered by protected public Tensor implementation. `unary:tanh` is no longer an ownership/design unknown: CUDA-JS supplies the lower Device-JS mechanism and Tensor has accepted the exact semantic child. The remaining dependency is Tensor #61 implementation/evidence. Vector must not locally approximate, expand `tanh` algebraically, or pre-claim the accepted Tensor child as implemented.
+The canonical child order is SPEC-0010 then SPEC-0011. The frozen LatticeKnight operation-kind inventory selects the mixed contract exactly, and the current coarse f32 coverage projection reports `missing_capabilities: []`. This is not a claim that every listed operator is available at every Tensor dtype: SPEC-0010 `erf` and SPEC-0011 `tanh` remain f32/f64 only.
 
-When #61 is protected-qualified, Vector #3 should refresh its exact Tensor capability snapshot first. The already-demonstrated next gate is then the complete static f32 TensorProgram/TensorPlan plus exact workspace/resource bound. Numerical parity against the frozen checkpoint remains separately required before evaluator readiness.
+Protected Vector #3 / PR #19 integrated this exact-pair evidence at merge `3d1ae4a00a601259a7ea0a1cd6b8a485132ca459`, tree `8014741e58a643010e008faca81a9d59aeac5b51`. The merge tree exactly equals the reviewed candidate tree. Protected `Repository quality` run `34012907270` and protected `Model Tensor Coverage` run `34012907280` both succeeded. In that current coarse verifier, `--require-real` reaches only `VECTOR_MODEL_WORKSPACE_UNRESOLVED`; workspace remains intentionally `null`.
 
-No Restaurant runtime/native source is imported; only immutable producer provenance and declarative architecture/checkpoint facts are evidence inputs.
+A subsequent authority read found an additional fact that must be resolved before freezing the concrete program: the immutable producer package declares `architecture_settings.float_precision: fp16_autocast` and `precision_policy.amp_enabled: true` with `amp_dtype: fp16`. The input/output contract and checkpoint parameters are f32, but that does not by itself prove an all-f32 inference graph. The exact operation-level inference dtype policy is therefore still an open product-evidence question. Vector must resolve whether autocast is training-only, inference-active or operation-selective before assigning Tensor dtypes. It must not widen f16/bf16 `erf` or `tanh`, insert compensating casts, or substitute alternative math merely to fit current Tensor support.
+
+The next work is therefore: resolve the model-owned inference precision semantics first; construct the exact normalized concrete TensorProgram/TensorPlan with those dtypes through public Tensor machinery; derive exact generic workspace/resource facts from that program; then compare full and partial item batches against an independent frozen-model oracle.
+
+No Restaurant runtime/native source is imported into Vector production; only immutable producer provenance and declarative model/checkpoint facts are evidence inputs. Existing downstream implementation may be inspected as evidence when the declarative authority is insufficient, but it is not a private/native execution path for Vector or Tensor.
 
 ## Current priority order
 
-1. **#3 correctness/coverage:** consume the protected Tensor #61 result when available, refresh the exact capability snapshot, then build/freeze the complete f32 TensorProgram/TensorPlan and workspace/resource bound and run the independent oracle campaign.
-2. **CUDA-MCGS #123 parallel consumer falsifier:** prove Vector can consume the exact public `cuda-mcgs` package in an evaluator-free/CUDA-free pre-ignition slice without private imports. This work does not depend on Tensor #61.
-3. **Tensor #22 / CUDA-MCGS #124:** once model callable/resource facts are complete, connect evaluator request identity/batching/scatter/publication through public Tensor/CUDA-JS only.
+1. **#3 precision/workspace/oracle:** resolve the frozen producer's `fp16_autocast` inference meaning, then build/freeze one exact LatticeKnight TensorProgram/TensorPlan through public CUDA-JS-Tensor, derive exact workspace/resource bounds, and run the independent full/partial-batch oracle campaign. Route any newly demonstrated generic Tensor or CUDA gap to its natural owner.
+2. **CUDA-MCGS #123 parallel consumer falsifier:** prove Vector can consume the exact public `cuda-mcgs` package in an evaluator-free/CUDA-free pre-ignition slice without private imports.
+3. **Tensor #22 / CUDA-MCGS #124:** record the complete generic Tensor coverage/workspace/callable result under Tensor #22, then let #124 consume only those public facts for evaluator request identity/batching/scatter/publication while search lifecycle remains CUDA-MCGS-owned.
 4. **#2 / #4 product correctness:** chess Domain/Policy oracle and UCI/Search-Session adapter on the already accepted MCGS semantics.
 5. Book/timing/tablebase/release integration after their producer/public-contract gates.
 6. Native/platform/performance/strength work only after exact correctness/library coverage and physical evidence exist.
@@ -96,8 +103,8 @@ No Restaurant runtime/native source is imported; only immutable producer provena
 
 Stop and route rather than work around if:
 
-- exact model math would be changed merely to fit an existing library surface;
-- a generic Tensor mathematical/item capability is missing;
+- exact model math or precision would be changed merely to fit an existing library surface;
+- a generic Tensor mathematical/item/ABI/workspace capability is missing;
 - a generic CUDA compiler/runtime/provider mechanism is missing;
 - a private sibling source/type or native Vector path seems necessary;
 - active search would need a CPU-produced intermediate;

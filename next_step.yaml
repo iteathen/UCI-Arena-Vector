@@ -1,10 +1,11 @@
-schema_version: 4
+schema_version: 5
 updated: 2026-09-05
-status: first_real_model_tensor_tanh_handoff
+status: first_real_model_precision_and_workspace_unresolved
 objective: >
   Build UCI Arena Vector as an independent Node-hosted GPU-resident UCI engine
   through public cuda-mcgs, cuda-js-tensor and cuda-js contracts only. Resolve
-  correctness/library coverage before product integration, native qualification,
+  exact model precision/correctness, TensorProgram/TensorPlan/resource coverage
+  and the independent oracle before product integration, native qualification,
   performance or strength work.
 
 product:
@@ -16,27 +17,40 @@ product:
 current_focus:
   id: VECTOR-MODEL-TENSOR-003
   issue: 3
-  name: protected Tensor tanh handoff then frozen LatticeKnight workspace/oracle
+  name: frozen LatticeKnight inference precision, exact TensorProgram/TensorPlan workspace and oracle
   state: >
-    The frozen model and corrected operation inventory are protected. CUDA-JS now
-    supplies public f32/f64 gpu.math.tanh at d1a8edef5bd06c402a5c14c8945269f206520174.
-    CUDA-JS-Tensor has accepted SPEC-0011 unary:tanh at
-    3f34e3153b75e5059a6473ee52c95c7b662a62ed, but Tensor #61 implementation/evidence
-    remains open. The frozen Vector verifier snapshot therefore still truthfully fails
-    closed on tanh until an implemented protected Tensor capability is rebound.
+    Protected Vector #3 / PR #19 binds the frozen model coverage projection to exact
+    cuda-js-tensor@0.1.0-alpha.6@3a62bc47017aa10198eb1640b66f6b71a608b562.
+    Capability snapshot v3 selects the canonical mixed TensorProgram contract
+    SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1,
+    and the current coarse f32 operation-kind projection reports zero missing
+    capabilities. Protected Model Tensor Coverage run 34012907280 demonstrates
+    that this coarse verifier reaches only VECTOR_MODEL_WORKSPACE_UNRESOLVED.
+    However, a subsequent read of the immutable producer package found
+    architecture_settings.float_precision=fp16_autocast and precision_policy
+    amp_enabled=true with amp_dtype=fp16. Input/output and checkpoint parameters
+    are f32, but the exact inference operation dtypes are not yet frozen. Workspace
+    remains null and no complete concrete TensorProgram is yet authoritative.
   action: >
-    Do not rediscover or work around tanh. Track Tensor #61 as the natural generic
-    implementation owner. When its exact protected result exists, refresh Vector's
-    cuda-js-tensor capability snapshot and rerun the frozen real-model verifier. Only
-    after tanh is implementation-covered, build and freeze one complete f32
-    TensorProgram/TensorPlan with exact workspace/resource bounds and compare full and
-    partial item batches against the independent frozen-model oracle. Keep exact
-    producer/checkpoint provenance and do not silently substitute an algebraic tanh.
+    Resolve the model-owned inference precision semantics first: determine whether
+    fp16_autocast is training-only, inference-active, or operation-selective, and
+    record exact per-operation Tensor dtypes without changing the model merely to
+    fit current library support. Then construct one exact normalized LatticeKnight
+    TensorProgram/TensorPlan using only public cuda-js-tensor, derive exact generic
+    material/workspace/resource facts from that actual program, compare full and
+    partial item batches against an independent frozen-model oracle, and prove
+    terminal cleanup. If exact precision requires a missing generic Tensor dtype/
+    math/item/ABI/workspace capability, route it to CUDA-JS-Tensor; if it requires
+    a missing consumer-neutral CUDA mechanism, route it to CUDA-JS. Do not insert
+    compensating casts, widen f16/bf16 erf/tanh support by assumption, or create a
+    Vector-private/native path.
   exit: >
-    One exact frozen real model has complete implemented public operation/spec/resource
-    coverage, an exact normalized TensorProgram/TensorPlan and workspace bound, and an
-    explicit oracle result; every uncovered generic requirement is routed to exactly one
-    natural owner without Vector-private/native workaround.
+    One exact frozen real model has an authoritative inference precision map,
+    complete implemented public operation/spec/resource coverage, an exact
+    normalized TensorProgram/TensorPlan and workspace bound, a typed policy/value
+    output ABI, full and partial item-batch oracle results, exact package/target
+    identity and terminal cleanup; every uncovered generic requirement is routed
+    to exactly one natural owner.
 
 parallel_dependency_ready_work:
   - repository: iteathen/CUDA-MCGS
@@ -45,7 +59,8 @@ parallel_dependency_ready_work:
     scope: >
       evaluator-free CUDA-free external Vector consumer of exact packed protected
       cuda-mcgs public exports for pre-ignition resolve/compose/provenance/error/retryability.
-      This lane is independent of Tensor #61 and does not close physical/native support gates.
+      This lane is independent of the real-model precision/workspace/oracle gate
+      and does not close physical/native support gates.
 
 completed_upstream:
   cuda_mcgs:
@@ -54,14 +69,29 @@ completed_upstream:
     - "#125 public CUDA-JS runtime adapter"
     - "#228 public CUDA-JS adapter/profile correction at 5b7b4c7e918ca3e8e812c6e22e58bf1621061bc6"
   cuda_js:
-    - "currently integrated Tensor lower peer before tanh: cuda-js@0.1.0-alpha.18@30d11a5d38dd7b9987bc8bac4ac67c2fcf8fee60"
-    - "protected SPEC-0030-tanh-v1 public f32/f64 gpu.math.tanh at d1a8edef5bd06c402a5c14c8945269f206520174"
+    - "protected SPEC-0030-tanh-v1 public f32/f64 gpu.math.tanh at d1a8edef5bd06c402a5c14c8945269f206520174 / tree 4e71779e19132fedbaa60bacee7db84b0692e1ae"
   cuda_js_tensor:
     - "#32 ordinary SPEC-0010 erf/static-gather/ordered-concat at 02ae07777632cfa8b527bd5482a59dbff472e4d5"
     - "#52 device-callable unary:erf at 23e3795b3f22162e3705f0f2c659400f69f86ed7"
     - "#37 device-callable gather/concat child at 999f8b56077f051b2e90a64eebc0a0cf59a659bc"
-    - "pre-tanh implementation snapshot at 62cc5f1076766219fc6e3561eee86cdd66803813"
-    - "accepted SPEC-0011 unary:tanh authority at 3f34e3153b75e5059a6473ee52c95c7b662a62ed; implementation remains #61"
+    - "#61 accepted/implemented SPEC-0011 f32/f64 unary:tanh at 3a62bc47017aa10198eb1640b66f6b71a608b562 / tree 6b8ca9dd802c0f24f93b8cf612d8ba576e932857; protected verify 34012270778"
+  vector:
+    - "#3 / PR #19 exact Tensor capability refresh at 3d1ae4a00a601259a7ea0a1cd6b8a485132ca459 / tree 8014741e58a643010e008faca81a9d59aeac5b51"
+    - "protected Repository quality 34012907270 and Model Tensor Coverage 34012907280 succeeded; the current coarse f32 projection has zero missing capabilities and stops at VECTOR_MODEL_WORKSPACE_UNRESOLVED"
+
+exact_tensor_pair:
+  tensor_package: cuda-js-tensor@0.1.0-alpha.6
+  tensor_revision: 3a62bc47017aa10198eb1640b66f6b71a608b562
+  tensor_tree: 6b8ca9dd802c0f24f93b8cf612d8ba576e932857
+  cuda_js_package: cuda-js@0.1.0-alpha.18
+  cuda_js_revision: d1a8edef5bd06c402a5c14c8945269f206520174
+  tensor_program_contract: SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1
+  coarse_f32_missing_capabilities: []
+  workspace_bytes_per_item: null
+  current_coarse_verifier_gate: VECTOR_MODEL_WORKSPACE_UNRESOLVED
+  claim_limit: >
+    This projection does not mean every operator is available at every Tensor
+    dtype. SPEC-0010 erf and SPEC-0011 tanh are f32/f64 only.
 
 frozen_model:
   id: compact_chessformer_gab_v1
@@ -76,23 +106,27 @@ frozen_model:
   checkpoint_sha256: 62dec13c22a4414db6b78ea9b6ca76bcf6f29a16a963c01d13d947d158b09c7e
   tensor_count: 227
   parameter_count: 3637988
+  parameter_dtype: f32
   parameter_bytes: 14551952
+  input_dtype: f32
   input_bytes_per_item: 4352
+  output_dtype: f32
   output_bytes_per_item: 16652
+  declared_float_precision: fp16_autocast
+  amp_enabled: true
+  amp_dtype: fp16
+  inference_operation_dtype_map: unresolved
 
 next_cross_repo:
-  - issue: 61
-    owner: CUDA-JS-Tensor
-    role: implement accepted f32/f64 unary:tanh through exact public CUDA-JS only
   - issue: 3
     owner: UCI-Arena-Vector
-    role: refresh exact provider snapshot after #61, then own model/package/head semantics, TensorProgram construction, workspace and oracle
+    role: own concrete frozen model/package/checkpoint/head/precision semantics, construct the exact product TensorProgram through public Tensor contracts, and own independent product numerical-oracle meaning
   - issue: 22
     owner: CUDA-JS-Tensor
-    role: consumer-neutral real-model Tensor coverage outcome after implemented tanh and oracle evidence
+    role: own the resulting consumer-neutral complete TensorProgram/TensorPlan coverage, item ABI, workspace/resource and callable facts demonstrated by the frozen real model
   - issue: 124
     owner: CUDA-MCGS
-    role: evaluator request identity/batch/scatter/publication/search lifecycle after callable/resource facts are known
+    role: consume only the resulting public generic callable/resource facts while retaining evaluator request identity/batch/scatter/publication/search lifecycle
   - issue: 2
     owner: cuda-nn
     role: compare direct Tensor composition with reusable NN semantics after concrete model mapping exists; no automatic adoption
@@ -104,11 +138,13 @@ hardware_gates:
 
 hard_rules:
   - no Vector-maintained C/C++/CUDA/PTX/native FFI
+  - no Python in this portfolio
   - no private sibling-repository imports
   - no host-produced active-search intermediate after ignition
-  - exact model math is not changed merely to fit an existing library surface
+  - exact model math or precision is not changed merely to fit an existing library surface
   - accepted-but-unimplemented Tensor authority is not reported as implemented capability
   - generic CUDA gaps route to cuda-js
-  - generic Tensor math/item gaps route to cuda-js-tensor
+  - generic Tensor math/dtype/item/ABI/workspace gaps route to cuda-js-tensor
   - reusable NN semantics route to cuda-nn only if issue #2 justifies them
   - chess/UCI/model/head/book/timing/tablebase meaning remains product-owned
+  - portable/package evidence never promotes native/provider/hardware support
