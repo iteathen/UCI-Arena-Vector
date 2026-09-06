@@ -31,6 +31,7 @@ node tools/verify-repository.mjs
 This validates repository documents and contracts, not chess-engine operation.
 
 - [Next development step](next_step.yaml).
+- [Proposed chess search product boundary](docs/specs/VECTOR-0001-chess-search-product.md).
 - [Contributing](CONTRIBUTING.md) and [developer instructions](AGENTS.md).
 - [Support](SUPPORT.md), [governance](GOVERNANCE.md), and [private security reporting](SECURITY.md).
 - [GNU GPL v3 license](LICENSE).

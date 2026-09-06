@@ -10,6 +10,8 @@ const requiredFiles = [
   "AGENTS.md",
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
+  "docs/architecture/CONNECTOR_MAP.md",
+  "docs/specs/VECTOR-0001-chess-search-product.md",
   "GOVERNANCE.md",
   "LICENSE",
   "README.md",

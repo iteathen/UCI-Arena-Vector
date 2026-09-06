@@ -15,6 +15,8 @@
 
 Vector remains a product layer. Chess, UCI, concrete model/package/head meaning, opening-book use, timing application and tablebase policy stay here. CUDA-MCGS, CUDA-JS-Tensor and CUDA-JS are consumed only through public contracts. Vector production gets no C/C++/CUDA/PTX/native-FFI escape path.
 
+The proposed chess product contract is retained here as [VECTOR-0001](docs/specs/VECTOR-0001-chess-search-product.md), with issue #2 owning its concrete Domain/Policy continuation. It does not replace the active model qualification work or authorize production search.
+
 ## Current upstream state
 
 ### CUDA-MCGS
