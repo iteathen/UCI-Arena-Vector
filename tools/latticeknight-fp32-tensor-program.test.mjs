@@ -15,20 +15,20 @@ import {
 
 const MIXED_CONTRACT = 'SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1';
 const DEVICE_CONTRACT = 'SPEC-0009-item-parallel-device-tensor-program-v1+SPEC-0009-gather-concat-v1';
+const PROGRAM_IDENTITY = 'tensor-program-v1:3ef2b2fafdc3bbfa8b676668198b6f1bc91f0657adb3d04bf8e0a3c2d3644358';
+const PLAN_IDENTITY = 'tensor-plan-v1:ae83f14f81e5417aed2695f1153266470370d6aecb6c3f6114ab50c201a13dba';
+const PLAN_UNRESOLVED = [
+  'runtime-input-aliasing',
+  'session-device-compatibility',
+  'backend-selection',
+  'generated-program-identities',
+  'backend-workspace',
+  'prepared-execution-products',
+  'cleanup-graph',
+];
 
 test('frozen LatticeKnight FP32 candidate constructs one exact public TensorProgram/TensorPlan', () => {
   const result = buildLatticeKnightFp32TensorProgram({ itemCapacity: 1 });
-
-  process.stdout.write(`${JSON.stringify({
-    schema: 'vector-latticeknight-fp32-program-measurement-v1',
-    programIdentity: result.program.compatibilityIdentity,
-    planIdentity: result.plan.compatibilityIdentity,
-    nodeCount: result.program.nodes.length,
-    materialNodeCount: result.program.nodes.filter(({ materialization }) => materialization === 'materialize').length,
-    allocationCount: result.plan.allocations.length,
-    totalDistinctBytes: result.plan.totalDistinctBytes,
-    unresolved: result.plan.unresolved,
-  })}\n`);
 
   assert.equal(result.profile, LATTICEKNIGHT_FP32_PROGRAM_PROFILE);
   assert.equal(result.itemCapacity, 1);
@@ -36,14 +36,19 @@ test('frozen LatticeKnight FP32 candidate constructs one exact public TensorProg
   assert.equal(result.parameterLayout.elementCount, 3_637_988);
   assert.equal(result.parameterLayout.byteLength, 14_551_952);
   assert.equal(result.program.contract, MIXED_CONTRACT);
+  assert.equal(result.program.compatibilityIdentity, PROGRAM_IDENTITY);
+  assert.equal(result.program.nodes.length, 2216);
+  assert.equal(result.program.nodes.filter(({ materialization }) => materialization === 'materialize').length, 1340);
   assert.equal(result.plan.contract, 'SPEC-0004-static-tensor-plan-v1');
+  assert.equal(result.plan.compatibilityIdentity, PLAN_IDENTITY);
+  assert.equal(result.plan.allocations.length, 1340);
+  assert.equal(result.plan.totalDistinctBytes, 24_457_004);
+  assert.deepEqual(result.plan.unresolved, PLAN_UNRESOLVED);
   assert.deepEqual(result.program.inputs.map(({ name }) => name), ['features', 'parameters', 'constants']);
   assert.deepEqual(result.program.outputs.map(({ name, spec }) => ({ name, shape: [...spec.capacityShape], dtype: spec.dtype })), [
     { name: 'policy', shape: [1, 4162], dtype: 'f32' },
     { name: 'value', shape: [1, 1], dtype: 'f32' },
   ]);
-  assert(result.program.nodes.length > 0 && result.program.nodes.length <= 4096);
-  assert(Number.isSafeInteger(result.plan.totalDistinctBytes) && result.plan.totalDistinctBytes > 0);
   assert.equal(TensorProgram.create(JSON.parse(JSON.stringify(result.program.canonical))).compatibilityIdentity, result.program.compatibilityIdentity);
   assert.equal(result.program.nodes.some(({ op }) => op === 'fill'), false);
   const operations = new Set(result.program.nodes.map(({ op }) => op));
@@ -80,6 +85,15 @@ test('root-public Tensor callable compilation owns exact item ABI and workspace'
       itemCapacity: 1,
       itemInputs: ['features'],
     });
+
+    process.stdout.write(`${JSON.stringify({
+      schema: 'vector-latticeknight-fp32-callable-measurement-v1',
+      compatibilityIdentity: deviceProgram.compatibilityIdentity,
+      totalWorkspaceBytes: deviceProgram.totalWorkspaceBytes,
+      workspacePerItemElements: deviceProgram.workspace[0]?.perItemElements ?? null,
+      parameterCount: deviceProgram.parameters.length,
+      libraryFormat: deviceProgram.library.format,
+    })}\n`);
 
     assert.equal(deviceProgram.contract, DEVICE_CONTRACT);
     assert.equal(deviceProgram.itemCapacity, 1);
