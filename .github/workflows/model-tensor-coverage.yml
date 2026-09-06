@@ -67,7 +67,7 @@ jobs:
           node --check tools/verify-model-inference-precision.mjs
           node --check tools/latticeknight-fp32-tensor-program.mjs
       - name: Run coverage verifier tests
-        run: node --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs tools/latticeknight-fp32-tensor-program.test.mjs
+        run: node --experimental-ffi --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs tools/latticeknight-fp32-tensor-program.test.mjs
       - name: Prove legacy supported synthetic coverage
         run: >-
           node tools/verify-model-tensor-coverage.mjs
