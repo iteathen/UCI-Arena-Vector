@@ -131,16 +131,19 @@ function expectsCode(code) {
   };
 }
 
-test('exact frozen checkpoint oracle receipt and full/partial public Tensor observations match', () => {
+test('exact frozen checkpoint oracle receipt and full/partial public Tensor observations compare without promoting readiness', () => {
   const { oracle, observation } = fixtures();
   const result = compareModelNumericalOracle(oracle, observation);
-  assert.equal(result.status, 'matched_independent_checkpoint_oracle');
+  assert.equal(result.status, 'comparison_passed');
+  assert.equal(result.readiness, 'requires_reviewed_product_decision');
   assert.equal(result.checkpoint_sha256, CHECKPOINT);
   assert.equal(result.item_capacity, 2);
   assert.deepEqual(result.occupancies, ['full-capacity-2', 'partial-1-of-2']);
   assert.equal(result.comparisons.length, 3);
   assert.equal(result.cleanup, 'graceful');
   for (const comparison of result.comparisons) {
+    assert.deepEqual(Object.keys(comparison.policy), ['maxAbsoluteError']);
+    assert.deepEqual(Object.keys(comparison.value), ['maxAbsoluteError']);
     assert.equal(comparison.policy.maxAbsoluteError, 0);
     assert.equal(comparison.value.maxAbsoluteError, 0);
   }
