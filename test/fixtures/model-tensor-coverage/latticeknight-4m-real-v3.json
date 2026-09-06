@@ -1,0 +1,75 @@
+{
+  "contract": "vector-model-tensor-coverage-v3",
+  "source_class": "frozen_real_model",
+  "coverage_scope": "model_semantic_capability_matrix_v1",
+  "model": {
+    "id": "compact_chessformer_gab_v1",
+    "source": {
+      "repository": "iteathen/the_restaurant",
+      "revision": "8c7d75672cee36aa2a39fbddf713041552770b22",
+      "package_path": "model_packages/compact_chessformer_gab_v1.json",
+      "package_blob": "326ba7dd0584438a911baf5051e5f1bedd831274",
+      "spec_path": "specs/compact_chessformer_gab_v1.yaml"
+    },
+    "checkpoint": {
+      "run_id": "run_1784364601_12348",
+      "batch": 54499,
+      "sha256": "62dec13c22a4414db6b78ea9b6ca76bcf6f29a16a963c01d13d947d158b09c7e",
+      "layout_schema": "restaurant_square_transformer_gab_checkpoint_layout_v1",
+      "tensor_count": 227,
+      "parameter_count": 3637988,
+      "parameter_dtype": "f32",
+      "parameter_bytes": 14551952
+    }
+  },
+  "inference_precision": {
+    "selection_role": "qualification_candidate",
+    "candidate": "fp32",
+    "compute_dtype": "f32",
+    "public_io_dtype": "f32",
+    "producer_supported_candidates": ["fp32", "fp16_weights"],
+    "producer_parity_status": "pending_native_onnx_runtime_measurement",
+    "producer_provider_status": "pending_directml_host_measurement",
+    "producer_promotion_ready": false,
+    "producer_default_activation_ready": false,
+    "training_precision_authority": "not_inference_selection"
+  },
+  "tensor_contract": {
+    "provider_package": "cuda-js-tensor",
+    "provider_version": "0.1.0-alpha.6",
+    "provider_revision": "3a62bc47017aa10198eb1640b66f6b71a608b562",
+    "tensor_program_contract": "SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1"
+  },
+  "inputs": [
+    { "name": "features", "dtype": "f32", "shape": [1, 17, 8, 8] }
+  ],
+  "operations": [
+    { "id": "constant-fill", "kind": "fill" },
+    { "id": "token-shape", "kind": "reshape" },
+    { "id": "token-order", "kind": "permute" },
+    { "id": "linear-products", "kind": "matmul" },
+    { "id": "bias-and-residual-add", "kind": "binary", "operator": "add" },
+    { "id": "normalization-subtract", "kind": "binary", "operator": "sub" },
+    { "id": "normalization-products", "kind": "binary", "operator": "mul" },
+    { "id": "normalization-divide", "kind": "binary", "operator": "div" },
+    { "id": "relu", "kind": "binary", "operator": "maximum" },
+    { "id": "softmax-exp", "kind": "unary", "operator": "exp" },
+    { "id": "normalization-sqrt", "kind": "unary", "operator": "sqrt" },
+    { "id": "gelu-erf", "kind": "unary", "operator": "erf" },
+    { "id": "value-tanh", "kind": "unary", "operator": "tanh" },
+    { "id": "reductions-sum", "kind": "reduce", "operator": "sum" },
+    { "id": "reductions-max", "kind": "reduce", "operator": "maximum" },
+    { "id": "underpromotion-gather", "kind": "gather" },
+    { "id": "policy-concat", "kind": "concat" }
+  ],
+  "outputs": [
+    { "name": "policy", "dtype": "f32", "shape": [1, 4162] },
+    { "name": "value", "dtype": "f32", "shape": [1, 1] }
+  ],
+  "resources": {
+    "parameter_bytes": 14551952,
+    "workspace_bytes_per_item": null,
+    "input_bytes_per_item": 4352,
+    "output_bytes_per_item": 16652
+  }
+}
