@@ -1,0 +1,40 @@
+{
+  "contract": "vector-cuda-js-tensor-capabilities-v2",
+  "provider_package": "cuda-js-tensor",
+  "provider_version": "0.1.0-alpha.6",
+  "provider_revision": "62cc5f1076766219fc6e3561eee86cdd66803813",
+  "tensor_program_contracts": {
+    "base": "SPEC-0004-tensor-program-v1",
+    "spec0010": "SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1"
+  },
+  "extension_operation_contracts": {
+    "unary:erf": "spec0010",
+    "gather": "spec0010",
+    "concat": "spec0010"
+  },
+  "limits": {
+    "max_inputs": 256,
+    "max_nodes": 4096,
+    "max_outputs": 256,
+    "max_rank": 16,
+    "max_static_gather_indices": 65536,
+    "max_concat_inputs": 256
+  },
+  "dtypes": ["u32", "u64", "i32", "f16", "bf16", "f32", "f64"],
+  "operations": {
+    "fill": null,
+    "copy": null,
+    "cast": null,
+    "reshape": null,
+    "permute": null,
+    "slice": null,
+    "broadcast": null,
+    "contiguous": null,
+    "unary": ["neg", "abs", "exp", "log", "sqrt", "erf"],
+    "binary": ["add", "sub", "mul", "div", "minimum", "maximum"],
+    "reduce": ["sum", "product", "minimum", "maximum"],
+    "matmul": null,
+    "gather": null,
+    "concat": null
+  }
+}
