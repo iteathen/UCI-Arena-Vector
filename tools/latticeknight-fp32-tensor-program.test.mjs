@@ -19,6 +19,17 @@ const DEVICE_CONTRACT = 'SPEC-0009-item-parallel-device-tensor-program-v1+SPEC-0
 test('frozen LatticeKnight FP32 candidate constructs one exact public TensorProgram/TensorPlan', () => {
   const result = buildLatticeKnightFp32TensorProgram({ itemCapacity: 1 });
 
+  process.stdout.write(`${JSON.stringify({
+    schema: 'vector-latticeknight-fp32-program-measurement-v1',
+    programIdentity: result.program.compatibilityIdentity,
+    planIdentity: result.plan.compatibilityIdentity,
+    nodeCount: result.program.nodes.length,
+    materialNodeCount: result.program.nodes.filter(({ materialization }) => materialization === 'materialize').length,
+    allocationCount: result.plan.allocations.length,
+    totalDistinctBytes: result.plan.totalDistinctBytes,
+    unresolved: result.plan.unresolved,
+  })}\n`);
+
   assert.equal(result.profile, LATTICEKNIGHT_FP32_PROGRAM_PROFILE);
   assert.equal(result.itemCapacity, 1);
   assert.equal(result.parameterLayout.tensorCount, 227);
