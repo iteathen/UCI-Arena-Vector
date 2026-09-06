@@ -31,7 +31,7 @@ test('legacy synthetic fixture preserves its pinned v1 capability snapshot behav
   const result = verifyModelTensorCoverage(syntheticCopy(), legacyCapabilities);
   assert.equal(result.status, 'covered_synthetic_fixture');
   assert.equal(result.real_model_ready, false);
-  assert.equal(result.tensor_provider_revision, '44376e151ab854c81d65df79db1717478ae8ce5b');
+  assert.equal(result.tensor_provider_revision, '9ecc1d78bca989ec456c897dec215e82ce4cd311');
   assert.equal(result.tensor_program_contract, 'SPEC-0004-tensor-program-v1');
   assert.equal(result.minimum_input_bytes_per_item, 64);
   assert.equal(result.minimum_output_bytes_per_item, 36);
