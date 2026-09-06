@@ -35,8 +35,10 @@ test('frozen LatticeKnight binds fp32 only as a qualification candidate, not pro
   });
   assert.equal(result.contract, 'vector-model-tensor-coverage-result-v3');
   assert.equal(result.manifest_contract, 'vector-model-tensor-coverage-v3');
-  assert.equal(result.status, 'frozen_real_model_workspace_unresolved');
-  assert.equal(result.real_model_ready, false);
+  assert.equal(result.status, 'covered_real_model');
+  assert.equal(result.real_model_ready, true);
+  assert.equal(result.tensor_provider_revision, '0da2c70a0a10df908a33e842aa4ba3dbd7605c48');
+  assert.equal(result.declared_resources.workspaceBytesPerItem, 33_194_524);
   assert.deepEqual(result.missing_capabilities, []);
 });
 
