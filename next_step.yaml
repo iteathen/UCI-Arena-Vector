@@ -1,11 +1,11 @@
-schema_version: 5
+schema_version: 6
 updated: 2026-09-05
-status: first_real_model_precision_and_workspace_unresolved
+status: first_real_model_fp32_candidate_workspace_unresolved
 objective: >
   Build UCI Arena Vector as an independent Node-hosted GPU-resident UCI engine
   through public cuda-mcgs, cuda-js-tensor and cuda-js contracts only. Resolve
-  exact model precision/correctness, TensorProgram/TensorPlan/resource coverage
-  and the independent oracle before product integration, native qualification,
+  exact model correctness, TensorProgram/TensorPlan/resource coverage and the
+  independent oracle before product integration, native qualification,
   performance or strength work.
 
 product:
@@ -17,40 +17,44 @@ product:
 current_focus:
   id: VECTOR-MODEL-TENSOR-003
   issue: 3
-  name: frozen LatticeKnight inference precision, exact TensorProgram/TensorPlan workspace and oracle
+  name: frozen LatticeKnight FP32 qualification-candidate TensorProgram/TensorPlan workspace and oracle
   state: >
-    Protected Vector #3 / PR #19 binds the frozen model coverage projection to exact
-    cuda-js-tensor@0.1.0-alpha.6@3a62bc47017aa10198eb1640b66f6b71a608b562.
-    Capability snapshot v3 selects the canonical mixed TensorProgram contract
-    SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1,
-    and the current coarse f32 operation-kind projection reports zero missing
-    capabilities. Protected Model Tensor Coverage run 34012907280 demonstrates
-    that this coarse verifier reaches only VECTOR_MODEL_WORKSPACE_UNRESOLVED.
-    However, a subsequent read of the immutable producer package found
-    architecture_settings.float_precision=fp16_autocast and precision_policy
-    amp_enabled=true with amp_dtype=fp16. Input/output and checkpoint parameters
-    are f32, but the exact inference operation dtypes are not yet frozen. Workspace
-    remains null and no complete concrete TensorProgram is yet authoritative.
+    Protected Vector PR #22 freezes FP32 only as the explicit LatticeKnight
+    correctness qualification candidate. Merge
+    118feaee28c7497e0ed4c027687793e840c95bc1 has protected tree
+    e877751ff809fafbedd7071d05c5fc7c53f719fc, with protected Model Tensor
+    Coverage 34015432262 and Repository quality 34015432259 both successful.
+    Precision profile latticeknight-4m-inference-precision-v1 binds
+    selectionRole=qualification_candidate, candidate=fp32, computeDtype=f32 and
+    public I/O f32. Frozen producer promotion/default activation remain pending
+    and false; training FP16 autocast is not inference-selection authority. On
+    this FP32 candidate the exact protected Tensor pair selects the canonical
+    SPEC-0010+SPEC-0011 mixed TensorProgram contract with zero coarse operation
+    gaps, but workspace remains null and no complete concrete TensorProgram or
+    TensorPlan resource result has yet been frozen.
   action: >
-    Resolve the model-owned inference precision semantics first: determine whether
-    fp16_autocast is training-only, inference-active, or operation-selective, and
-    record exact per-operation Tensor dtypes without changing the model merely to
-    fit current library support. Then construct one exact normalized LatticeKnight
-    TensorProgram/TensorPlan using only public cuda-js-tensor, derive exact generic
-    material/workspace/resource facts from that actual program, compare full and
-    partial item batches against an independent frozen-model oracle, and prove
-    terminal cleanup. If exact precision requires a missing generic Tensor dtype/
-    math/item/ABI/workspace capability, route it to CUDA-JS-Tensor; if it requires
-    a missing consumer-neutral CUDA mechanism, route it to CUDA-JS. Do not insert
-    compensating casts, widen f16/bf16 erf/tanh support by assumption, or create a
-    Vector-private/native path.
+    Construct one exact normalized FP32 LatticeKnight TensorProgram from the
+    frozen product-owned graph and checkpoint layout using only public
+    cuda-js-tensor. Create the corresponding TensorPlan and existing public
+    item-device callable profile where applicable, and derive exact material,
+    per-item workspace, parameter/input/output and callable resource facts from
+    the actual normalized program rather than the coarse operation inventory.
+    Then compare full and partial item batches against an independent frozen-model
+    oracle and prove exact package/target identity and terminal cleanup. If the
+    concrete model demonstrates a missing generic Tensor math/dtype/item/ABI/
+    workspace capability, route it to CUDA-JS-Tensor #22; if it demonstrates a
+    missing consumer-neutral CUDA mechanism, route it to CUDA-JS. Do not change
+    model math/precision, insert compensating casts, widen f16/bf16 erf/tanh, or
+    create a Vector-private/native path.
   exit: >
-    One exact frozen real model has an authoritative inference precision map,
-    complete implemented public operation/spec/resource coverage, an exact
-    normalized TensorProgram/TensorPlan and workspace bound, a typed policy/value
-    output ABI, full and partial item-batch oracle results, exact package/target
-    identity and terminal cleanup; every uncovered generic requirement is routed
-    to exactly one natural owner.
+    The frozen FP32 qualification candidate has complete implemented public
+    operation/spec/resource coverage, one exact normalized TensorProgram/
+    TensorPlan and workspace bound, a typed policy/value output ABI, full and
+    partial item-batch oracle results, exact package/target identity and terminal
+    cleanup; every uncovered generic requirement is routed to exactly one natural
+    owner. Producer FP32/fp16 promotion/default selection remains a separate
+    producer qualification fact and is not required to call this correctness
+    candidate complete.
 
 parallel_dependency_ready_work:
   - repository: iteathen/CUDA-MCGS
@@ -59,8 +63,8 @@ parallel_dependency_ready_work:
     scope: >
       evaluator-free CUDA-free external Vector consumer of exact packed protected
       cuda-mcgs public exports for pre-ignition resolve/compose/provenance/error/retryability.
-      This lane is independent of the real-model precision/workspace/oracle gate
-      and does not close physical/native support gates.
+      This lane is independent of the real-model workspace/oracle gate and does
+      not close physical/native support gates.
 
 completed_upstream:
   cuda_mcgs:
@@ -77,7 +81,8 @@ completed_upstream:
     - "#61 accepted/implemented SPEC-0011 f32/f64 unary:tanh at 3a62bc47017aa10198eb1640b66f6b71a608b562 / tree 6b8ca9dd802c0f24f93b8cf612d8ba576e932857; protected verify 34012270778"
   vector:
     - "#3 / PR #19 exact Tensor capability refresh at 3d1ae4a00a601259a7ea0a1cd6b8a485132ca459 / tree 8014741e58a643010e008faca81a9d59aeac5b51"
-    - "protected Repository quality 34012907270 and Model Tensor Coverage 34012907280 succeeded; the current coarse f32 projection has zero missing capabilities and stops at VECTOR_MODEL_WORKSPACE_UNRESOLVED"
+    - "#3 / PR #22 FP32 qualification-candidate precision evidence at 118feaee28c7497e0ed4c027687793e840c95bc1 / tree e877751ff809fafbedd7071d05c5fc7c53f719fc"
+    - "protected Model Tensor Coverage 34015432262 and Repository quality 34015432259 succeeded; exact FP32 candidate has zero coarse operation gaps and stops at VECTOR_MODEL_WORKSPACE_UNRESOLVED"
 
 exact_tensor_pair:
   tensor_package: cuda-js-tensor@0.1.0-alpha.6
@@ -86,12 +91,13 @@ exact_tensor_pair:
   cuda_js_package: cuda-js@0.1.0-alpha.18
   cuda_js_revision: d1a8edef5bd06c402a5c14c8945269f206520174
   tensor_program_contract: SPEC-0004-tensor-program-v1+SPEC-0010-erf-gather-concat-v1+SPEC-0011-tanh-v1
-  coarse_f32_missing_capabilities: []
+  fp32_candidate_missing_capabilities: []
   workspace_bytes_per_item: null
-  current_coarse_verifier_gate: VECTOR_MODEL_WORKSPACE_UNRESOLVED
+  current_gate: VECTOR_MODEL_WORKSPACE_UNRESOLVED
   claim_limit: >
-    This projection does not mean every operator is available at every Tensor
-    dtype. SPEC-0010 erf and SPEC-0011 tanh are f32/f64 only.
+    This exact pair is qualified here only for the frozen FP32 correctness
+    candidate and portable/software/package evidence. SPEC-0010 erf and
+    SPEC-0011 tanh remain f32/f64 only; no native/provider/hardware claim follows.
 
 frozen_model:
   id: compact_chessformer_gab_v1
@@ -112,10 +118,18 @@ frozen_model:
   input_bytes_per_item: 4352
   output_dtype: f32
   output_bytes_per_item: 16652
-  declared_float_precision: fp16_autocast
-  amp_enabled: true
-  amp_dtype: fp16
-  inference_operation_dtype_map: unresolved
+  training_float_precision: fp16_autocast
+  training_amp_enabled: true
+  training_amp_dtype: fp16
+  inference_precision_profile: latticeknight-4m-inference-precision-v1
+  inference_selection_role: qualification_candidate
+  inference_candidate: fp32
+  inference_compute_dtype: f32
+  producer_supported_inference_candidates: [fp32, fp16_weights]
+  producer_parity_status: pending_native_onnx_runtime_measurement
+  producer_provider_status: pending_directml_host_measurement
+  producer_promotion_ready: false
+  producer_default_activation_ready: false
 
 next_cross_repo:
   - issue: 3
@@ -123,7 +137,7 @@ next_cross_repo:
     role: own concrete frozen model/package/checkpoint/head/precision semantics, construct the exact product TensorProgram through public Tensor contracts, and own independent product numerical-oracle meaning
   - issue: 22
     owner: CUDA-JS-Tensor
-    role: own the resulting consumer-neutral complete TensorProgram/TensorPlan coverage, item ABI, workspace/resource and callable facts demonstrated by the frozen real model
+    role: own any resulting consumer-neutral complete TensorProgram/TensorPlan coverage, item ABI, workspace/resource and callable facts demonstrated by the frozen real model
   - issue: 124
     owner: CUDA-MCGS
     role: consume only the resulting public generic callable/resource facts while retaining evaluator request identity/batch/scatter/publication/search lifecycle
