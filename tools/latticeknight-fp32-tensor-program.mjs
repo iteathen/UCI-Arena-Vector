@@ -313,7 +313,7 @@ export function buildLatticeKnightFp32TensorProgram({ itemCapacity } = {}) {
     const promotionPieces = [];
     for (let piece = 0; piece < 3; piece += 1) {
       const delta3 = graph.slice(promotionDeltas, [null, null, { start: piece, length: 1 }]);
-      const delta2 = graph.reshape(delta3, [itemCapacity, PROMOTION_FROM.length]);
+      const delta2 = graph.reshape(graph.contiguous(delta3), [itemCapacity, PROMOTION_FROM.length]);
       const logits2 = graph.binary('add', promotionBase, delta2);
       promotionPieces.push(graph.reshape(logits2, [itemCapacity, PROMOTION_FROM.length, 1]));
     }
