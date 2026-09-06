@@ -11,7 +11,7 @@ const frozenCopy = () => structuredClone(frozen);
 
 function rejectsPrecision(mutator) {
   const manifest = frozenCopy();
-  mutator(manifest.inference_precision);
+  mutator(manifest);
   assert.throws(
     () => verifyModelInferencePrecisionCoverage(manifest, capabilities),
     (error) => error instanceof CoverageError && error.code === 'VECTOR_MODEL_PRECISION_INVALID',
@@ -21,6 +21,7 @@ function rejectsPrecision(mutator) {
 test('frozen LatticeKnight binds fp32 only as a qualification candidate, not producer-promoted/default precision', () => {
   const result = verifyModelInferencePrecisionCoverage(frozenCopy(), capabilities);
   assert.deepEqual(result.inference_precision, {
+    profile: 'latticeknight-4m-inference-precision-v1',
     selectionRole: 'qualification_candidate',
     candidate: 'fp32',
     computeDtype: 'f32',
@@ -39,18 +40,23 @@ test('frozen LatticeKnight binds fp32 only as a qualification candidate, not pro
   assert.deepEqual(result.missing_capabilities, []);
 });
 
+test('precision profile is bound to the exact frozen LatticeKnight producer identity', () => {
+  rejectsPrecision((manifest) => { manifest.inference_precision.profile = 'generic-model-precision-v1'; });
+  rejectsPrecision((manifest) => { manifest.model.source.revision = '0000000000000000000000000000000000000000'; });
+});
+
 test('pending producer reports cannot be relabeled as promoted or default precision', () => {
-  rejectsPrecision((precision) => { precision.selection_role = 'producer_promoted'; });
-  rejectsPrecision((precision) => { precision.selection_role = 'producer_default'; });
+  rejectsPrecision((manifest) => { manifest.inference_precision.selection_role = 'producer_promoted'; });
+  rejectsPrecision((manifest) => { manifest.inference_precision.selection_role = 'producer_default'; });
 });
 
 test('fp16_weights is an fp16 compute candidate, not a storage-only alias for f32 compute', () => {
-  rejectsPrecision((precision) => {
-    precision.candidate = 'fp16_weights';
-    precision.compute_dtype = 'f32';
+  rejectsPrecision((manifest) => {
+    manifest.inference_precision.candidate = 'fp16_weights';
+    manifest.inference_precision.compute_dtype = 'f32';
   });
 });
 
 test('training AMP precision cannot become inference-selection authority', () => {
-  rejectsPrecision((precision) => { precision.training_precision_authority = 'fp16_autocast'; });
+  rejectsPrecision((manifest) => { manifest.inference_precision.training_precision_authority = 'fp16_autocast'; });
 });
