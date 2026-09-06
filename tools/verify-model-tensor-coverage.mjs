@@ -6,6 +6,7 @@ const MANIFEST_V1 = 'vector-model-tensor-coverage-v1';
 const MANIFEST_V2 = 'vector-model-tensor-coverage-v2';
 const CAPABILITIES_V1 = 'vector-cuda-js-tensor-capabilities-v1';
 const CAPABILITIES_V2 = 'vector-cuda-js-tensor-capabilities-v2';
+const CAPABILITIES_V3 = 'vector-cuda-js-tensor-capabilities-v3';
 const SOURCE_CLASSES = new Set(['synthetic_contract_fixture', 'frozen_real_model']);
 const DTYPE_BYTES = Object.freeze({ u32: 4, u64: 8, i32: 4, f16: 2, bf16: 2, f32: 4, f64: 8 });
 const HEX40 = /^[0-9a-f]{40}$/;
@@ -25,7 +26,11 @@ const OP_FIELDS = new Set(['id', 'kind', 'operator']);
 const RESOURCE_FIELDS = new Set(['parameter_bytes', 'workspace_bytes_per_item', 'input_bytes_per_item', 'output_bytes_per_item']);
 const CAPABILITY_V1_FIELDS = new Set(['contract', 'provider_package', 'provider_version', 'provider_revision', 'tensor_program_contract', 'limits', 'dtypes', 'operations']);
 const CAPABILITY_V2_FIELDS = new Set(['contract', 'provider_package', 'provider_version', 'provider_revision', 'tensor_program_contracts', 'extension_operation_contracts', 'limits', 'dtypes', 'operations']);
-const CAPABILITY_CONTRACT_KEYS = new Set(['base', 'spec0010']);
+const CAPABILITY_V3_FIELDS = new Set([...CAPABILITY_V2_FIELDS, 'contract_composition_order']);
+const CAPABILITY_V2_CONTRACT_KEYS = new Set(['base', 'spec0010']);
+const CAPABILITY_V3_CONTRACT_KEYS = new Set(['base', 'spec0010', 'spec0011', 'spec0010_spec0011']);
+const CAPABILITY_V3_CHILD_KEYS = new Set(['spec0010', 'spec0011']);
+const CAPABILITY_V3_COMPOSITION_ORDER = Object.freeze(['spec0010', 'spec0011']);
 
 export class CoverageError extends Error {
   constructor(code, message, detail = undefined) {
@@ -103,6 +108,32 @@ function normalizeCommonCapabilities(raw) {
   return { maxInputs, maxNodes, maxOutputs, maxRank, dtypes, operations: normalizeOperations(raw.operations) };
 }
 
+function normalizeContractCapabilities(raw, { schema, fields, contractKeys, extensionKeys, contractOrder }) {
+  exact(raw, fields, 'VECTOR_TENSOR_CAPABILITY_INVALID', 'capability snapshot');
+  if (!plain(raw.tensor_program_contracts) || !plain(raw.extension_operation_contracts)) fail('VECTOR_TENSOR_CAPABILITY_INVALID', `${schema} capability snapshot requires contract maps.`);
+  exact(raw.tensor_program_contracts, contractKeys, 'VECTOR_TENSOR_CAPABILITY_INVALID', 'tensor_program_contracts');
+  const contracts = {};
+  for (const key of contractKeys) {
+    const value = raw.tensor_program_contracts[key];
+    if (typeof value !== 'string' || value.length < 1) fail('VECTOR_TENSOR_CAPABILITY_IDENTITY_INVALID', `tensor_program_contracts.${key} is missing.`);
+    contracts[key] = value;
+  }
+  const extensionContracts = new Map();
+  for (const [operation, contractKey] of Object.entries(raw.extension_operation_contracts)) {
+    if (typeof operation !== 'string' || operation.length < 1 || !extensionKeys.has(contractKey)) fail('VECTOR_TENSOR_CAPABILITY_INVALID', 'extension_operation_contracts contains an invalid operation/contract mapping.');
+    extensionContracts.set(operation, contractKey);
+  }
+  const common = normalizeCommonCapabilities(raw);
+  return Object.freeze({
+    schema,
+    identity: Object.freeze({ providerPackage: raw.provider_package, providerVersion: raw.provider_version, providerRevision: raw.provider_revision }),
+    contracts: Object.freeze(contracts),
+    extensionContracts,
+    contractOrder: Object.freeze([...contractOrder]),
+    ...common,
+  });
+}
+
 export function normalizeCapabilities(raw) {
   if (!plain(raw)) fail('VECTOR_TENSOR_CAPABILITY_CONTRACT_INVALID', 'Tensor capability snapshot must be an object.');
   if (raw.contract === CAPABILITIES_V1) {
@@ -114,31 +145,29 @@ export function normalizeCapabilities(raw) {
       identity: Object.freeze({ providerPackage: raw.provider_package, providerVersion: raw.provider_version, providerRevision: raw.provider_revision }),
       contracts: Object.freeze({ base: raw.tensor_program_contract }),
       extensionContracts: new Map(),
+      contractOrder: Object.freeze([]),
       ...common,
     });
   }
-  if (raw.contract !== CAPABILITIES_V2) fail('VECTOR_TENSOR_CAPABILITY_CONTRACT_INVALID', 'Unknown Tensor capability snapshot contract.');
-  exact(raw, CAPABILITY_V2_FIELDS, 'VECTOR_TENSOR_CAPABILITY_INVALID', 'capability snapshot');
-  if (!plain(raw.tensor_program_contracts) || !plain(raw.extension_operation_contracts)) fail('VECTOR_TENSOR_CAPABILITY_INVALID', 'v2 capability snapshot requires contract maps.');
-  exact(raw.tensor_program_contracts, CAPABILITY_CONTRACT_KEYS, 'VECTOR_TENSOR_CAPABILITY_INVALID', 'tensor_program_contracts');
-  const contracts = {};
-  for (const key of CAPABILITY_CONTRACT_KEYS) {
-    const value = raw.tensor_program_contracts[key];
-    if (typeof value !== 'string' || value.length < 1) fail('VECTOR_TENSOR_CAPABILITY_IDENTITY_INVALID', `tensor_program_contracts.${key} is missing.`);
-    contracts[key] = value;
+  if (raw.contract === CAPABILITIES_V2) {
+    return normalizeContractCapabilities(raw, {
+      schema: CAPABILITIES_V2,
+      fields: CAPABILITY_V2_FIELDS,
+      contractKeys: CAPABILITY_V2_CONTRACT_KEYS,
+      extensionKeys: CAPABILITY_V2_CONTRACT_KEYS,
+      contractOrder: ['spec0010'],
+    });
   }
-  const extensionContracts = new Map();
-  for (const [operation, contractKey] of Object.entries(raw.extension_operation_contracts)) {
-    if (typeof operation !== 'string' || operation.length < 1 || !CAPABILITY_CONTRACT_KEYS.has(contractKey)) fail('VECTOR_TENSOR_CAPABILITY_INVALID', 'extension_operation_contracts contains an invalid operation/contract mapping.');
-    extensionContracts.set(operation, contractKey);
+  if (raw.contract !== CAPABILITIES_V3) fail('VECTOR_TENSOR_CAPABILITY_CONTRACT_INVALID', 'Unknown Tensor capability snapshot contract.');
+  if (!Array.isArray(raw.contract_composition_order) || raw.contract_composition_order.length !== CAPABILITY_V3_COMPOSITION_ORDER.length || raw.contract_composition_order.some((key, index) => key !== CAPABILITY_V3_COMPOSITION_ORDER[index])) {
+    fail('VECTOR_TENSOR_CAPABILITY_INVALID', 'v3 contract_composition_order must be the canonical SPEC-0010 then SPEC-0011 child order.');
   }
-  const common = normalizeCommonCapabilities(raw);
-  return Object.freeze({
-    schema: CAPABILITIES_V2,
-    identity: Object.freeze({ providerPackage: raw.provider_package, providerVersion: raw.provider_version, providerRevision: raw.provider_revision }),
-    contracts: Object.freeze(contracts),
-    extensionContracts,
-    ...common,
+  return normalizeContractCapabilities(raw, {
+    schema: CAPABILITIES_V3,
+    fields: CAPABILITY_V3_FIELDS,
+    contractKeys: CAPABILITY_V3_CONTRACT_KEYS,
+    extensionKeys: CAPABILITY_V3_CHILD_KEYS,
+    contractOrder: raw.contract_composition_order,
   });
 }
 
@@ -202,7 +231,14 @@ function operationRequirement(operation, capabilities, index) {
   return { gap: null, kind: operation.kind, contractKey: capabilities.extensionContracts.get(operationKey(operation)) ?? capabilities.extensionContracts.get(operation.kind) ?? 'base' };
 }
 
-function coverageResult({ manifest, contract, model, capabilities, actualTensorContract, requiredContractKey, inputBytes, outputBytes, operationKinds, gaps, resources }) {
+function requiredContractKey(capabilities, requiredChildren) {
+  if (requiredChildren.size === 0) return 'base';
+  const ordered = capabilities.contractOrder.filter((key) => requiredChildren.has(key));
+  if (ordered.length !== requiredChildren.size) fail('VECTOR_TENSOR_CAPABILITY_INVALID', 'Covered operations require a Tensor contract child absent from canonical composition order.');
+  return ordered.join('_');
+}
+
+function coverageResult({ manifest, contract, model, capabilities, actualTensorContract, requiredContractKey: selectedContractKey, inputBytes, outputBytes, operationKinds, gaps, resources }) {
   const real = manifest.source_class === 'frozen_real_model';
   const workspaceResolved = resources.workspaceBytesPerItem !== null;
   const realReady = real && gaps.length === 0 && workspaceResolved;
@@ -225,7 +261,7 @@ function coverageResult({ manifest, contract, model, capabilities, actualTensorC
     checkpoint: model.checkpoint,
     tensor_provider_revision: capabilities.identity.providerRevision,
     tensor_program_contract: actualTensorContract,
-    required_tensor_program_contract: capabilities.contracts[requiredContractKey],
+    required_tensor_program_contract: capabilities.contracts[selectedContractKey],
     input_count: manifest.inputs.length,
     operation_requirement_count: manifest.operations.length,
     output_count: manifest.outputs.length,
@@ -279,7 +315,7 @@ export function verifyModelTensorCoverage(manifest, capabilityRecord, { requireR
   const seenOperations = new Set();
   const operationKinds = new Set();
   const gaps = [];
-  let requiredContractKey = 'base';
+  const requiredChildren = new Set();
   for (const [index, operation] of manifest.operations.entries()) {
     const requirement = operationRequirement(operation, capabilities, index);
     if (seenOperations.has(operation.id)) fail('VECTOR_MODEL_OPERATION_DUPLICATE', `Duplicate operation id '${operation.id}'.`);
@@ -291,13 +327,14 @@ export function verifyModelTensorCoverage(manifest, capabilityRecord, { requireR
         fail('VECTOR_MODEL_OPERATOR_UNSUPPORTED', `Operator '${operation.operator}' is not covered for '${operation.kind}'.`, { id: operation.id, kind: operation.kind, operator: operation.operator });
       }
       gaps.push(requirement.gap);
-    } else if (requirement.contractKey !== 'base') requiredContractKey = requirement.contractKey;
+    } else if (requirement.contractKey !== 'base') requiredChildren.add(requirement.contractKey);
   }
   gaps.sort((a, b) => `${a.kind}:${a.operator ?? ''}:${a.id}`.localeCompare(`${b.kind}:${b.operator ?? ''}:${b.id}`));
 
-  const requiredTensorContract = capabilities.contracts[requiredContractKey];
+  const selectedContractKey = requiredContractKey(capabilities, requiredChildren);
+  const requiredTensorContract = capabilities.contracts[selectedContractKey];
   if (typeof requiredTensorContract !== 'string' || actualTensorContract !== requiredTensorContract) {
-    fail('VECTOR_MODEL_TENSOR_CONTRACT_MISMATCH', 'Model manifest TensorProgram contract does not match the exact contract selected by its covered operations.', { required: requiredTensorContract ?? null, actual: actualTensorContract, required_contract_key: requiredContractKey });
+    fail('VECTOR_MODEL_TENSOR_CONTRACT_MISMATCH', 'Model manifest TensorProgram contract does not match the exact contract selected by its covered operations.', { required: requiredTensorContract ?? null, actual: actualTensorContract, required_contract_key: selectedContractKey });
   }
 
   exact(manifest.resources, RESOURCE_FIELDS, 'VECTOR_MODEL_RESOURCE_INVALID', 'resources');
@@ -315,7 +352,7 @@ export function verifyModelTensorCoverage(manifest, capabilityRecord, { requireR
   if (resources.inputBytesPerItem < inputBytes) fail('VECTOR_MODEL_RESOURCE_UNDERSIZED', 'Declared input bytes are smaller than the tensor specification requires.', { required: inputBytes, declared: resources.inputBytesPerItem });
   if (resources.outputBytesPerItem < outputBytes) fail('VECTOR_MODEL_RESOURCE_UNDERSIZED', 'Declared output bytes are smaller than the tensor specification requires.', { required: outputBytes, declared: resources.outputBytesPerItem });
 
-  const result = coverageResult({ manifest, contract, model, capabilities, actualTensorContract, requiredContractKey, inputBytes, outputBytes, operationKinds, gaps, resources });
+  const result = coverageResult({ manifest, contract, model, capabilities, actualTensorContract, requiredContractKey: selectedContractKey, inputBytes, outputBytes, operationKinds, gaps, resources });
   if (requireReal && gaps.length > 0) fail('VECTOR_MODEL_TENSOR_CAPABILITY_GAP', 'Frozen real model requires public Tensor capabilities not present in the pinned contract.', { missing_capabilities: gaps });
   if (requireReal && resources.workspaceBytesPerItem === null) fail('VECTOR_MODEL_WORKSPACE_UNRESOLVED', 'Frozen real model capability coverage is complete but TensorPlan workspace is not yet frozen.');
   return result;
