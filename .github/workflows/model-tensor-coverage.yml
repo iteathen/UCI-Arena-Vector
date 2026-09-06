@@ -11,6 +11,7 @@ on:
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
+      - "tools/verify-model-inference-precision.mjs"
       - "tools/verify-model-inference-precision.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
   push:
@@ -25,6 +26,7 @@ on:
       - "test/fixtures/model-tensor-coverage/**"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
+      - "tools/verify-model-inference-precision.mjs"
       - "tools/verify-model-inference-precision.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
   workflow_dispatch:
@@ -48,7 +50,9 @@ jobs:
       - name: Report runtime
         run: node --version
       - name: Check verifier syntax
-        run: node --check tools/verify-model-tensor-coverage.mjs
+        run: |
+          node --check tools/verify-model-tensor-coverage.mjs
+          node --check tools/verify-model-inference-precision.mjs
       - name: Run coverage verifier tests
         run: node --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs
       - name: Prove legacy supported synthetic coverage
@@ -66,11 +70,11 @@ jobs:
             echo "synthetic fixture incorrectly satisfied the real-model gate" >&2
             exit 1
           fi
-      - name: Prove exact protected Tensor pair covers model math and selects canonical mixed contract
+      - name: Prove exact FP32 qualification candidate covers model math on the protected Tensor pair
         shell: bash
         run: |
-          output=$(node tools/verify-model-tensor-coverage.mjs \
-            --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v2.json \
+          output=$(node tools/verify-model-inference-precision.mjs \
+            --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v3.json \
             --capabilities contracts/cuda-js-tensor-program-capabilities-v3.json)
           printf '%s\n' "$output"
           printf '%s\n' "$output" | node -e '
@@ -84,13 +88,20 @@ jobs:
             if (body.required_tensor_program_contract !== mixed) process.exit(1);
             if (!Array.isArray(body.missing_capabilities) || body.missing_capabilities.length !== 0) process.exit(1);
             if (body.declared_resources?.workspaceBytesPerItem !== null) process.exit(1);
+            if (body.inference_precision?.selectionRole !== "qualification_candidate") process.exit(1);
+            if (body.inference_precision?.candidate !== "fp32") process.exit(1);
+            if (body.inference_precision?.computeDtype !== "f32") process.exit(1);
+            if (body.inference_precision?.publicIoDtype !== "f32") process.exit(1);
+            if (body.inference_precision?.producerPromotionReady !== false) process.exit(1);
+            if (body.inference_precision?.producerDefaultActivationReady !== false) process.exit(1);
+            if (body.inference_precision?.trainingPrecisionAuthority !== "not_inference_selection") process.exit(1);
           '
-      - name: Prove exact current real-model readiness stops only at unresolved TensorPlan workspace
+      - name: Prove current FP32 candidate readiness stops only at unresolved TensorPlan workspace
         shell: bash
         run: |
           set +e
-          output=$(node tools/verify-model-tensor-coverage.mjs \
-            --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v2.json \
+          output=$(node tools/verify-model-inference-precision.mjs \
+            --manifest test/fixtures/model-tensor-coverage/latticeknight-4m-real-v3.json \
             --capabilities contracts/cuda-js-tensor-program-capabilities-v3.json \
             --require-real 2>&1)
           status=$?
