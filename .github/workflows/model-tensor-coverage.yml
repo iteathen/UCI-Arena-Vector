@@ -13,6 +13,8 @@ on:
       - "tools/verify-model-tensor-coverage.test.mjs"
       - "tools/verify-model-inference-precision.mjs"
       - "tools/verify-model-inference-precision.test.mjs"
+      - "tools/latticeknight-fp32-tensor-program.mjs"
+      - "tools/latticeknight-fp32-tensor-program.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
   push:
     branches:
@@ -28,6 +30,8 @@ on:
       - "tools/verify-model-tensor-coverage.test.mjs"
       - "tools/verify-model-inference-precision.mjs"
       - "tools/verify-model-inference-precision.test.mjs"
+      - "tools/latticeknight-fp32-tensor-program.mjs"
+      - "tools/latticeknight-fp32-tensor-program.test.mjs"
       - ".github/workflows/model-tensor-coverage.yml"
   workflow_dispatch:
 
@@ -41,20 +45,29 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v7.0.1
         with:
           persist-credentials: false
+      - name: Set up Tensor qualification Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26.7.0
+      - name: Install exact protected Tensor public package
+        run: >-
+          npm install --no-save --package-lock=false --ignore-scripts
+          https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/3a62bc47017aa10198eb1640b66f6b71a608b562
       - name: Report runtime
         run: node --version
       - name: Check verifier syntax
         run: |
           node --check tools/verify-model-tensor-coverage.mjs
           node --check tools/verify-model-inference-precision.mjs
+          node --check tools/latticeknight-fp32-tensor-program.mjs
       - name: Run coverage verifier tests
-        run: node --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs
+        run: node --test tools/verify-model-tensor-coverage.test.mjs tools/verify-model-inference-precision.test.mjs tools/latticeknight-fp32-tensor-program.test.mjs
       - name: Prove legacy supported synthetic coverage
         run: >-
           node tools/verify-model-tensor-coverage.mjs
