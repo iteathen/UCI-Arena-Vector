@@ -59,32 +59,6 @@ jobs:
         run: >-
           npm install --no-save --package-lock=false --ignore-scripts
           https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/3a62bc47017aa10198eb1640b66f6b71a608b562
-      - name: Experimentally measure installed Device-JS AST complexity
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const path = 'node_modules/cuda-js/components/device-js/src/translator.mjs';
-          let source = fs.readFileSync(path, 'utf8');
-          const replacements = [
-            ['const SOURCE_LIMIT = 1_048_576;', 'const SOURCE_LIMIT = 8_388_608;'],
-            ['const AST_NODE_LIMIT = 20_000;', 'const AST_NODE_LIMIT = 1_000_000;'],
-            ['const AST_DEPTH_LIMIT = 128;', 'const AST_DEPTH_LIMIT = 4096;'],
-            [
-              '  let nodes = 0;\n  function visit(value, depth) {',
-              '  let nodes = 0;\n  let maxDepth = 0;\n  function visit(value, depth) {\n    if (depth > maxDepth) maxDepth = depth;',
-            ],
-            [
-              '  visit(ast, 0);\n  return ast;\n}',
-              "  visit(ast, 0);\n  throw deviceJsError('DEVICE_JS_AST_MEASUREMENT', 'Disposable AST measurement.', { nodes, maxDepth, sourceBytes: encoder.encode(source).byteLength });\n}",
-            ],
-          ];
-          for (const [before, after] of replacements) {
-            if (!source.includes(before)) throw new Error(`expected instrumentation anchor not found: ${before.slice(0, 60)}`);
-            source = source.replace(before, after);
-          }
-          fs.writeFileSync(path, source);
-          NODE
       - name: Report runtime
         run: node --version
       - name: Check verifier syntax
