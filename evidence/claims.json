@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "repository": "iteathen/UCI-Arena-Vector",
+  "claims": [
+    {
+      "id": "VECTOR-INT-001",
+      "claim": "Repository contracts and model/Tensor coverage artifacts pass the maintained repository checks for the tested revision.",
+      "evidence_class": "INTERNAL-QUALIFICATION",
+      "status": "maintained internal qualification",
+      "oracle": "Repository-controlled validators and fixtures",
+      "revision": "main",
+      "falsifier": "Maintained repository or model/Tensor qualification checks fail.",
+      "evidence": [
+        "README.md",
+        ".github/workflows/repository-quality.yml",
+        ".github/workflows/model-tensor-coverage.yml",
+        "test",
+        "tools"
+      ],
+      "limitations": [
+        "Does not establish an end-to-end chess engine, playing strength, latency, or GPU performance."
+      ],
+      "external_reproduction": false
+    },
+    {
+      "id": "VECTOR-ENGINE-001",
+      "claim": "A qualified end-to-end GPU chess engine exists with established strength, latency, and performance.",
+      "evidence_class": "UNVALIDATED",
+      "status": "not claimed / open",
+      "oracle": null,
+      "revision": "main",
+      "falsifier": "Absence of a runnable qualified engine or failure of external/reference and hardware qualification rejects the claim.",
+      "evidence": [
+        "README.md",
+        "STATUS.md"
+      ],
+      "limitations": [
+        "No supported engine release or end-to-end qualification is registered."
+      ],
+      "external_reproduction": false
+    }
+  ]
+}
