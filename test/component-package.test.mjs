@@ -1,0 +1,100 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
+import { test } from 'node:test';
+import { buildAtomicComponent, verifyAtomicComponent } from '../tools/component-package.mjs';
+
+const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+function fixture(t) {
+  const root = mkdtempSync(path.join(tmpdir(), 'vector-component-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const files = { 'bin/node.exe': 'official-node-fixture', 'dist/uci.mjs': 'export {}',
+    'models/parameters.f32.bin': 'model-fixture', 'libraries/cuda-js/package.json': '{"version":"0.1.0-alpha.22"}',
+    'libraries/cuda-mcgs/package.json': '{"version":"0.1.0"}',
+    'libraries/cuda-js-tensor/package.json': '{"version":"0.1.0-alpha.10"}' };
+  files['contracts/runtime-qualification.json'] = JSON.stringify({ schema: 'vector_runtime_qualification_v1',
+    status: 'pass', vector_commit: '1'.repeat(40),
+    tests: ['gpu-search', 'legal-game', 'clock-safety', 'lifecycle'].map(name => ({ name, status: 'pass' })),
+    files: Object.entries(files).map(([relative, bytes]) => ({ path: relative, sha256: sha(bytes) })) });
+  for (const [relative, bytes] of Object.entries(files)) {
+    mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
+    writeFileSync(path.join(root, relative), bytes);
+  }
+  const closure = { schema: 'vector_runtime_closure_v1', component_version: '0.1.0',
+    vector_commit: '1'.repeat(40), node_version: '26.11.1',
+    files: Object.entries(files).map(([relative, bytes]) => ({ path: relative, sha256: sha(bytes) })),
+    libraries: ['cuda-js', 'cuda-mcgs', 'cuda-js-tensor'].map(name => ({ name,
+      version: JSON.parse(files[`libraries/${name}/package.json`]).version,
+      commit: '2'.repeat(40), package_json: `libraries/${name}/package.json` })),
+    model: { checkpoint_sha256: '3'.repeat(64), parameters: 'models/parameters.f32.bin',
+      parameters_sha256: sha(files['models/parameters.f32.bin']) },
+    qualification: { status: 'pass', receipt: 'contracts/runtime-qualification.json',
+      receipt_sha256: sha(files['contracts/runtime-qualification.json']) } };
+  return { root, closure, version: '0.1.0', sourceDateEpoch: 1791489600 };
+}
+
+test('one atomic payload inventories the whole runtime and has reproducible bytes', t => {
+  const options = fixture(t);
+  const first = buildAtomicComponent(options);
+  const second = buildAtomicComponent(options);
+  assert.deepEqual(first.archive, second.archive);
+  assert.equal(first.manifest.component_id, 'uci_arena.vector');
+  assert.equal(first.manifest.entrypoints.uci_engine, 'bin/node.exe');
+  assert.deepEqual(first.profile.engine.arguments, ['--experimental-ffi', 'dist/uci.mjs']);
+  assert.equal(first.manifest.files.length, options.closure.files.length + 2);
+  assert.equal(gunzipSync(first.archive).length % 512, 0);
+  assert.equal(verifyAtomicComponent(options.root).component_version, '0.1.0');
+});
+
+test('changed entry program, model, dependency and extra file fail exact closure admission', t => {
+  for (const relative of ['dist/uci.mjs', 'models/parameters.f32.bin', 'libraries/cuda-js/package.json', 'extra.mjs']) {
+    const options = fixture(t);
+    writeFileSync(path.join(options.root, relative), 'tampered');
+    assert.throws(() => buildAtomicComponent(options), /closure|identity/);
+  }
+});
+
+test('installed component verification detects transitive source tampering and missing assets', t => {
+  const options = fixture(t);
+  buildAtomicComponent(options);
+  writeFileSync(path.join(options.root, 'libraries/cuda-js/package.json'), '{}');
+  assert.throws(() => verifyAtomicComponent(options.root), /identity/);
+  rmSync(path.join(options.root, 'models/parameters.f32.bin'));
+  assert.throws(() => verifyAtomicComponent(options.root));
+});
+
+test('unqualified, mixed-version, traversal and duplicate closures fail before packaging', t => {
+  for (const mutate of [c => { c.qualification.status = 'pending'; }, c => { c.component_version = '0.2.0'; },
+    c => { c.libraries[0].version = '0.0.0'; }, c => { c.files[0].path = '../outside'; },
+    c => { c.files.push({ ...c.files[0] }); }, c => { c.files[0].path = 'bin/NODE.exe'; }]) {
+    const options = fixture(t);
+    mutate(options.closure);
+    assert.throws(() => buildAtomicComponent(options));
+    assert.throws(() => readFileSync(path.join(options.root, 'arena-component.json')));
+  }
+});
+
+test('symlink payload cannot grant files outside the atomic component', t => {
+  const options = fixture(t);
+  symlinkSync(path.join(options.root, 'libraries'), path.join(options.root, 'alias'), process.platform === 'win32' ? 'junction' : 'dir');
+  assert.throws(() => buildAtomicComponent(options), /link|reparse/);
+});
+
+test('qualification receipt must pass required gates against these exact runtime bytes', t => {
+  for (const mutate of [r => { r.tests[1].status = 'pending'; },
+    r => { r.vector_commit = '5'.repeat(40); }, r => { r.files[0].sha256 = '6'.repeat(64); },
+    r => { r.tests.pop(); }]) {
+    const options = fixture(t);
+    const filename = path.join(options.root, options.closure.qualification.receipt);
+    const receipt = JSON.parse(readFileSync(filename));
+    mutate(receipt);
+    const bytes = JSON.stringify(receipt);
+    writeFileSync(filename, bytes);
+    options.closure.qualification.receipt_sha256 = sha(bytes);
+    options.closure.files.find(row => row.path === options.closure.qualification.receipt).sha256 = sha(bytes);
+    assert.throws(() => buildAtomicComponent(options), /qualification/);
+  }
+});
