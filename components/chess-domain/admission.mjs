@@ -81,9 +81,10 @@ export function equalState(a, b) {
 }
 
 export function actionToUci(action) {
+  if (!Number.isInteger(action) || action < 0 || action > 0x7fff) throw new Error('invalid action encoding');
   const square = value => String.fromCharCode(97 + value % 8) + (Math.floor(value / 8) + 1);
   const from = action & 63, to = (action >>> 6) & 63, promotion = (action >>> 12) & 7;
-  if (action > 0x7fff || promotion > 4) throw new Error('invalid action encoding');
+  if (promotion > 4) throw new Error('invalid action encoding');
   return square(from) + square(to) + ['', 'n', 'b', 'r', 'q'][promotion];
 }
 
