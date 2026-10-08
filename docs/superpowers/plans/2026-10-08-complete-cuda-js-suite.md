@@ -26,6 +26,16 @@
 - Clock deadlines must remain responsive while GPU work is pending; legal final publication is independently fenced.
 - Installation must bind actual Node, JS sources, model, libraries and service versions; mixed or tampered payloads must fail before launch.
 
+## Architecture Audit Rulings
+
+- Manager's `engine_onboarding_v1.yaml` owns UI registration and refresh. Discovery is a verified manifest role, followed by the complete UCI probe and persisted argv, cwd and options. Vector retains its own component identity. A second unrelated UCI engine must remain selectable through the same flow.
+- Installer's `installation_contract_v1.yaml` already supplies the generic provider renderer contract. Vector must declare `uci_engine_launch_profile_v1` and use that renderer to produce an absolute launch configuration in preserved product data. An immutable portable Bot profile alone does not satisfy Manager discovery. No new Installer context schema is needed.
+- MCGS SPEC-0009 owns selected evaluator request incarnation, readiness, pressure, cancellation and scatter. Physical fusion may preserve these semantics; putting Tensor math only in Policy does not satisfy the selected Evaluator contract.
+- MCGS SPEC-0006 and SPEC-0013 require read-only observation of ready facts and distinct ready-successor advance versus compound admission. Session command identity/generation are 128-bit authoritative payloads; a u32 notification is not identity.
+- Original Engine `persistent_search_lifecycle_v1.yaml` and `late_bound_move_decision_v1.yaml` retain game-lifetime graph/evaluation authority across ordinary moves and publication. Product focus admission must not imply structural reroot. The selected bounded-memory profile uses lazy second-chance pressure handling rather than an assumed graph-wide sweep.
+- Evidence target registration must consume a declared, inventoried optional engine capability and target-specific exact launch. Generic service code must not require Vector/CUDA/model-specific identity. Existing legacy service behavior retains its versioned contract.
+- Owner instruction to continue autonomously supplies execution approval. These rulings correct implementation assumptions; they do not promote semantic proposals or claim unexecuted integration evidence.
+
 ## Delivery Tasks
 
 1. **Model identity and independent reference** — `tools/latticeknight-successor-*`, `test/fixtures/model-successor/`: exact checkpoint extraction, independent ORT full/partial outputs, public Tensor numerical comparison. Mathematical host qualification is distinct from active device inference.
@@ -35,7 +45,7 @@
 5. **Device continuation and control** — CUDA-JS opaque continuation operation: finite kernel DAG, one initial host launch, GPU-owned continuation, generic cooperative cancellation/publication and truthful cleanup. Qualify exact WDDM duration; neither assume watchdog safety nor add a CPU relaunch fallback.
 6. **Vector operational UCI product** — `dist/uci.mjs` backed by product lifecycle/controller and composed GPU session: authoritative position/history admission, persistent graph/focus, independent publication timing, legal late-bound `bestmove`, bounded diagnostics, restart/cancel/close. Qualify complete games and clock defect cases with the real package.
 7. **Bot and service closure** — Bot1.0.40 standard managed launch via inventoried engine-owned profile, signed Node executable/script integrity; qualify existing Book/Evidence SDK1.2 cohort on exact Node26. Publish compatible immutable service artifacts only after exact-head checks.
-8. **Atomic package and installer** — Vector owns `arena-component.json`, `contracts/uci-engine-launch-profile.json`, official Node binary and complete JS/model/library payload. Existing installer entrypoint/component-path bindings supply Bot; existing absolute launch profile supplies Manager. Assemble one fresh signed composition with exact compatible artifacts, leaving legacy engine outside the selected default path.
+8. **Atomic package and installer** — Vector owns `arena-component.json`, `contracts/uci-engine-launch-profile.json`, official Node binary and complete JS/model/library payload. A declared provider renderer emits the absolute Manager launch configuration into preserved product data; its configuration receipt and `uci_engine_launch_profile_v1` capability make the verified candidate discoverable with the script argv. Existing installer entrypoint/component-path bindings supply Bot's portable form. Assemble one fresh signed composition with exact compatible artifacts, leaving legacy engine outside the selected default path.
 9. **Installed end-to-end acceptance** — validate staging, transaction, receipt inventories, discovery, startup, reboot/recovery and teardown; verify Manager/Bot/Book/Evidence operation, real legal chess games and timeout safety. Start Lichess bot only against this qualified installed cuda-js package. Report completion after these checks pass.
 
 ## Live Execution Record

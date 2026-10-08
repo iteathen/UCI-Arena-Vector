@@ -65,7 +65,7 @@ function validateClosure(root, closure, version) {
   if (actual.length !== expected.size || actual.some(row => expected.get(row.path) !== row.sha256)) {
     throw new Error('runtime closure inventory or file identity differs');
   }
-  for (const required of ['bin/node.exe', 'dist/uci.mjs']) {
+  for (const required of ['bin/node.exe', 'dist/uci.mjs', 'dist/installer-integration.mjs']) {
     if (!expected.has(required)) throw new Error(`runtime closure omits ${required}`);
   }
   const names = new Set();
@@ -143,9 +143,17 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
   writeFileSync(path.join(root, 'contracts/runtime-closure.json'), json(closure));
   const manifest = { schema: 'arena_install_component_v1', schema_version: 1,
     component_id: 'uci_arena.vector', component_version: version, target_triple: 'windows-x86_64',
-    entrypoints: { uci_engine: 'bin/node.exe', uci_launch_profile: 'contracts/uci-engine-launch-profile.json' },
+    entrypoints: { uci_engine: 'bin/node.exe', uci_launch_profile: 'contracts/uci-engine-launch-profile.json',
+      installer_integration: 'dist/installer-integration.mjs' },
     discovery: [{ kind: 'uci_engine', locator: { source: 'entrypoint', entrypoint: 'uci_engine' } }],
-    capabilities: ['uci_engine'], dependencies: [], startup: {}, data_paths: [],
+    capabilities: ['uci_engine', 'uci_engine_launch_profile_v1'], dependencies: ['node_runtime.private'],
+    workspace_name: 'uci-arena-vector',
+    installer_integration: { schema: 'arena_provider_installer_integration_v1', schema_version: 1,
+      entrypoint: 'installer_integration', invocation: { kind: 'dependency_runtime',
+        runtime_component_id: 'node_runtime.private', runtime_entrypoint: 'node' },
+      arguments: ['--context'], workspace_name: 'uci-arena-vector', workspace_placement: 'product_data',
+      configure_when_disabled: true, dependency_bindings: [], locator_bindings: [] },
+    startup: {}, data_paths: [],
     files: inventory(root).filter(row => row.path !== 'arena-component.json') };
   writeFileSync(path.join(root, 'arena-component.json'), json(manifest));
   verifyAtomicComponent(root);
@@ -180,7 +188,20 @@ export function verifyAtomicComponent(root) {
     throw new Error('component inventory or file identity differs');
   }
   if (manifest.entrypoints?.uci_engine !== 'bin/node.exe'
-      || manifest.entrypoints?.uci_launch_profile !== 'contracts/uci-engine-launch-profile.json') throw new Error('component launch identity differs');
+      || manifest.entrypoints?.uci_launch_profile !== 'contracts/uci-engine-launch-profile.json'
+      || manifest.entrypoints?.installer_integration !== 'dist/installer-integration.mjs'
+      || !manifest.capabilities?.includes('uci_engine_launch_profile_v1')) throw new Error('component launch identity differs');
+  const integration = manifest.installer_integration;
+  if (integration?.schema !== 'arena_provider_installer_integration_v1' || integration.schema_version !== 1
+      || integration.entrypoint !== 'installer_integration' || integration.invocation?.kind !== 'dependency_runtime'
+      || integration.invocation.runtime_component_id !== 'node_runtime.private'
+      || integration.invocation.runtime_entrypoint !== 'node' || !manifest.dependencies?.includes('node_runtime.private')
+      || integration.workspace_placement !== 'product_data' || integration.workspace_name !== 'uci-arena-vector'
+      || manifest.workspace_name !== integration.workspace_name || integration.configure_when_disabled !== true
+      || JSON.stringify(integration.arguments) !== JSON.stringify(['--context'])
+      || JSON.stringify(integration.dependency_bindings) !== '[]' || JSON.stringify(integration.locator_bindings) !== '[]') {
+    throw new Error('component installer integration differs');
+  }
   const closure = JSON.parse(readFileSync(path.join(root, 'contracts/runtime-closure.json'), 'utf8'));
   validateClosure(root, closure, manifest.component_version);
   const profile = JSON.parse(readFileSync(path.join(root, manifest.entrypoints.uci_launch_profile), 'utf8'));

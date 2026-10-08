@@ -5,12 +5,16 @@ on:
     paths:
       - "tools/component-package.mjs"
       - "test/component-package.test.mjs"
+      - "tools/installer-integration.mjs"
+      - "test/installer-integration.test.mjs"
       - ".github/workflows/component-package.yml"
   push:
     branches: [main]
     paths:
       - "tools/component-package.mjs"
       - "test/component-package.test.mjs"
+      - "tools/installer-integration.mjs"
+      - "test/installer-integration.test.mjs"
       - ".github/workflows/component-package.yml"
   workflow_dispatch:
 
@@ -35,4 +39,4 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Verify the atomic payload contract
-        run: node --test test/component-package.test.mjs
+        run: node --test test/component-package.test.mjs test/installer-integration.test.mjs

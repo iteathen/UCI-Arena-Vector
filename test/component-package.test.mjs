@@ -12,6 +12,7 @@ function fixture(t) {
   const root = mkdtempSync(path.join(tmpdir(), 'vector-component-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const files = { 'bin/node.exe': 'official-node-fixture', 'dist/uci.mjs': 'export {}',
+    'dist/installer-integration.mjs': 'export {}',
     'models/parameters.f32.bin': 'model-fixture', 'libraries/cuda-js/package.json': '{"version":"0.1.0-alpha.22"}',
     'libraries/cuda-mcgs/package.json': '{"version":"0.1.0"}',
     'libraries/cuda-js-tensor/package.json': '{"version":"0.1.0-alpha.10"}' };
@@ -47,6 +48,34 @@ test('one atomic payload inventories the whole runtime and has reproducible byte
   assert.equal(first.manifest.files.length, options.closure.files.length + 2);
   assert.equal(gunzipSync(first.archive).length % 512, 0);
   assert.equal(verifyAtomicComponent(options.root).component_version, '0.1.0');
+});
+
+test('managed discovery can resolve the script launch through preserved provider configuration', t => {
+  const options = fixture(t);
+  const { manifest } = buildAtomicComponent(options);
+  assert.ok(manifest.capabilities.includes('uci_engine_launch_profile_v1'),
+    'Manager requires the declared launch-profile capability to load argv');
+  assert.equal(manifest.entrypoints.installer_integration, 'dist/installer-integration.mjs');
+  assert.ok(manifest.files.some(row => row.path === manifest.entrypoints.installer_integration));
+  assert.ok(manifest.dependencies.includes('node_runtime.private'));
+  assert.equal(manifest.installer_integration.schema, 'arena_provider_installer_integration_v1');
+  assert.equal(manifest.installer_integration.workspace_placement, 'product_data');
+  assert.equal(manifest.workspace_name, manifest.installer_integration.workspace_name);
+  assert.deepEqual(manifest.installer_integration.arguments, ['--context']);
+});
+
+test('verification rejects missing managed launch routing before the component is admitted', t => {
+  for (const mutate of [m => { m.capabilities = ['uci_engine']; },
+    m => { delete m.installer_integration; },
+    m => { m.installer_integration.invocation.runtime_component_id = 'wrong.runtime'; },
+    m => { m.installer_integration.workspace_name = 'different'; },
+    m => { m.entrypoints.installer_integration = 'dist/uci.mjs'; }]) {
+    const options = fixture(t);
+    const { manifest } = buildAtomicComponent(options);
+    mutate(manifest);
+    writeFileSync(path.join(options.root, 'arena-component.json'), JSON.stringify(manifest));
+    assert.throws(() => verifyAtomicComponent(options.root), /launch|integration/);
+  }
 });
 
 test('changed entry program, model, dependency and extra file fail exact closure admission', t => {
