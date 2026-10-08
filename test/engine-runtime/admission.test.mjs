@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+async function api(){try{return await import('../../components/engine-runtime/admission.mjs');}catch(e){if(e.code==='ERR_MODULE_NOT_FOUND')assert.fail('GPU external admission packet encoder is missing');throw e;}}
+test('external cold admission packs exact board/raw EP/clock authority into twelve u32 words',async()=>{const {encodeColdPosition}=await api();const packet=encodeColdPosition('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1');assert.equal(packet.length,12);const piece=sq=>(packet[Math.floor(sq/8)]>>>(4*(sq%8)))&15;assert.equal(piece(28),1);assert.equal(piece(12),0);assert.equal(packet[8]&1,1);assert.equal((packet[8]>>>1)&15,15);assert.equal(packet[8]>>>5,20);assert.equal(packet[9],0);assert.equal(packet[10],1);assert.equal(packet[11],1);});
+test('external admission packet rejects malformed chess authority before writes',async()=>{const {encodeColdPosition}=await api();assert.throws(()=>encodeColdPosition('8/8/8/8/8/8/8/8 w - - 0 1'),/king/i);assert.throws(()=>encodeColdPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e3 0 1'),/en-passant/i);});

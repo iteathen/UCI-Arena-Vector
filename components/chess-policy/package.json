@@ -1,0 +1,7 @@
+{
+  "name": "vector-chess-policy-qualification",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": { "cuda-js": "github:iteathen/CUDA-JS#2bff226b752d3c0af8b9185274d411e5990008d4" }
+}
