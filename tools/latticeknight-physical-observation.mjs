@@ -6,20 +6,9 @@ import { openCudaRuntimeForTesting } from 'cuda-js/testing';
 import { CUDA_JS_TENSOR_COMPATIBILITY, resolveTensorPlan, TensorProgram, TensorSession, TensorSpec } from 'cuda-js-tensor';
 import { buildLatticeKnightFp32TensorProgram } from './latticeknight-fp32-tensor-program.mjs';
 import { assertNewEvidenceDirectory, parseArguments, sha256 } from './latticeknight-successor-candidate.mjs';
+import { compareFp32 } from './latticeknight-observation-checks.mjs';
+export { compareFp32 } from './latticeknight-observation-checks.mjs';
 
-export function compareFp32(expected, observed, tolerance) {
-  if (expected.length !== observed.length || expected.length % 4) throw new Error('Numerical observation length mismatch');
-  if (!Number.isFinite(tolerance) || tolerance < 0) throw new Error('Invalid numerical tolerance');
-  let maximumAbsoluteError = 0, maximumRelativeError = 0, firstDivergence = null;
-  for (let offset = 0; offset < expected.length; offset += 4) {
-    const want = expected.readFloatLE(offset), got = observed.readFloatLE(offset);
-    if (!Number.isFinite(want) || !Number.isFinite(got)) throw new Error('Nonfinite numerical observation');
-    const error = Math.abs(want - got); maximumAbsoluteError = Math.max(maximumAbsoluteError, error);
-    maximumRelativeError = Math.max(maximumRelativeError, error / Math.max(Math.abs(want), 1e-30));
-    if (error > tolerance && !firstDivergence) firstDivergence = { index: offset / 4, expected: want, observed: got, absoluteError: error };
-  }
-  return { pass: !firstDivergence, tolerance, maximumAbsoluteError, maximumRelativeError, relativeDenominatorFloor: 1e-30, firstDivergence };
-}
 const SESSION_LIMITS = Object.freeze({ maxLiveTensors: 4096, maxSessionBytes: 256 * 1024 * 1024, maxTensorBytes: 128 * 1024 * 1024 });
 
 export async function preflightPhysicalModel() {

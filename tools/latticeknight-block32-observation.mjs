@@ -6,16 +6,9 @@ import { compileTensorDeviceProgram, CUDA_JS_TENSOR_COMPATIBILITY, TensorSession
 import { buildLatticeKnightFp32TensorProgram } from './latticeknight-fp32-tensor-program.mjs';
 import { compareFp32 } from './latticeknight-physical-observation.mjs';
 import { assertNewEvidenceDirectory, parseArguments, sha256 } from './latticeknight-successor-candidate.mjs';
+import { verifyGuardBytes } from './latticeknight-observation-checks.mjs';
+export { verifyGuardBytes } from './latticeknight-observation-checks.mjs';
 
-export function verifyGuardBytes(bytes, payloadLength, inactiveFromByte = null) {
-  if (bytes.length !== payloadLength + 32) throw new Error('Guarded observation length mismatch');
-  if (!bytes.subarray(0, 16).equals(Buffer.alloc(16, 0xa5)) || !bytes.subarray(16 + payloadLength).equals(Buffer.alloc(16, 0xa5))) throw new Error('Input/output/workspace guard corrupted');
-  if (inactiveFromByte !== null) {
-    if (!Number.isSafeInteger(inactiveFromByte) || inactiveFromByte < 0 || inactiveFromByte > payloadLength) throw new Error('Inactive guard range invalid');
-    if (!bytes.subarray(16 + inactiveFromByte, 16 + payloadLength).equals(Buffer.alloc(payloadLength - inactiveFromByte, 0xa5))) throw new Error('Inactive item storage changed');
-  }
-  return true;
-}
 const floats = (values) => { const b = Buffer.alloc(values.length * 4); values.forEach((v, i) => b.writeFloatLE(v, i * 4)); return b; };
 
 export async function runBlock32Model({ candidate, reference, calibration, output }) {
