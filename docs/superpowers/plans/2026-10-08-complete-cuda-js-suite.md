@@ -1,8 +1,8 @@
-# Complete CUDA.js UCI Arena Suite Implementation Plan
+# Complete cuda-js UCI Arena Suite Implementation Plan
 
 > **For agentic workers:** Use the existing isolated owner branches and executing-plans workflow. Continue autonomously under the owner's instruction; individual qualification slices are not the final delivery.
 
-**Goal:** Install a working, compatible CUDA.js/MCGS chess engine, Manager, bot, book and evidence services with a functional installer, then start the Lichess bot and verify legal play and clock safety.
+**Goal:** Install a working, compatible cuda-js/MCGS chess engine, Manager, bot, book and evidence services with a functional installer, then start the Lichess bot and verify legal play and clock safety.
 
 **Architecture:** Vector owns chess/model/UCI/publication and composes public MCGS, Tensor and CUDA-JS contracts. MCGS owns generic graph/search/progress; Tensor owns mathematics and callable participation; CUDA-JS owns opaque compiler/native execution/lifetime. The installer consumes signed atomic component payloads and exact version closure.
 
@@ -36,7 +36,7 @@
 6. **Vector operational UCI product** — `dist/uci.mjs` backed by product lifecycle/controller and composed GPU session: authoritative position/history admission, persistent graph/focus, independent publication timing, legal late-bound `bestmove`, bounded diagnostics, restart/cancel/close. Qualify complete games and clock defect cases with the real package.
 7. **Bot and service closure** — Bot1.0.40 standard managed launch via inventoried engine-owned profile, signed Node executable/script integrity; qualify existing Book/Evidence SDK1.2 cohort on exact Node26. Publish compatible immutable service artifacts only after exact-head checks.
 8. **Atomic package and installer** — Vector owns `arena-component.json`, `contracts/uci-engine-launch-profile.json`, official Node binary and complete JS/model/library payload. Existing installer entrypoint/component-path bindings supply Bot; existing absolute launch profile supplies Manager. Assemble one fresh signed composition with exact compatible artifacts, leaving legacy engine outside the selected default path.
-9. **Installed end-to-end acceptance** — validate staging, transaction, receipt inventories, discovery, startup, reboot/recovery and teardown; verify Manager/Bot/Book/Evidence operation, real legal chess games and timeout safety. Start Lichess bot only against this qualified installed CUDA.js package. Report completion after these checks pass.
+9. **Installed end-to-end acceptance** — validate staging, transaction, receipt inventories, discovery, startup, reboot/recovery and teardown; verify Manager/Bot/Book/Evidence operation, real legal chess games and timeout safety. Start Lichess bot only against this qualified installed cuda-js package. Report completion after these checks pass.
 
 ## Live Execution Record
 

@@ -1,7 +1,7 @@
 # UCI Arena Vector Status
 
 **Active owner-directed continuation — 2026-10-08:** Complete the installed
-CUDA.js engine, compatible services and functional installer, then start the
+cuda-js engine, compatible services and functional installer, then start the
 Lichess bot. Execution is tracked in
 [the complete suite plan](docs/superpowers/plans/2026-10-08-complete-cuda-js-suite.md).
 The C++ engine deployment is cancelled. Model 73091 has separate independent
