@@ -15,7 +15,7 @@ mWriteFeatures(state:ptr<u32>, base:u32, stateCapacity:u32,
 mPolicyIndex(state:ptr<u32>, base:u32, stateCapacity:u32, action:u32) -> i32
 ```
 
-Capacities and bases are element counts/offsets relative to their supplied typed contiguous capabilities, not bytes or raw pointers. The caller must supply actual backing extents and a validated `vector.chess-mailbox-u32/1.1.0` state, 17,223 u32 words (68,892 bytes). Domain header offsets remain piece mailbox0..63, side64, rights65, effectiveEP66, halfmove67, fullmove68, history-count69, rawEP70; history starts71. Feature generation reads rawEP70. It never substitutes effectiveEP66 or discards EP because capture is illegal.
+Capacities and bases are element counts/offsets relative to their supplied typed contiguous capabilities, not bytes or raw pointers. The caller must supply actual backing extents and a validated `vector.chess-mailbox-u32/1.2.0` state (prior1.1 receipts remain historical; model-visible header layout is unchanged), 17,223 u32 words (68,892 bytes). Domain header offsets remain piece mailbox0..63, side64, rights65, effectiveEP66, halfmove67, fullmove68, history-count69, rawEP70; history starts71. Feature generation reads rawEP70. It never substitutes effectiveEP66 or discards EP because capture is illegal.
 
 `mWriteFeatures` first rejects insufficient state/feature extent with status1, then invalid piece/side/rights/rawEP encoding with status2. It performs no output writes on failure. Status0 writes exactly1088 f32 elements beginning at featureBase, using only exact0.0/1.0 values. Output may be a selected item partition of the Graph/Evaluator-owned input buffer. Writer is read-only with respect to state and owns no retained mutable host state.
 

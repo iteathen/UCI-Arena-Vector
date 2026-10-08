@@ -11,6 +11,17 @@ const device = await import('../../components/chess-domain/device.mjs').catch(()
 const execution = await import('../../components/chess-domain/runtime.mjs').catch(() => ({}));
 const physicalEvidence = {};
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+function relevantHistoryLength(history) {
+  let count = 1;
+  for (let index = 1; index < history.length; index++) {
+    const previous = new Chess(history[index - 1]), current = new Chess(history[index]);
+    const pieces = board => board.flat().filter(Boolean), before = pieces(previous.board()), after = pieces(current.board());
+    const pawns = list => list.filter(p => p.type === 'p').map(p => p.color + p.square).sort().join(',');
+    const beforeRights = history[index - 1].split(' ')[2], afterRights = history[index].split(' ')[2];
+    count = pawns(before) !== pawns(after) || after.length < before.length || [...beforeRights].some(right => right !== '-' && !afterRights.includes(right)) ? 1 : count + 1;
+  }
+  return count;
+}
 
 test('admits complete position fields and rejects malformed FEN and history exhaustion', () => {
   assert.equal(typeof domain.admitPosition, 'function', 'FEN admission API must exist');
@@ -89,9 +100,10 @@ test('physical device legality, transitions, terminals and history match indepen
     for (const move of row.moves) {
       const uci = domain.actionToUci(move.action);
       const child = new Chess(fen);
-      child.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+      const applied = child.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
       assert.equal(domain.stateToFen(move.state), child.fen(), `${id} ${uci} transition`);
-      assert.equal(move.state[69], cases[i].history.length + 1, `${id} history append`);
+      const irreversible = applied.piece === 'p' || applied.captured || fen.split(' ')[2] !== child.fen().split(' ')[2];
+      assert.equal(move.state[69], irreversible ? 1 : relevantHistoryLength(cases[i].history) + 1, `${id} relevant history`);
     }
   }
   const pressure = await execution.qualifyDomain([domain.admitPosition(new Chess().fen())], { capacity: 1 });

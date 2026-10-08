@@ -170,7 +170,7 @@ function cInsufficient(s, base) {
 function cApply(s, base, d, db, scratch, sb, action) {
   let from = action & gpu.u32(63); let to = (action >> gpu.u32(6)) & gpu.u32(63); let promotion = (action >> gpu.u32(12)) & gpu.u32(7);
   if (action >= gpu.u32(32768) || !cLegal(s, base, scratch, sb, from, to, promotion)) { return gpu.u32(1); }
-  let count = s[base + gpu.u32(69)]; if (count >= gpu.u32(256)) { return gpu.u32(3); }
+  let count = s[base + gpu.u32(69)]; if (count < gpu.u32(1) || count > gpu.u32(256)) { return gpu.u32(1); }
   for (let j = gpu.u32(0); j < gpu.u32(${HEADER_WORDS}) + count * gpu.u32(${HISTORY_WORDS}); j++) { d[db + j] = s[base + j]; }
   cSimulate(s, base, d, db, from, to, promotion);
   let p = s[base + from]; let type = cType(p); let color = s[base + gpu.u32(64)]; let capture = s[base + to] !== gpu.u32(0);
@@ -182,6 +182,8 @@ function cApply(s, base, d, db, scratch, sb, action) {
   if (from === gpu.u32(7) || to === gpu.u32(7)) { rights = rights & gpu.u32(14); }
   if (from === gpu.u32(56) || to === gpu.u32(56)) { rights = rights & gpu.u32(7); }
   if (from === gpu.u32(63) || to === gpu.u32(63)) { rights = rights & gpu.u32(11); }
+  let irreversible = type === gpu.u32(1) || capture || rights !== s[base + gpu.u32(65)];
+  if (irreversible) { count = gpu.u32(0); } else if (count >= gpu.u32(256)) { return gpu.u32(3); }
   d[db + gpu.u32(64)] = gpu.u32(1) - color; d[db + gpu.u32(65)] = rights; d[db + gpu.u32(66)] = gpu.u32(64);
   if (type === gpu.u32(1) && cAbs(gpu.i32(to) - gpu.i32(from)) === gpu.i32(16)) { d[db + gpu.u32(66)] = (from + to) / gpu.u32(2); }
   d[db + gpu.u32(67)] = s[base + gpu.u32(67)] + gpu.u32(1);

@@ -1,6 +1,7 @@
 export const HISTORY_CAPACITY = 256;
 export const HISTORY_WORDS = 67;
-export const STATE_FORMAT = 'vector.chess-mailbox-u32/1.1.0';
+export const STATE_FORMAT = 'vector.chess-mailbox-u32/1.2.0';
+export const MAX_ADMITTED_HISTORY = 4096;
 export const HEADER_WORDS = 71;
 export const STATE_WORDS = HEADER_WORDS + HISTORY_CAPACITY * HISTORY_WORDS;
 export const MAX_ACTIONS = 256;
@@ -63,12 +64,28 @@ function fenHeader(fen) {
 export function admitPosition(fen, { history } = {}) {
   const header = fenHeader(fen);
   const past = history ?? [fen];
-  if (!Array.isArray(past) || past.length < 1 || past.length > HISTORY_CAPACITY) throw new Error('history requires 1..256 complete positions');
+  if (!Array.isArray(past) || past.length < 1 || past.length > MAX_ADMITTED_HISTORY) throw new Error('history requires 1..4096 complete positions');
+  const headers = past.map(fenHeader);
+  let firstRelevant = 0;
+  for (let index = 1; index < headers.length; index++) {
+    const previous = headers[index - 1], current = headers[index];
+    let previousMaterial = 0, currentMaterial = 0, pawnChanged = false;
+    for (let square = 0; square < 64; square++) {
+      if (previous[square]) previousMaterial++;
+      if (current[square]) currentMaterial++;
+      const previousPawn = previous[square] === 1 || previous[square] === 7 ? previous[square] : 0;
+      const currentPawn = current[square] === 1 || current[square] === 7 ? current[square] : 0;
+      if (previousPawn !== currentPawn) pawnChanged = true;
+    }
+    if (pawnChanged || currentMaterial < previousMaterial || (previous[65] & ~current[65]) !== 0) firstRelevant = index;
+  }
+  const relevant = headers.slice(firstRelevant);
+  if (relevant.length > HISTORY_CAPACITY) throw new Error('relevant reversible history exceeds 256 records');
   const words = new Uint32Array(STATE_WORDS);
   words.set(header);
-  words[69] = past.length;
-  past.forEach((value, index) => words.set(fenHeader(value).subarray(0, HISTORY_WORDS), HEADER_WORDS + index * HISTORY_WORDS));
-  const current = words.subarray(HEADER_WORDS + (past.length - 1) * HISTORY_WORDS, HEADER_WORDS + past.length * HISTORY_WORDS);
+  words[69] = relevant.length;
+  relevant.forEach((value, index) => words.set(value.subarray(0, HISTORY_WORDS), HEADER_WORDS + index * HISTORY_WORDS));
+  const current = words.subarray(HEADER_WORDS + (relevant.length - 1) * HISTORY_WORDS, HEADER_WORDS + relevant.length * HISTORY_WORDS);
   if (!header.subarray(0, HISTORY_WORDS).every((word, index) => word === current[index])) throw new Error('history must end with the current exact position');
   return { format: STATE_FORMAT, words };
 }
