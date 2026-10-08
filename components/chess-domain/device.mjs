@@ -137,6 +137,7 @@ function cEffectiveEp(s, base, scratch, sb) {
   return gpu.u32(64);
 }
 function cNormalizeHistory(s, base, scratch, sb) {
+  s[base + gpu.u32(66)] = s[base + gpu.u32(70)];
   s[base + gpu.u32(66)] = cEffectiveEp(s, base, scratch, sb);
   for (let n = gpu.u32(0); n < s[base + gpu.u32(69)]; n++) {
     let record = base + gpu.u32(${HEADER_WORDS}) + n * gpu.u32(${HISTORY_WORDS});
@@ -186,6 +187,7 @@ function cApply(s, base, d, db, scratch, sb, action) {
   d[db + gpu.u32(67)] = s[base + gpu.u32(67)] + gpu.u32(1);
   if (type === gpu.u32(1) || capture) { d[db + gpu.u32(67)] = gpu.u32(0); }
   d[db + gpu.u32(68)] = s[base + gpu.u32(68)] + color;
+  d[db + gpu.u32(70)] = d[db + gpu.u32(66)];
   d[db + gpu.u32(66)] = cEffectiveEp(d, db, scratch, sb);
   let record = db + gpu.u32(${HEADER_WORDS}) + count * gpu.u32(${HISTORY_WORDS});
   for (let j = gpu.u32(0); j < gpu.u32(${HISTORY_WORDS}); j++) { d[record + j] = d[db + j]; }
@@ -217,7 +219,10 @@ function chessDomain(states, scratch, output, caseCount, capacity) {
   for (let j = gpu.u32(0); j < gpu.u32(8); j++) { output[ob + j] = gpu.u32(0); }
   let historyCount = states[base + gpu.u32(69)];
   if (capacity > gpu.u32(256) || historyCount < gpu.u32(1) || historyCount > gpu.u32(256)) { output[ob] = gpu.u32(1); return; }
-  if (!cValidBoard(states, base) || states[base + gpu.u32(68)] === gpu.u32(0)) { output[ob] = gpu.u32(1); return; }
+  if (!cValidBoard(states, base) || states[base + gpu.u32(68)] === gpu.u32(0) || states[base + gpu.u32(70)] > gpu.u32(64)) { output[ob] = gpu.u32(1); return; }
+  for (let j = gpu.u32(0); j < gpu.u32(67); j++) { scratch[sb + j] = states[base + j]; }
+  scratch[sb + gpu.u32(66)] = states[base + gpu.u32(70)];
+  if (!cValidBoard(scratch, sb)) { output[ob] = gpu.u32(1); return; }
   for (let n = gpu.u32(0); n < historyCount; n++) {
     if (!cValidBoard(states, base + gpu.u32(${HEADER_WORDS}) + n * gpu.u32(${HISTORY_WORDS}))) { output[ob] = gpu.u32(1); return; }
   }

@@ -1,6 +1,7 @@
 export const HISTORY_CAPACITY = 256;
 export const HISTORY_WORDS = 67;
-export const HEADER_WORDS = 70;
+export const STATE_FORMAT = 'vector.chess-mailbox-u32/1.1.0';
+export const HEADER_WORDS = 71;
 export const STATE_WORDS = HEADER_WORDS + HISTORY_CAPACITY * HISTORY_WORDS;
 export const MAX_ACTIONS = 256;
 export const RESULT_HEADER_WORDS = 8;
@@ -55,6 +56,7 @@ function fenHeader(fen) {
     if (!/^\d+$/.test(text) || Number(text) > 0xffff_fffe || (index === 68 && Number(text) < 1)) throw new Error('FEN clock outside admitted u32 range');
     words[index] = Number(text);
   }
+  words[70] = words[66];
   return words;
 }
 
@@ -68,7 +70,7 @@ export function admitPosition(fen, { history } = {}) {
   past.forEach((value, index) => words.set(fenHeader(value).subarray(0, HISTORY_WORDS), HEADER_WORDS + index * HISTORY_WORDS));
   const current = words.subarray(HEADER_WORDS + (past.length - 1) * HISTORY_WORDS, HEADER_WORDS + past.length * HISTORY_WORDS);
   if (!header.subarray(0, HISTORY_WORDS).every((word, index) => word === current[index])) throw new Error('history must end with the current exact position');
-  return { format: 'vector.chess-mailbox-u32/1.0.0', words };
+  return { format: STATE_FORMAT, words };
 }
 
 export function equalState(a, b) {
@@ -85,7 +87,7 @@ export function actionToUci(action) {
   return square(from) + square(to) + ['', 'n', 'b', 'r', 'q'][promotion];
 }
 
-export function stateToFen(words) {
+export function stateToFen(words, { rawEnPassant = false } = {}) {
   const ranks = [];
   for (let rank = 7; rank >= 0; rank--) {
     let text = '', empty = 0;
@@ -98,6 +100,7 @@ export function stateToFen(words) {
     ranks.push(text);
   }
   const castle = ['K', 'Q', 'k', 'q'].filter((_, i) => words[65] & (1 << i)).join('') || '-';
-  const ep = words[66] === 64 ? '-' : String.fromCharCode(97 + words[66] % 8) + (Math.floor(words[66] / 8) + 1);
+  const epSquare = words[rawEnPassant ? 70 : 66];
+  const ep = epSquare === 64 ? '-' : String.fromCharCode(97 + epSquare % 8) + (Math.floor(epSquare / 8) + 1);
   return `${ranks.join('/')} ${words[64] ? 'b' : 'w'} ${castle} ${ep} ${words[67]} ${words[68]}`;
 }

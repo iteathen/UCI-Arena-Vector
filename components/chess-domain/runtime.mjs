@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as cuda from 'cuda-js';
 import { buildDomainProgram } from './device.mjs';
-import { HEADER_WORDS, STATE_WORDS, RESULT_WORDS, MAX_ACTIONS } from './admission.mjs';
+import { STATE_FORMAT, HEADER_WORDS, STATE_WORDS, RESULT_WORDS, MAX_ACTIONS } from './admission.mjs';
 
 export function inspectDomainProgram() { return cuda.inspectDeviceProgram(buildDomainProgram()); }
 
@@ -9,7 +9,7 @@ export async function qualifyDomain(admitted, { capacity = MAX_ACTIONS } = {}) {
   if (!Array.isArray(admitted) || admitted.length < 1 || admitted.length > 32) throw new Error('Domain capsule requires 1..32 independently admitted positions');
   if (!Number.isSafeInteger(capacity) || capacity < 0 || capacity > MAX_ACTIONS) throw new Error('Domain action capacity must be 0..256');
   for (const input of admitted) {
-    if (input?.format !== 'vector.chess-mailbox-u32/1.0.0' || !(input.words instanceof Uint32Array) || input.words.length !== STATE_WORDS) throw new Error('Domain resident state format/extent mismatch');
+    if (input?.format !== STATE_FORMAT || !(input.words instanceof Uint32Array) || input.words.length !== STATE_WORDS) throw new Error('Domain resident state format/extent mismatch');
   }
   // Every position is an independent terminal Domain qualification operation.
   // Reuse allocations between completed cases; never drive an active search.
@@ -63,7 +63,7 @@ export async function qualifyDomain(admitted, { capacity = MAX_ACTIONS } = {}) {
 }
 
 export async function qualifyIdentity(left, right) {
-  for (const value of [left, right]) if (value?.format !== 'vector.chess-mailbox-u32/1.0.0' || !(value.words instanceof Uint32Array) || value.words.length !== STATE_WORDS) throw new Error('Domain resident state format/extent mismatch');
+  for (const value of [left, right]) if (value?.format !== STATE_FORMAT || !(value.words instanceof Uint32Array) || value.words.length !== STATE_WORDS) throw new Error('Domain resident state format/extent mismatch');
   const runtime = await cuda.openCudaRuntime({ compiler: true, driver: { memory: { maxDeviceBytes: STATE_WORDS * 8 + 16, maxAllocationBytes: STATE_WORDS * 4, maxTransferBytes: STATE_WORDS * 4 }, execution: { maxArguments: 3, maxCompletionMilliseconds: 30_000 } } });
   const resources = [];
   let words, terminal;

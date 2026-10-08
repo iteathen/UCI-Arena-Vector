@@ -1,0 +1,112 @@
+{
+  "schema": "vector.chess-domain-raw-ep-qualification/1.1.0",
+  "status": "pass",
+  "generatedAt": "2026-10-08T19:29:07.580Z",
+  "node": {
+    "version": "v26.11.1",
+    "executableSha256": "a619e2e09eb0d50ef4c733d678b4d22689d2afef138cd67fd3fa107b535f8819"
+  },
+  "sources": [
+    {
+      "path": "components/chess-domain/admission.mjs",
+      "sha256": "cba538e7a2ca79bf0dd78f5c6b511cc6c932990dbcb1a0c136c1e6236e4bd847"
+    },
+    {
+      "path": "components/chess-domain/device.mjs",
+      "sha256": "2d1ef48206f284147bee66add53e4a226b5bf9eec839b5648217735d85143299"
+    },
+    {
+      "path": "components/chess-domain/runtime.mjs",
+      "sha256": "69fb0c344806ebac34948e97073273718975f0be0e7a5b3754ea1e85c657a06e"
+    },
+    {
+      "path": "test/chess-domain/raw-ep.test.mjs",
+      "sha256": "5bfffa8ee628dce9c181d104ce9bb099bc06ecf47d4e4119cc8c85b057dc8951"
+    }
+  ],
+  "sourceIdentity": "8abe14719a2421913442a25ea643743fc8a97638c28f3c379c5535e2210222d2",
+  "artifact": {
+    "sha256": "a4cdfa4d4eaf0ad96a0781371219192c16e0000c8132d1297bade9c229209545",
+    "format": "ptx",
+    "architecture": "compute_75"
+  },
+  "observed": {
+    "rawEp": 20,
+    "effectiveEp": 64,
+    "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+    "differingRawEpEqual": false,
+    "differentKeys": [
+      2502362367,
+      977981043
+    ]
+  },
+  "cleanup": [
+    {
+      "schemaVersion": 1,
+      "graceful": true,
+      "restartRequired": false,
+      "state": "closed",
+      "compiler": {
+        "graceful": true,
+        "restartRequired": false,
+        "cleanupClaim": "proved-native-resources-and-libraries",
+        "workerExited": true,
+        "workerExitCode": 0,
+        "resources": {
+          "programsCreated": 1,
+          "programsDestroyed": 1,
+          "linksCreated": 0,
+          "linksDestroyed": 0
+        }
+      },
+      "driver": {
+        "graceful": true,
+        "restartRequired": false,
+        "cleanupClaim": "proved-exact-windows-profile",
+        "workerExited": true,
+        "workerExitCode": 0,
+        "health": "closed",
+        "resourceCounts": {
+          "live": 0,
+          "closing": 0,
+          "closed": 10,
+          "orphaned": 0
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "graceful": true,
+      "restartRequired": false,
+      "state": "closed",
+      "compiler": {
+        "graceful": true,
+        "restartRequired": false,
+        "cleanupClaim": "proved-native-resources-and-libraries",
+        "workerExited": true,
+        "workerExitCode": 0,
+        "resources": {
+          "programsCreated": 1,
+          "programsDestroyed": 1,
+          "linksCreated": 0,
+          "linksDestroyed": 0
+        }
+      },
+      "driver": {
+        "graceful": true,
+        "restartRequired": false,
+        "cleanupClaim": "proved-exact-windows-profile",
+        "workerExited": true,
+        "workerExitCode": 0,
+        "health": "closed",
+        "resourceCounts": {
+          "live": 0,
+          "closing": 0,
+          "closed": 10,
+          "orphaned": 0
+        }
+      }
+    }
+  ],
+  "historicalBase": "0d88591693ee3314033ad0f32d335998b2429f45"
+}
