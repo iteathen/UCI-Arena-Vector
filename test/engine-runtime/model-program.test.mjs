@@ -3,3 +3,18 @@ import test from 'node:test';
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
 test('operational model builder is the exact qualified source snapshot on the current public Tensor namespace',async()=>{const source=new URL('../../components/engine-runtime/model-program-source.mjs',import.meta.url);assert(fs.existsSync(source),'Exact qualified model source snapshot is missing');assert.equal(createHash('sha256').update(fs.readFileSync(source)).digest('hex'),'c6e9b74da76d4e7dff2a199a33f56954b0aadd26e328561fd317901e4c505116');const {buildAdmittedModelProgram}=await import('../../components/engine-runtime/model-program.mjs');const result=buildAdmittedModelProgram();assert.equal(result.itemCapacity,2);assert.equal(result.program.nodes.length,2216);assert.equal(result.parameterLayout.byteLength,14551952);assert.equal(result.program.outputs[0].spec.capacityShape[1],4162);assert.equal(result.cohort.tensor,'0.1.0-alpha.10');assert.equal(result.cohort.cudaJs,'0.1.0-alpha.22');});
+test('public original model compilation returns an immutable capability after compiler teardown',{skip:process.env.VECTOR_MODEL_ADMISSION_NATIVE!=='1'},async()=>{const api=await import('../../components/engine-runtime/model-program.mjs');assert.equal(typeof api.compileAdmittedModelProgram,'function','Public model compiler admission is missing');const r=await api.compileAdmittedModelProgram({cacheDirectory:process.env.VECTOR_MODEL_COMPILER_CACHE});assert.equal(r.deviceProgram.itemCapacity,2);assert.equal(r.deviceProgram.totalWorkspaceBytes,66389048);assert.equal(r.deviceProgram.library.sha256,'08b4fb2ea01285eaf3f4789d2235a51e7a171c69e838e1424362ef31d4ffdb08');assert.equal(r.deviceProgram.importAs('mcgsTensorRunItem').library.artifact.sha256,'302b609e9fff490614234586b9ad2688851e8141627d50932202bc68f2944599');assert.equal(r.cleanup.session.graceful,true);assert.equal(r.cleanup.runtime.graceful,true);assert.equal(r.cleanup.runtime.driver.resourceCounts.live,0);assert.equal(r.cleanup.runtime.driver.resourceCounts.orphaned,0);assert(r.elapsedMilliseconds<60000,'Current model admission exceeds Manager ready envelope');});
+test('actual original model binds Evaluator request readiness and feature encoding owner',{skip:process.env.VECTOR_MODEL_ADMISSION_NATIVE!=='1'},async()=>{
+  const api=await import('../../components/engine-runtime/model-program.mjs');
+  const admitted=await api.compileAdmittedModelProgram({cacheDirectory:process.env.VECTOR_MODEL_COMPILER_CACHE});
+  assert.equal(typeof api.createAdmittedEvaluatorContribution,'function');
+  const selected=api.createAdmittedEvaluatorContribution(admitted.deviceProgram);
+  assert.equal(selected.runtime.execution.maxActiveItems,1);assert.equal(selected.runtime.execution.itemCapacity,2);
+  assert.equal(selected.runtime.execution.requestCapacity,1);assert.equal(selected.runtime.execution.hostProgress,'none');
+  assert.equal(selected.runtime.device.workClasses.encode.functions[0],'vEvaluatorEncodeEvaluation');
+  assert.equal(selected.policy.resultLayout.perRequestElements,4163);
+  assert.equal(selected.policy.resultLayout.valueOffset,4162);
+  assert(selected.runtime.device.functions.some(f=>f.name==='mPolicyIndex'));
+  assert(!selected.policy.source.includes('mcgsTensorRunItem('));
+  assert(selected.runtime.device.serviceProtocol?.collective||selected.runtime.device.functions.some(f=>f.participation?.blockSize===32));
+});

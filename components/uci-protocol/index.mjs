@@ -65,9 +65,11 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     return readyPromise;
   };
   const clearActive=()=>{if(active?.timer)clearTimer(active.timer);active=null;};
+  const publicationFailure=(token,error)=>{if(closed||active!==token)return;clearActive();write('info string error '+String(error?.message??error).replace(/[\x00-\x1f\x7f]/g,' ').slice(0,512));};
+  const pendingPublications=new Set();
   const poll = token => {
     if(closed||active!==token||token.rootEpoch!==rootEpoch)return;
-    const result=port.readPublication({rootEpoch:token.rootEpoch,requestId:token.requestId});
+    let result;try{result=port.readPublication({rootEpoch:token.rootEpoch,requestId:token.requestId});}catch(error){publicationFailure(token,error);return;}
     if(result) {
       const proof=result.legalProof;
       if(result.rootEpoch===rootEpoch&&result.requestId===token.requestId&&proof?.rootEpoch===rootEpoch&&proof.action===result.action&&proof.legal===true&&(result.action!==null||result.terminal===true)) {
@@ -77,9 +79,10 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     }
     token.timer=setTimer(()=>poll(token),5);
   };
-  const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[]});poll(token);};
+  const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[]});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>poll(token)).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
   const schedule=token=>{const delay=publicationDelay(token.command,sideToMove);if(delay!==null)token.timer=setTimer(()=>publish(token),Math.max(0,delay-(now()-token.started)));};
-  const close=async()=>{if(closed)return{graceful:true};closed=true;clearActive();return port.close();};
+  let closePromise;
+  const close=()=>{if(!closePromise){closed=true;clearActive();closePromise=Promise.resolve().then(async()=>{await configuration;if(readyPromise)await readyPromise.catch(()=>{});await admission.catch(()=>{});await Promise.allSettled([...pendingPublications]);return port.close();});}return closePromise;};
   const handle=async line=>{
     if(closed)return;
     const command=parseUciCommand(line);
@@ -106,7 +109,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       await admission;if(active===token&&!closed){if(token.stopPending)publish(token);else schedule(token);}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){delete active.command.ponder;active.started=now();schedule(active);}}
-    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;await admission.catch(()=>{});if(typeof port.endGame==='function')await port.endGame();}
+    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined);await admission;}
     else if(command.kind==='quit')return close();
   };
   return Object.freeze({handle,close});
