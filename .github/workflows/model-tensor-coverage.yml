@@ -10,6 +10,8 @@ on:
       - "contracts/cuda-js-tensor-program-capabilities-v3.json"
       - "test/fixtures/model-tensor-coverage/**"
       - "test/fixtures/model-oracle/**"
+      - "test/fixtures/model-successor/**"
+      - "tools/latticeknight-successor*.mjs"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
       - "tools/verify-model-inference-precision.mjs"
@@ -30,6 +32,8 @@ on:
       - "contracts/cuda-js-tensor-program-capabilities-v3.json"
       - "test/fixtures/model-tensor-coverage/**"
       - "test/fixtures/model-oracle/**"
+      - "test/fixtures/model-successor/**"
+      - "tools/latticeknight-successor*.mjs"
       - "tools/verify-model-tensor-coverage.mjs"
       - "tools/verify-model-tensor-coverage.test.mjs"
       - "tools/verify-model-inference-precision.mjs"
@@ -86,6 +90,8 @@ jobs:
           tools/verify-model-inference-precision.test.mjs
           tools/verify-model-numerical-oracle.test.mjs
           tools/latticeknight-fp32-tensor-program.test.mjs
+          tools/latticeknight-successor-candidate.test.mjs
+          tools/latticeknight-successor-oracle.test.mjs
       - name: Prove legacy supported synthetic coverage
         run: >-
           node tools/verify-model-tensor-coverage.mjs
