@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { openCudaRuntimeForTesting } from 'cuda-js/testing';
@@ -158,7 +159,24 @@ test('root-public Tensor callable compilation owns exact item ABI and workspace'
       });
 
       assert.equal(deviceProgram.contract, DEVICE_CONTRACT);
-      assert.equal(deviceProgram.compatibilityIdentity, DEVICE_PROGRAM_IDENTITY);
+      // This portable compiler fixture was frozen on Linux / Node 26.7.0.
+      // Tensor intentionally includes the actual runtime in its compiled identity.
+      // Verify that identity intact, then compare the same mock compilation under
+      // the recorded host labels. Numerical observation receipts remain exact.
+      const compiled = deviceProgram.canonical.compiled;
+      const compiledIdentity = (record) => `tensor-device-program-v1:${createHash('sha256').update(JSON.stringify(record)).digest('hex')}`;
+      assert.equal(deviceProgram.compatibilityIdentity, compiledIdentity(compiled));
+      assert.deepEqual(compiled.sessionRuntimeIdentity.profile, {
+        node: process.version,
+        platform: process.platform,
+        architecture: 'x64',
+        nativeOperational: false,
+        nativeQualified: false,
+      });
+      const frozenHostCompilation = structuredClone(compiled);
+      frozenHostCompilation.sessionRuntimeIdentity.profile.node = 'v26.7.0';
+      frozenHostCompilation.sessionRuntimeIdentity.profile.platform = 'linux';
+      assert.equal(compiledIdentity(frozenHostCompilation), DEVICE_PROGRAM_IDENTITY);
       assert.equal(deviceProgram.itemCapacity, 1);
       assert.deepEqual(deviceProgram.itemInputs, ['features']);
       assert.deepEqual(deviceProgram.inputs.map(({ name, itemVarying }) => [name, itemVarying]), [
