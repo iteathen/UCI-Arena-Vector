@@ -96,10 +96,16 @@ export function renderInstalledLaunchProfile(context) {
   for (const [name, value] of Object.entries(profile.uci_options)) {
     if (!/^[A-Za-z0-9 _-]{1,128}$/u.test(name) || !scalar(value)) fail('invalid-uci-option');
   }
+  const options = { ...profile.uci_options };
+  if (Object.hasOwn(options, 'ModelRoot')) {
+    if (!object(manifest.default_model) || options.ModelRoot !== manifest.default_model.root) fail('model-root-mismatch');
+    options.ModelRoot = path.join(root, relative(manifest.default_model.root));
+    noLinks(options.ModelRoot, true);
+  }
   const executable = verifiedFile(profile.engine.executable);
   const program = verifiedFile(args.at(-1));
   return { schema: 'arena_provider_install_result_v1', schema_version: 1,
-    configuration: { ...profile, component: { ...profile.component, root }, enabled: context.enabled,
+    configuration: { ...profile, component: { ...profile.component, root }, enabled: context.enabled, uci_options: options,
       engine: { ...profile.engine, executable, arguments: [...args.slice(0, -1), program], working_directory: root } },
     generated_documents: [] };
 }

@@ -82,6 +82,20 @@ test('component identity mismatch fails before publishing a configuration', t =>
   assert.equal(result.stdout, '');
 });
 
+test('the declared model root is resolved explicitly and never escapes the installed component', t => {
+  const f = fixture(t);
+  mkdirSync(path.join(f.root, 'models/default'), { recursive: true });
+  f.manifest.default_model = { model_id: 'compact_chessformer_gab_v1',
+    display_name: 'LatticeKnight-4M', input_adapter_id: 'chess_v1_fen_to_dense_planes_v1', root: 'models/default' };
+  f.setProfile(p => { p.uci_options.ModelRoot = 'models/default'; });
+  const result = f.run();
+  assert.equal(result.status, 0);
+  assert.equal(JSON.parse(result.stdout).configuration.uci_options.ModelRoot, path.join(f.root, 'models/default'));
+  f.manifest.default_model.root = '../outside';
+  f.setProfile(p => { p.uci_options.ModelRoot = '../outside'; });
+  assert.notEqual(f.run().status, 0);
+});
+
 test('renderer rejects changed or missing executable and program inventory', t => {
   for (const relative of ['bin/node.exe', 'dist/uci.mjs']) {
     const f = fixture(t);

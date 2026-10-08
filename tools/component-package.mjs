@@ -7,6 +7,8 @@ const GENERATED = new Set(['arena-component.json', 'contracts/uci-engine-launch-
 const SHA = /^[0-9a-f]{64}$/u;
 const COMMIT = /^[0-9a-f]{40}$/u;
 const VERSION = /^\d+\.\d+\.\d+$/u;
+const DEFAULT_MODEL = Object.freeze({ model_id: 'compact_chessformer_gab_v1', display_name: 'LatticeKnight-4M',
+  input_adapter_id: 'chess_v1_fen_to_dense_planes_v1', root: 'models/default' });
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 
@@ -78,7 +80,8 @@ function validateClosure(root, closure, version) {
     if (pkg.version !== library.version) throw new Error('library version differs from runtime closure');
   }
   if (!SHA.test(closure.model?.checkpoint_sha256 ?? '') || !SHA.test(closure.model?.parameters_sha256 ?? '')
-      || expected.get(relativePath(closure.model?.parameters)) !== closure.model.parameters_sha256) {
+      || expected.get(relativePath(closure.model?.parameters)) !== closure.model.parameters_sha256
+      || !closure.model.parameters.startsWith(`${DEFAULT_MODEL.root}/`)) {
     throw new Error('model identity differs from runtime closure');
   }
   const receiptPath = relativePath(closure.qualification.receipt);
@@ -136,7 +139,7 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
     component: { id: 'uci_arena.vector', version, root: '.' },
     engine: { adapter: 'standard_uci_v1', executable: 'bin/node.exe',
       arguments: ['--experimental-ffi', 'dist/uci.mjs'], working_directory: '.' },
-    state: 'conservative', enabled: true, uci_options: {}, expected_runtime: null,
+    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root }, expected_runtime: null,
     evidence: {}, knowledge: {}, diagnostics: [] };
   mkdirSync(path.join(root, 'contracts'), { recursive: true });
   writeFileSync(path.join(root, 'contracts/uci-engine-launch-profile.json'), json(profile));
@@ -147,6 +150,7 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
       installer_integration: 'dist/installer-integration.mjs' },
     discovery: [{ kind: 'uci_engine', locator: { source: 'entrypoint', entrypoint: 'uci_engine' } }],
     capabilities: ['uci_engine', 'uci_engine_launch_profile_v1'], dependencies: ['node_runtime.private'],
+    default_model: { ...DEFAULT_MODEL },
     workspace_name: 'uci-arena-vector',
     installer_integration: { schema: 'arena_provider_installer_integration_v1', schema_version: 1,
       entrypoint: 'installer_integration', invocation: { kind: 'dependency_runtime',
@@ -205,6 +209,8 @@ export function verifyAtomicComponent(root) {
   const closure = JSON.parse(readFileSync(path.join(root, 'contracts/runtime-closure.json'), 'utf8'));
   validateClosure(root, closure, manifest.component_version);
   const profile = JSON.parse(readFileSync(path.join(root, manifest.entrypoints.uci_launch_profile), 'utf8'));
+  if (Object.entries(DEFAULT_MODEL).some(([name, value]) => manifest.default_model?.[name] !== value)
+      || profile.uci_options?.ModelRoot !== DEFAULT_MODEL.root) throw new Error('component model launch identity differs');
   if (profile.component?.id !== manifest.component_id || profile.component?.version !== manifest.component_version
       || profile.component.root !== '.' || profile.engine?.executable !== 'bin/node.exe'
       || JSON.stringify(profile.engine.arguments) !== JSON.stringify(['--experimental-ffi', 'dist/uci.mjs'])

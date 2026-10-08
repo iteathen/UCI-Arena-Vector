@@ -13,7 +13,7 @@ function fixture(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const files = { 'bin/node.exe': 'official-node-fixture', 'dist/uci.mjs': 'export {}',
     'dist/installer-integration.mjs': 'export {}',
-    'models/parameters.f32.bin': 'model-fixture', 'libraries/cuda-js/package.json': '{"version":"0.1.0-alpha.22"}',
+    'models/default/parameters.f32.bin': 'model-fixture', 'libraries/cuda-js/package.json': '{"version":"0.1.0-alpha.22"}',
     'libraries/cuda-mcgs/package.json': '{"version":"0.1.0"}',
     'libraries/cuda-js-tensor/package.json': '{"version":"0.1.0-alpha.10"}' };
   files['contracts/runtime-qualification.json'] = JSON.stringify({ schema: 'vector_runtime_qualification_v1',
@@ -30,8 +30,8 @@ function fixture(t) {
     libraries: ['cuda-js', 'cuda-mcgs', 'cuda-js-tensor'].map(name => ({ name,
       version: JSON.parse(files[`libraries/${name}/package.json`]).version,
       commit: '2'.repeat(40), package_json: `libraries/${name}/package.json` })),
-    model: { checkpoint_sha256: '3'.repeat(64), parameters: 'models/parameters.f32.bin',
-      parameters_sha256: sha(files['models/parameters.f32.bin']) },
+    model: { checkpoint_sha256: '3'.repeat(64), parameters: 'models/default/parameters.f32.bin',
+      parameters_sha256: sha(files['models/default/parameters.f32.bin']) },
     qualification: { status: 'pass', receipt: 'contracts/runtime-qualification.json',
       receipt_sha256: sha(files['contracts/runtime-qualification.json']) } };
   return { root, closure, version: '0.1.0', sourceDateEpoch: 1791489600 };
@@ -45,6 +45,9 @@ test('one atomic payload inventories the whole runtime and has reproducible byte
   assert.equal(first.manifest.component_id, 'uci_arena.vector');
   assert.equal(first.manifest.entrypoints.uci_engine, 'bin/node.exe');
   assert.deepEqual(first.profile.engine.arguments, ['--experimental-ffi', 'dist/uci.mjs']);
+  assert.equal(first.profile.uci_options.ModelRoot, 'models/default');
+  assert.equal(first.manifest.default_model.root, 'models/default');
+  assert.equal(first.manifest.default_model.input_adapter_id, 'chess_v1_fen_to_dense_planes_v1');
   assert.equal(first.manifest.files.length, options.closure.files.length + 2);
   assert.equal(gunzipSync(first.archive).length % 512, 0);
   assert.equal(verifyAtomicComponent(options.root).component_version, '0.1.0');
@@ -79,7 +82,7 @@ test('verification rejects missing managed launch routing before the component i
 });
 
 test('changed entry program, model, dependency and extra file fail exact closure admission', t => {
-  for (const relative of ['dist/uci.mjs', 'models/parameters.f32.bin', 'libraries/cuda-js/package.json', 'extra.mjs']) {
+  for (const relative of ['dist/uci.mjs', 'models/default/parameters.f32.bin', 'libraries/cuda-js/package.json', 'extra.mjs']) {
     const options = fixture(t);
     writeFileSync(path.join(options.root, relative), 'tampered');
     assert.throws(() => buildAtomicComponent(options), /closure|identity/);
@@ -91,7 +94,7 @@ test('installed component verification detects transitive source tampering and m
   buildAtomicComponent(options);
   writeFileSync(path.join(options.root, 'libraries/cuda-js/package.json'), '{}');
   assert.throws(() => verifyAtomicComponent(options.root), /identity/);
-  rmSync(path.join(options.root, 'models/parameters.f32.bin'));
+  rmSync(path.join(options.root, 'models/default/parameters.f32.bin'));
   assert.throws(() => verifyAtomicComponent(options.root));
 });
 
