@@ -66,3 +66,14 @@ neutral launch profile, identity, parameter schema and generated runtime
 contract. The runtime contract does not duplicate the file inventory.
 The `chess.js` package and license remain part of
 the component runtime closure and package provenance.
+# Process retirement observations
+
+The UCI subprocess wrapper gives normal `quit` up to 30 seconds to retire the
+owned process, then terminates a nonresponsive child and waits up to five more
+seconds for pipe closure. Concurrent close requests await the same retirement.
+Its observation records actual exit code, signal, stdio closure, forced disposal
+and elapsed time. Forced or abnormal disposal fails the Evidence batch even when
+the retained game or timing measurements are otherwise complete. Process exit
+facts do not establish joined GPU cleanup; that requires the engine owner's
+separate genuine resource and completion observations. Portable protocol fixtures
+test this distinction without granting native qualification.

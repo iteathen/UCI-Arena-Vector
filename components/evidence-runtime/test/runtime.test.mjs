@@ -57,6 +57,22 @@ test('public UCI rejects absent options and deadline loss closes owned process',
   await silent.ready({});await silent.position(undefined,[]);
   await assert.rejects(silent.go({movetime:1},100),/timeout/);await silent.close();assert.equal(silent.closed,true);
 });
+test('process close awaits normal retirement and rejects abnormal exit',async()=>{
+  const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
+  const delayed=new UciSession({executable:process.execPath,args:[script,'delayed-quit'],cwd:path.dirname(script)},{});
+  await delayed.ready();
+  const [first,second]=await Promise.all([delayed.close(),delayed.close()]);
+  assert.equal(first,second);assert.equal(first.normal_close,true);assert.equal(first.forced,false);
+  assert.equal(first.exit_code,0);assert.equal(first.stdio_closed,true);
+  const abnormal=new UciSession({executable:process.execPath,args:[script,'abnormal-quit'],cwd:path.dirname(script)},{});
+  await abnormal.ready();await assert.rejects(abnormal.close(),/normal close/);
+});
+test('failed process retirement cannot produce a completed Evidence batch',async()=>{
+  const session=fake(['e2e4']);session.close=async()=>{throw new Error('owned process normal close failed');};
+  const output=await runEvidence({schema:'uci_arena_evidence_request_v2',request_id:'r',job_id:'j',shard_id:'s',workload:'timing_profile',target_identity:{},runtime_identity:{},config:{movetimesMs:[5],repetitions:1}}, {openSession:async()=>session});
+  assert.equal(output.status,'failed');assert.equal(output.completed,false);
+  assert.ok(output.failures.some(failure=>failure.includes('normal close')));
+});
 test('launch artifact validates profile and complete inventory, rejects byte drift',t=>{
   const root=mkdtempSync(path.join(os.tmpdir(),'vector-artifact-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
   const hash=b=>createHash('sha256').update(b).digest('hex');

@@ -5,7 +5,9 @@ export class UciSession {
   constructor(launch,options={}) {
     this.closed=false;this.options=options;this.lines=[];this.buffer='';this.bytes=0;this.waiter=null;this.failure=null;
     this.process=spawn(launch.executable,launch.args,{cwd:launch.cwd,env:{...process.env},stdio:['pipe','pipe','pipe'],windowsHide:true});
-    this.exited=new Promise(resolve=>this.process.once('close',()=>resolve()));
+    this.exited=new Promise(resolve=>this.process.once('close',(code,signal)=>{
+      this.exitObservation={exit_code:code,signal,stdio_closed:true};resolve();
+    }));
     this.process.once('exit',(code,signal)=>{
       this.failure??=new Error(`UCI process exited (${code??signal})`);this.wake();
     });
@@ -69,11 +71,25 @@ export class UciSession {
     return {move:match[1],ponder:match[2]??null,elapsed_ms:elapsed,info:lines.filter(l=>l.startsWith('info ')).slice(-256)};
   }
   async close() {
-    if(this.closed)return;this.closed=true;
-    if(this.process.exitCode!==null||this.process.signalCode!==null)return;
-    try{this.process.stdin.write('quit\n');}catch{}
-    let timer;
-    await Promise.race([this.exited,new Promise(resolve=>{timer=setTimeout(resolve,500);})]);clearTimeout(timer);
-    if(this.process.exitCode===null&&this.process.signalCode===null){this.process.kill();await this.exited;}
+    if(this.closePromise)return this.closePromise;
+    this.closed=true;
+    this.closePromise=(async()=>{
+      const started=performance.now();let forced=false,timer;
+      if(this.process.exitCode===null&&this.process.signalCode===null){try{this.process.stdin.write('quit\n');}catch{}}
+      try{await Promise.race([this.exited,new Promise(resolve=>{timer=setTimeout(resolve,30000);})]);}
+      finally{clearTimeout(timer);}
+      if(!this.exitObservation){
+        forced=true;this.process.kill();
+        try{await Promise.race([this.exited,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('owned UCI process did not close after termination')),5000);})]);}
+        finally{clearTimeout(timer);}
+      }
+      const observation=Object.freeze({schema:'vector_uci_process_close_observation_v1',...this.exitObservation,
+        forced,normal_close:!forced&&this.exitObservation?.exit_code===0&&this.exitObservation.signal===null,
+        elapsed_ms:performance.now()-started});
+      this.closeObservation=observation;
+      if(!observation.normal_close)throw new Error('owned UCI process normal close failed');
+      return observation;
+    })();
+    return this.closePromise;
   }
 }

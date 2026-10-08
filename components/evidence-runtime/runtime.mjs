@@ -74,11 +74,18 @@ export async function runEvidence(request,{openSession}) {
       for(const opening of config.openings)for(const candidateColor of request.workload==='paired_sprt'?['white','black']:['white']) {
         const candidate=await open('candidate');const control=await open('control');
         try {games.push(await playGame({...config,opening,candidateColor},candidate,control));}
-        finally {await Promise.allSettled([candidate.close(),control.close()]);sessions.delete(candidate);sessions.delete(control);}
+        finally {
+          const closing=await Promise.allSettled([candidate.close(),control.close()]);
+          for(const result of closing)if(result.status==='rejected')failures.push(String(result.reason?.message??'owned process close failed').slice(0,2048));
+          sessions.delete(candidate);sessions.delete(control);
+        }
       }
     }
   }catch(error){failures.push(String(error.message).slice(0,2048));}
-  finally{await Promise.allSettled([...sessions].map(s=>s.close()));}
+  finally{
+    const closing=await Promise.allSettled([...sessions].map(s=>s.close()));
+    for(const result of closing)if(result.status==='rejected')failures.push(String(result.reason?.message??'owned process close failed').slice(0,2048));
+  }
   for(const game of games)if(game.failure)failures.push(game.failure);
   const status=failures.length?'failed':games.some(g=>!g.complete)?'incomplete':'completed';
   return {schema:'uci_arena_evidence_result_v2',request_id:request.request_id,job_id:request.job_id,shard_id:request.shard_id,
