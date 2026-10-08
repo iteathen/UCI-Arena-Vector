@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import fs from 'node:fs';
+import {createHash} from 'node:crypto';
+test('operational model builder is the exact qualified source snapshot on the current public Tensor namespace',async()=>{const source=new URL('../../components/engine-runtime/model-program-source.mjs',import.meta.url);assert(fs.existsSync(source),'Exact qualified model source snapshot is missing');assert.equal(createHash('sha256').update(fs.readFileSync(source)).digest('hex'),'c6e9b74da76d4e7dff2a199a33f56954b0aadd26e328561fd317901e4c505116');const {buildAdmittedModelProgram}=await import('../../components/engine-runtime/model-program.mjs');const result=buildAdmittedModelProgram();assert.equal(result.itemCapacity,2);assert.equal(result.program.nodes.length,2216);assert.equal(result.parameterLayout.byteLength,14551952);assert.equal(result.program.outputs[0].spec.capacityShape[1],4162);assert.equal(result.cohort.tensor,'0.1.0-alpha.10');assert.equal(result.cohort.cudaJs,'0.1.0-alpha.22');});

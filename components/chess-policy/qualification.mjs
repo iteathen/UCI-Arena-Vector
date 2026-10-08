@@ -24,29 +24,31 @@ export function buildPolicyQualificationProgram(){
 export const inspectPolicyQualification=()=>cuda.inspectDeviceProgram(buildPolicyQualificationProgram());
 export function buildPublicationQualificationProgram(){
   const contribution=buildPolicyPublicationModule();
-  const source=`function publicationCheck(records,numeric,snapshot,audit,out){
+  const source=`function publicationCheck(records,numeric,snapshot,audit,out,restrictions){
     if(gpu.thread.globalX()!==gpu.u32(0)){return;}
     out[gpu.u32(0)]=gpu.u32(0);for(let j=gpu.u32(0);j<gpu.u32(3);j++){snapshot[j*gpu.u32(6)]=records[j*gpu.u32(6)+gpu.u32(4)];out[gpu.u32(0)]=out[gpu.u32(0)]+vEncodeSnapshotRow(records,j*gpu.u32(6),numeric,j*gpu.u32(4),snapshot,j*gpu.u32(6)+gpu.u32(1));}
     out[gpu.u32(1)]=vChooseEncoded(snapshot,gpu.u32(0),gpu.u32(3));snapshot[gpu.u32(2)]=gpu.u32(1);out[gpu.u32(2)]=vChooseEncoded(snapshot,gpu.u32(0),gpu.u32(3));
     for(let j=gpu.u32(0);j<gpu.u32(18);j++){audit[j]=snapshot[j];}let chosen=vChooseEncoded(snapshot,gpu.u32(0),gpu.u32(3));let unchanged=gpu.u32(1);for(let j=gpu.u32(0);j<gpu.u32(18);j++){if(audit[j]!==snapshot[j]){unchanged=gpu.u32(0);}}out[gpu.u32(3)]=unchanged;
     snapshot[gpu.u32(14)]=gpu.u32(99);out[gpu.u32(4)]=vChooseEncoded(snapshot,gpu.u32(0),gpu.u32(3));out[gpu.u32(5)]=vChooseEncoded(snapshot,gpu.u32(0),gpu.u32(0));
     records[gpu.u32(2)]=gpu.u32(99);for(let j=gpu.u32(0);j<gpu.u32(5);j++){audit[j]=gpu.u32(12345);}out[gpu.u32(6)]=vEncodeSnapshotRow(records,gpu.u32(0),numeric,gpu.u32(0),audit,gpu.u32(0));unchanged=gpu.u32(1);for(let j=gpu.u32(0);j<gpu.u32(5);j++){if(audit[j]!==gpu.u32(12345)){unchanged=gpu.u32(0);}}out[gpu.u32(7)]=unchanged;
+    out[gpu.u32(8)]=gpu.u32(0);for(let j=gpu.u32(0);j<gpu.u32(3);j++){out[gpu.u32(8)]=out[gpu.u32(8)]+vEncodeUnavailableRow(snapshot,j*gpu.u32(6)+gpu.u32(1));}out[gpu.u32(9)]=vChooseEncoded(snapshot,gpu.u32(0),gpu.u32(3));
+    out[gpu.u32(10)]=vChooseEncodedRestricted(snapshot,gpu.u32(0),gpu.u32(3),restrictions);restrictions[gpu.u32(1)]=gpu.u32(40000);out[gpu.u32(11)]=vChooseEncodedRestricted(snapshot,gpu.u32(0),gpu.u32(3),restrictions);
   }`;
-  return{source:contribution.source+source,functions:[...contribution.functions,{name:'publicationCheck',kind:'kernel',parameters:[{name:'records',type:'ptr<u32>'},{name:'numeric',type:'ptr<f32>'},{name:'snapshot',type:'ptr<u32>'},{name:'audit',type:'ptr<u32>'},{name:'out',type:'ptr<u32>'}],returns:'void'}],compile:{headerProfile:'cuda-cccl'}};
+  return{source:contribution.source+source,functions:[...contribution.functions,{name:'publicationCheck',kind:'kernel',parameters:[{name:'records',type:'ptr<u32>'},{name:'numeric',type:'ptr<f32>'},{name:'snapshot',type:'ptr<u32>'},{name:'audit',type:'ptr<u32>'},{name:'out',type:'ptr<u32>'},{name:'restrictions',type:'ptr<u32>'}],returns:'void'}],compile:{headerProfile:'cuda-cccl'}};
 }
 export const inspectPublicationQualification=()=>cuda.inspectDeviceProgram(buildPublicationQualificationProgram());
 export async function qualifyPolicyPublication(){
   if(process.version!=='v26.11.1'||cuda.CUDA_JS_COMPATIBILITY.package.version!=='0.1.0-alpha.21')throw new Error('Publication native exact cohort mismatch');
-  const values=[new Uint32Array(18),new Float32Array(12),new Uint32Array(18),new Uint32Array(18),new Uint32Array(8)],resources=[];
+  const values=[new Uint32Array(18),new Float32Array(12),new Uint32Array(18),new Uint32Array(18),new Uint32Array(12),new Uint32Array([1,20])],resources=[];
   values[0][0]=10;values[0][6]=0;values[0][12]=20;values[0][4]=10;values[0][10]=20;values[0][16]=30;values[1][0]=-5;values[1][8]=2;values[1][1]=0.1;values[1][5]=0.2;values[1][9]=0.7;
-  const sizes=values.map(v=>v.byteLength),runtime=await cuda.openCudaRuntime({compiler:true,driver:{memory:{maxDeviceBytes:sizes.reduce((a,b)=>a+b,0),maxAllocationBytes:Math.max(...sizes),maxTransferBytes:Math.max(...sizes)},execution:{maxArguments:5,maxModuleBytes:8*1024*1024,maxCompletionMilliseconds:30000}}});let result,terminal;
+  const sizes=values.map(v=>v.byteLength),runtime=await cuda.openCudaRuntime({compiler:true,driver:{memory:{maxDeviceBytes:sizes.reduce((a,b)=>a+b,0),maxAllocationBytes:Math.max(...sizes),maxTransferBytes:Math.max(...sizes)},execution:{maxArguments:6,maxModuleBytes:8*1024*1024,maxCompletionMilliseconds:30000}}});let result,terminal;
   try{
     const compiled=await cuda.compileDeviceProgram(runtime,buildPublicationQualificationProgram()),memories=[];
     for(const value of values){const memory=await runtime.allocateDevice({byteLength:value.byteLength});memories.push(memory);resources.push(memory);await memory.write(new Uint8Array(value.buffer));}
     const module=await runtime.loadModule({format:compiled.compiler.artifact.format,bytes:compiled.compiler.artifact.bytes});resources.push(module);const kernel=compiled.deviceProgram.kernels.find(k=>k.name==='publicationCheck'),fn=await module.getFunction({name:kernel.functionName,parameters:kernel.parameters});resources.push(fn);
     const operation=await fn.submit({grid:{x:1,y:1,z:1},block:{x:1,y:1,z:1},arguments:memories,accesses:sizes.map((byteLength,argumentIndex)=>({argumentIndex,byteLength,byteOffset:0,mode:'read-write'}))});resources.push(operation);if((await operation.wait()).status!=='completed')throw new Error('Publication qualification execution failed');
-    const bytes=(await memories[4].read({byteLength:32})).bytes;
-    result={node:process.version,compatibility:cuda.CUDA_JS_COMPATIBILITY,environment:await runtime.describe(),sourceIdentity:buildPolicyPublicationModule().sourceIdentity,compilerArtifact:{sha256:compiled.compiler.artifact.sha256,format:compiled.compiler.artifact.format,architecture:compiled.compiler.artifact.architecture},output:Array.from(new Uint32Array(bytes.buffer,bytes.byteOffset,8))};
+    const bytes=(await memories[4].read({byteLength:48})).bytes;
+    result={node:process.version,compatibility:cuda.CUDA_JS_COMPATIBILITY,environment:await runtime.describe(),sourceIdentity:buildPolicyPublicationModule().sourceIdentity,compilerArtifact:{sha256:compiled.compiler.artifact.sha256,format:compiled.compiler.artifact.format,architecture:compiled.compiler.artifact.architecture},output:Array.from(new Uint32Array(bytes.buffer,bytes.byteOffset,12))};
   }finally{const failures=[];for(const resource of resources.reverse()){try{await resource.close();}catch(error){failures.push(error);break;}}terminal=await runtime.close();if(failures.length||!terminal.graceful)throw new AggregateError(failures,'Publication qualification cleanup unproved');}
   result.terminal=terminal;if(process.env.VECTOR_PUBLICATION_RECEIPT)fs.writeFileSync(process.env.VECTOR_PUBLICATION_RECEIPT,JSON.stringify(result,null,2)+'\n',{flag:'wx'});return result;
 }

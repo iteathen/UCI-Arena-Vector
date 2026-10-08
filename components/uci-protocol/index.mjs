@@ -7,7 +7,12 @@ export function uciToAction(move) {
   return square(0) | (square(2) << 6) | ((move.length === 5 ? ' nbrq'.indexOf(move[4]) : 0) << 12);
 }
 export function parseUciCommand(line) {
-  if (typeof line !== 'string' || line.length > 16384) throw new Error('UCI line exceeds admitted extent');
+  if (typeof line !== 'string' || line.length > 65536 || /[\x00-\x1f\x7f]/.test(line)) throw new Error('UCI line exceeds admitted extent or contains control characters');
+  if (/^\s*setoption(?:\s|$)/.test(line)) {
+    const match = /^\s*setoption\s+name\s+(.+?)(?:\s+value(?:\s+(.*))?)?\s*$/.exec(line);
+    if (!match) throw new Error('Invalid UCI setoption syntax');
+    return {kind:'setoption',name:match[1].trim(),value:match[2] ?? ''};
+  }
   const parts = line.trim().split(/\s+/), kind = parts.shift();
   if (kind === 'position') {
     let fen;
@@ -16,7 +21,7 @@ export function parseUciCommand(line) {
     else throw new Error('Unsupported UCI position');
     admitPosition(fen);
     if (parts.length && parts.shift() !== 'moves') throw new Error('Invalid UCI position suffix');
-    if (parts.length > 255) throw new Error('UCI position history capacity exceeded');
+    if (parts.length > 4096) throw new Error('UCI position history capacity exceeded');
     return {kind,fen,moves:parts.map(uciToAction)};
   }
   if (kind === 'go') {
@@ -38,17 +43,27 @@ export function parseUciCommand(line) {
 export function publicationDelay(command, sideToMove) {
   if (command.infinite || command.ponder) return null;
   if (command.movetime !== undefined) return command.movetime;
-  const remaining=command[sideToMove===0?'wtime':'btime'];
-  if (remaining===undefined) return null;
-  const increment=command[sideToMove===0?'winc':'binc'] ?? 0, reserve=Math.min(500,Math.max(10,remaining*0.05));
-  return Math.max(0,Math.floor(Math.min(remaining-reserve,remaining/(command.movestogo??30)+increment*0.8)));
+  if (command.wtime!==undefined||command.btime!==undefined) throw new Error('Remaining-clock allocation requires a qualified timing policy; current profile supports explicit movetime or infinite publication only');
+  return null;
 }
 
 export function createUciController({port,write,now=()=>performance.now(),setTimer=setTimeout,clearTimer=clearTimeout}) {
   for (const method of ['ready','admitPosition','requestPublication','readPublication','close']) if(typeof port?.[method]!=='function') throw new Error(`GameSearchPort requires ${method}`);
   if(typeof write!=='function')throw new Error('UCI output writer is required');
+  const options=new Map();
+  for(const option of port.options??[]) {
+    if(!option||typeof option.name!=='string'||!option.name||/[\x00-\x1f\x7f]/.test(option.name)||option.type!=='string'||typeof option.default!=='string'||/[\x00-\x1f\x7f]/.test(option.default)||options.has(option.name.toLowerCase()))throw new Error('Invalid advertised UCI option registry');
+    options.set(option.name.toLowerCase(),Object.freeze({...option}));
+  }
+  if(options.size&&typeof port.configure!=='function')throw new Error('Advertised UCI options require configuration admission');
   let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,newGame=true,admission=Promise.resolve(),active=null,closed=false;
-  const ready=Promise.resolve().then(()=>port.ready());
+  let runtimeIdentity,readyPromise,configurationError,configuration=Promise.resolve();
+  const ready=async()=>{
+    await configuration;
+    if(configurationError)throw configurationError;
+    if(!readyPromise)readyPromise=Promise.resolve().then(()=>port.ready()).then(identity=>{if(identity!==undefined){if(identity?.schema!=='vector_engine_runtime_identity_v1')throw new Error('Backend public runtime identity schema mismatch');const encoded=JSON.stringify(identity);if(encoded.length>16384)throw new Error('Backend public runtime identity exceeds bounded extent');runtimeIdentity=encoded;}});
+    return readyPromise;
+  };
   const clearActive=()=>{if(active?.timer)clearTimer(active.timer);active=null;};
   const poll = token => {
     if(closed||active!==token||token.rootEpoch!==rootEpoch)return;
@@ -68,19 +83,30 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
   const handle=async line=>{
     if(closed)return;
     const command=parseUciCommand(line);
-    if(command.kind==='uci'){write('id name UCI Arena Vector');write('id author iteathen');write('uciok');}
-    else if(command.kind==='isready'){await ready;if(!closed)write('readyok');}
+    if(command.kind==='uci'){write('id name UCI Arena Vector');write('id author iteathen');for(const option of options.values())write(`option name ${option.name} type string default ${option.default||'<empty>'}`);write('uciok');}
+    else if(command.kind==='setoption'){
+      const option=options.get(command.name.toLowerCase());
+      if(!option)throw new Error('UCI option is not advertised');
+      if(hasPosition)throw new Error('UCI configuration cannot change an admitted game');
+      const pending=configuration.then(async()=>{
+        try{await port.configure({name:option.name,value:command.value});configurationError=undefined;readyPromise=undefined;runtimeIdentity=undefined;}
+        catch(error){configurationError=error;throw error;}
+      });
+      configuration=pending.catch(()=>{});
+      await pending;
+    }
+    else if(command.kind==='isready'){await ready();if(!closed){if(runtimeIdentity)write(`info string vector_identity ${runtimeIdentity}`);write('readyok');}}
     else if(command.kind==='position') {
       clearActive();if(rootEpoch===0xffff_fffe)throw new Error('Root epoch exhausted');const epoch=++rootEpoch,establishGame=newGame;newGame=false;hasPosition=true;admittedEpoch=0;
-      admission=admission.catch(()=>{}).then(()=>ready).then(()=>port.admitPosition({...command,rootEpoch:epoch,newGame:establishGame})).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
+      admission=admission.catch(()=>{}).then(()=>ready()).then(()=>port.admitPosition({...command,rootEpoch:epoch,newGame:establishGame})).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
       await admission;
     } else if(command.kind==='go') {
-      if(!hasPosition)throw new Error('UCI go requires admitted position');clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
+      if(!hasPosition)throw new Error('UCI go requires admitted position');publicationDelay(command,sideToMove);clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
       const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,timer:null};active=token;
       await admission;if(active===token&&!closed){if(token.stopPending)publish(token);else schedule(token);}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){delete active.command.ponder;active.started=now();schedule(active);}}
-    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;}
+    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;await admission.catch(()=>{});if(typeof port.endGame==='function')await port.endGame();}
     else if(command.kind==='quit')return close();
   };
   return Object.freeze({handle,close});
