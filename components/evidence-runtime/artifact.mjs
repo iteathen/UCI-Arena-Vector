@@ -76,7 +76,7 @@ export function validateLaunchArtifact(request) {
     ||typeof launch.arguments[1]!=='string'||!samePhysicalPath(path.resolve(launch.working_directory,launch.arguments[1]),entrypoint)||!plain(launch.uci_options)
     ||!isDeepStrictEqual(request.target_identity?.launch,launch)
     ||request.target_identity.engine_sha256!==fileDigest(executable))throw new Error('registered UCI launch differs from admitted artifact');
-  return {root,profile,expectedIdentity,launch:{executable,args:[...launch.arguments],cwd:launch.working_directory}};
+  return {root,profile,expectedIdentity,launch:{executable:launch.executable,args:[...launch.arguments],cwd:launch.working_directory}};
 }
 export function validateEngineIdentity(actual,expected) {
   if(!plain(expected)||expected.schema!=='vector_engine_runtime_identity_v1')throw new Error('expected runtime identity is unavailable');

@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import { test } from 'node:test';
 import { buildAtomicComponent, verifyAtomicComponent } from '../tools/component-package.mjs';
+import { buildRuntimeContract } from '../components/evidence-runtime/contract.mjs';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 function fixture(t) {
@@ -18,7 +19,7 @@ function fixture(t) {
     'libraries/cuda-js-tensor/package.json': '{"version":"0.1.0-alpha.10"}' };
   files['contracts/runtime-qualification.json'] = JSON.stringify({ schema: 'vector_runtime_qualification_v1',
     status: 'pass', vector_commit: '1'.repeat(40),
-    tests: ['gpu-search', 'legal-game', 'clock-safety', 'lifecycle'].map(name => ({ name, status: 'pass' })),
+    tests: ['gpu-search', 'legal-game', 'clock-safety', 'lifecycle', 'tactical-safety'].map(name => ({ name, status: 'pass' })),
     files: Object.entries(files).map(([relative, bytes]) => ({ path: relative, sha256: sha(bytes) })) });
   for (const [relative, bytes] of Object.entries(files)) {
     mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
@@ -36,6 +37,36 @@ function fixture(t) {
       receipt_sha256: sha(files['contracts/runtime-qualification.json']) } };
   return { root, closure, version: '0.1.0', sourceDateEpoch: 1791489600 };
 }
+
+test('optional Evidence capability is published only for a qualified inventoried runtime contract', t => {
+  const options = fixture(t);
+  const contract = buildRuntimeContract({ componentVersion: options.version, targetTriple: 'windows-x86_64' });
+  const added = {
+    'contracts/evidence-runtime-contract.json': JSON.stringify(contract),
+    'contracts/runtime-identity.json': JSON.stringify({ schema: 'vector_engine_runtime_identity_v1', nodeVersion: '26.11.1' }),
+    'components/evidence-runtime/cli.mjs': 'export {}',
+    'components/evidence-runtime/referee.mjs': 'export {}',
+    'components/evidence-runtime/parameters.schema.json': JSON.stringify({ type: 'object', properties: {}, required: [], additionalProperties: false }),
+  };
+  for (const [relative, bytes] of Object.entries(added)) {
+    mkdirSync(path.dirname(path.join(options.root, relative)), { recursive: true });
+    writeFileSync(path.join(options.root, relative), bytes);
+    options.closure.files.push({ path: relative, sha256: sha(bytes) });
+  }
+  const receiptPath = path.join(options.root, options.closure.qualification.receipt);
+  const receipt = JSON.parse(readFileSync(receiptPath));
+  receipt.files.push(...Object.entries(added).map(([relative, bytes]) => ({ path: relative, sha256: sha(bytes) })));
+  const receiptBytes = JSON.stringify(receipt); writeFileSync(receiptPath, receiptBytes);
+  options.closure.qualification.receipt_sha256 = sha(receiptBytes);
+  options.closure.files.find(row => row.path === options.closure.qualification.receipt).sha256 = sha(receiptBytes);
+  const first = buildAtomicComponent(options);
+  assert.equal(first.manifest.entrypoints.evidence_runtime_contract, 'contracts/evidence-runtime-contract.json');
+  assert(first.manifest.capabilities.includes('evidence_runtime_contract_v2'));
+  const manifestPath = path.join(options.root, 'arena-component.json');
+  const manifest = JSON.parse(readFileSync(manifestPath));
+  delete manifest.entrypoints.evidence_runtime_contract;writeFileSync(manifestPath, JSON.stringify(manifest));
+  assert.throws(() => verifyAtomicComponent(options.root), /Evidence|runtime contract/);
+});
 
 test('one atomic payload inventories the whole runtime and has reproducible bytes', t => {
   const options = fixture(t);

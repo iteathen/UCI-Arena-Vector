@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { isDeepStrictEqual } from 'node:util';
+import { buildRuntimeContract } from '../components/evidence-runtime/contract.mjs';
 
 const GENERATED = new Set(['arena-component.json', 'contracts/uci-engine-launch-profile.json', 'contracts/runtime-closure.json']);
 const SHA = /^[0-9a-f]{64}$/u;
@@ -90,7 +92,7 @@ function validateClosure(root, closure, version) {
   if (receipt.schema !== 'vector_runtime_qualification_v1' || receipt.status !== 'pass'
       || receipt.vector_commit !== closure.vector_commit || !Array.isArray(receipt.tests)
       || receipt.tests.some(test => test.status !== 'pass')
-      || ['gpu-search', 'legal-game', 'clock-safety', 'lifecycle'].some(name => !receipt.tests.some(test => test.name === name))
+      || ['gpu-search', 'legal-game', 'clock-safety', 'lifecycle', 'tactical-safety'].some(name => !receipt.tests.some(test => test.name === name))
       || !Array.isArray(receipt.files) || receipt.files.length !== expected.size - 1) {
     throw new Error('qualification does not pass the required exact-runtime gates');
   }
@@ -131,10 +133,35 @@ function tarHeader(relative, size, epoch) {
   return bytes;
 }
 
+function validateOptionalEvidenceRuntime(root, closure, version) {
+  const contractPath = 'contracts/evidence-runtime-contract.json';
+  const files = new Set(closure.files.map(row => row.path));
+  if (!files.has(contractPath)) return false;
+  const expected = buildRuntimeContract({ componentVersion: version, targetTriple: 'windows-x86_64' });
+  const contractBytes = readFileSync(path.join(root, contractPath));
+  if (contractBytes.length > 1048576 || !isDeepStrictEqual(JSON.parse(contractBytes), expected)) {
+    throw new Error('Evidence runtime contract differs from its selected producer');
+  }
+  const references = [expected.runtime_identity.path, expected.referee,
+    ...Object.values(expected.capabilities).filter(capability => capability.status === 'available').map(capability => capability.entrypoint),
+    ...expected.campaigns.map(campaign => campaign.parameters_schema)];
+  if (references.some(reference => !files.has(relativePath(reference)))) {
+    throw new Error('Evidence runtime contract references unqualified files');
+  }
+  const identityBytes = readFileSync(path.join(root, expected.runtime_identity.path));
+  if (identityBytes.length > 1048576) throw new Error('Evidence runtime identity exceeds its bound');
+  const identity = JSON.parse(identityBytes);
+  if (identity.schema !== expected.runtime_identity.schema || identity.nodeVersion !== '26.11.1' || identity.fixture === true) {
+    throw new Error('Evidence runtime identity is incompatible');
+  }
+  return true;
+}
+
 export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }) {
   root = regularRoot(root);
   if (!Number.isSafeInteger(sourceDateEpoch) || sourceDateEpoch < 0) throw new Error('invalid source date epoch');
   validateClosure(root, closure, version);
+  const evidenceRuntime = validateOptionalEvidenceRuntime(root, closure, version);
   const profile = { schema: 'arena_uci_engine_launch_profile_v1', schema_version: 1,
     component: { id: 'uci_arena.vector', version, root: '.' },
     engine: { adapter: 'standard_uci_v1', executable: 'bin/node.exe',
@@ -159,6 +186,10 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
       configure_when_disabled: true, dependency_bindings: [], locator_bindings: [] },
     startup: {}, data_paths: [],
     files: inventory(root).filter(row => row.path !== 'arena-component.json') };
+  if (evidenceRuntime) {
+    manifest.entrypoints.evidence_runtime_contract = 'contracts/evidence-runtime-contract.json';
+    manifest.capabilities.push('evidence_runtime_contract_v2');
+  }
   writeFileSync(path.join(root, 'arena-component.json'), json(manifest));
   verifyAtomicComponent(root);
   const chunks = [];
@@ -208,6 +239,12 @@ export function verifyAtomicComponent(root) {
   }
   const closure = JSON.parse(readFileSync(path.join(root, 'contracts/runtime-closure.json'), 'utf8'));
   validateClosure(root, closure, manifest.component_version);
+  const evidenceRuntime = validateOptionalEvidenceRuntime(root, closure, manifest.component_version);
+  if (evidenceRuntime !== Boolean(manifest.capabilities?.includes('evidence_runtime_contract_v2')) ||
+      (evidenceRuntime ? manifest.entrypoints?.evidence_runtime_contract !== 'contracts/evidence-runtime-contract.json' :
+        Object.hasOwn(manifest.entrypoints ?? {}, 'evidence_runtime_contract'))) {
+    throw new Error('component Evidence runtime contract routing differs');
+  }
   const profile = JSON.parse(readFileSync(path.join(root, manifest.entrypoints.uci_launch_profile), 'utf8'));
   if (Object.entries(DEFAULT_MODEL).some(([name, value]) => manifest.default_model?.[name] !== value)
       || profile.uci_options?.ModelRoot !== DEFAULT_MODEL.root) throw new Error('component model launch identity differs');

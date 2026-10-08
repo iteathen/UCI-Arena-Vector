@@ -83,7 +83,10 @@ test('launch artifact validates profile and complete inventory, rejects byte dri
     alias.launch.executable=alias.launch.executable.toUpperCase();
     alias.launch.working_directory=alias.launch.working_directory.toUpperCase();
     alias.target_identity.launch=structuredClone(alias.launch);
-    assert.deepEqual(validateLaunchArtifact(alias).launch.args,alias.launch.arguments);
+    const admittedAlias=validateLaunchArtifact(alias).launch;
+    assert.deepEqual(admittedAlias.args,alias.launch.arguments);
+    assert.equal(admittedAlias.executable,alias.launch.executable);
+    assert.equal(admittedAlias.cwd,alias.launch.working_directory);
   }
   const outside=structuredClone(managed);
   const external=path.join(path.dirname(root),`${path.basename(root)}-outside.mjs`);
