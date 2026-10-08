@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, lstatSync, openSync, readSync, closeSync } from 'node:fs';
+import { readFileSync, lstatSync, openSync, readSync, closeSync, realpathSync } from 'node:fs';
+import { isDeepStrictEqual } from 'node:util';
 import path from 'node:path';
 
 export const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -19,6 +20,22 @@ function regular(root,relative) {
   if(!lstatSync(filename).isFile())throw new Error('artifact inventory requires regular file');return filename;
 }
 const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+function physicalIdentity(filename,directory=false) {
+  const absolute=path.resolve(filename);
+  let cursor=path.parse(absolute).root;
+  for(const part of path.relative(cursor,absolute).split(path.sep).filter(Boolean)) {
+    cursor=path.join(cursor,part);
+    if(lstatSync(cursor).isSymbolicLink())throw new Error('registered launch reparse point is forbidden');
+  }
+  const status=lstatSync(absolute);
+  if(directory?!status.isDirectory():!status.isFile())throw new Error('registered launch has wrong path kind');
+  const physical=realpathSync.native(absolute);
+  return process.platform==='win32'?physical.toLowerCase():physical;
+}
+function samePhysicalPath(actual,expected,directory=false) {
+  if(typeof actual!=='string'||!path.isAbsolute(actual))return false;
+  try{return physicalIdentity(actual,directory)===physicalIdentity(expected,directory);}catch{return false;}
+}
 export function validateLaunchArtifact(request) {
   const binding=request.runtime_binding;const component=binding?.component;
   if(binding?.schema!=='uci_arena_evidence_runtime_binding_v2'||binding.entrypoint!=='evidence_runtime_contract'
@@ -54,9 +71,10 @@ export function validateLaunchArtifact(request) {
     ||profile.state!=='conservative'||profile.expected_runtime!==null)throw new Error('managed UCI launch profile is incompatible');
   const executable=files.get(profile.engine.executable);const entrypoint=files.get(profile.engine.arguments[1]);
   const launch=request.launch;
-  if(!executable||!entrypoint||launch?.executable!==executable||launch.working_directory!==root
-    ||JSON.stringify(launch.arguments)!==JSON.stringify(profile.engine.arguments)||!plain(launch.uci_options)
-    ||JSON.stringify(request.target_identity?.launch)!==JSON.stringify(launch)
+  if(!executable||!entrypoint||!samePhysicalPath(launch?.executable,executable)||!samePhysicalPath(launch?.working_directory,root,true)
+    ||!Array.isArray(launch.arguments)||launch.arguments.length!==2||launch.arguments[0]!==profile.engine.arguments[0]
+    ||typeof launch.arguments[1]!=='string'||!samePhysicalPath(path.resolve(launch.working_directory,launch.arguments[1]),entrypoint)||!plain(launch.uci_options)
+    ||!isDeepStrictEqual(request.target_identity?.launch,launch)
     ||request.target_identity.engine_sha256!==fileDigest(executable))throw new Error('registered UCI launch differs from admitted artifact');
   return {root,profile,expectedIdentity,launch:{executable,args:[...launch.arguments],cwd:launch.working_directory}};
 }

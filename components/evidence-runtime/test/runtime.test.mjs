@@ -74,6 +74,22 @@ test('launch artifact validates profile and complete inventory, rejects byte dri
   const launch={executable:path.join(root,'bin/node.exe'),arguments:['--experimental-ffi','dist/uci.mjs'],working_directory:root,uci_options:{}};
   const request={launch,runtime_binding,runtime_identity:identity,target_identity:{schema:'uci_arena_evidence_target_identity_v2',launch,engine_sha256:hash('node fixture')}};
   const artifact=validateLaunchArtifact(request);assert.deepEqual(artifact.launch.args,launch.arguments);
+  const managed=structuredClone(request);
+  managed.launch.arguments[1]=path.join(root,'dist/uci.mjs');
+  managed.target_identity.launch=structuredClone(managed.launch);
+  assert.deepEqual(validateLaunchArtifact(managed).launch.args,managed.launch.arguments);
+  if(process.platform==='win32') {
+    const alias=structuredClone(managed);
+    alias.launch.executable=alias.launch.executable.toUpperCase();
+    alias.launch.working_directory=alias.launch.working_directory.toUpperCase();
+    alias.target_identity.launch=structuredClone(alias.launch);
+    assert.deepEqual(validateLaunchArtifact(alias).launch.args,alias.launch.arguments);
+  }
+  const outside=structuredClone(managed);
+  const external=path.join(path.dirname(root),`${path.basename(root)}-outside.mjs`);
+  writeFileSync(external,'outside');t.after(()=>rmSync(external,{force:true}));
+  outside.launch.arguments[1]=external;outside.target_identity.launch=structuredClone(outside.launch);
+  assert.throws(()=>validateLaunchArtifact(outside),/launch/);
   writeFileSync(path.join(root,'models/default/params.bin'),'drift');assert.throws(()=>validateLaunchArtifact(request),/inventory/);
 });
 test('engine identity requires successful non-fixture actual model and cohort facts',()=>{
