@@ -62,3 +62,9 @@ profile, which continues to carry no experimental authority. Every allocation
 emits a bounded `vector_timing_experiment` record; source and options remain part
 of the exact trial identity. New-game initialization rechecks the actual backend
 identity rather than carrying authority to a changed runtime.
+
+A `ponderhit` received during pending position admission or publication-intent
+classification captures its clock start immediately. Allocation waits for that
+classification, counts elapsed time since the hit once, and preserves resolved
+move bypass and infinite/stop gates. An already requested publication cannot
+acquire another allocation timer. These are protocol deadline facts only.

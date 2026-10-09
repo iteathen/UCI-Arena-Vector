@@ -87,6 +87,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
   };
   const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;diagnostic('publicationRequested',{rootEpoch:token.rootEpoch,requestId:token.requestId});let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],...(options.size?{options:token.options}:{})});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>{diagnostic('observerDelivered',{rootEpoch:token.rootEpoch,requestId:token.requestId});poll(token);}).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
   const schedule=token=>{
+    if(token.requested)return;
     let delay;
     if(experiment&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
       const command=token.command,remainingMs=sideToMove===0?command.wtime:command.btime;
@@ -124,11 +125,11 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       await admission;
     } else if(command.kind==='go') {
       if(!hasPosition)throw new Error('UCI go requires admitted position');clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
-      const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,timer:null};active=token;
+      const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,classified:false,timer:null};active=token;
       diagnostic('goReceived',{rootEpoch:token.rootEpoch,requestId:token.requestId});
-      try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze({...optionValues});await admission;if(active===token&&!closed){const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;token.resolved=intent?.bypassPublicationWait===true;if(active===token&&!closed){if(token.stopPending||(token.resolved&&!command.ponder&&!command.infinite))publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
+      try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze({...optionValues});await admission;if(active===token&&!closed){const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;token.resolved=intent?.bypassPublicationWait===true;token.classified=true;if(active===token&&!closed){if(token.stopPending||(token.resolved&&!command.ponder&&!command.infinite))publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
-    else if(command.kind==='ponderhit'){if(active?.command.ponder){const token=active;delete token.command.ponder;token.started=now();try{if(token.resolved&&!token.command.infinite)publish(token);else schedule(token);}catch(error){if(active===token)clearActive();throw error;}}}
+    else if(command.kind==='ponderhit'){if(active?.command.ponder){const token=active;delete token.command.ponder;token.started=now();if(!token.classified)return;try{if(token.resolved&&!token.command.infinite)publish(token);else schedule(token);}catch(error){if(active===token)clearActive();throw error;}}}
     else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;});retirement=admission;await admission;}
     else if(command.kind==='quit')return close();
   };

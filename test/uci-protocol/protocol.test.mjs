@@ -57,6 +57,52 @@ test('resolved knowledge preserves ponder and infinite publication gates',async(
     await c.handle(command.includes('ponder')?'ponderhit':'stop');assert.equal(f.requests.length,1);await c.close();
   }
 });
+test('ponderhit waits for pending resolved intent before admitting remaining-clock timing',async()=>{
+  const {createUciController}=await api(),f=fixture();let release,entered;
+  const preparing=new Promise(resolve=>entered=resolve);
+  f.port.preparePublicationIntent=()=>{entered();return new Promise(resolve=>release=resolve);};
+  const c=createUciController(f.options);await c.handle('position startpos');
+  const going=c.handle('go ponder wtime 1000 btime 1000');await preparing;
+  try{
+    await f.advance(30);await assert.doesNotReject(c.handle('ponderhit'));
+    await f.advance(20);assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);
+    release({bypassPublicationWait:true});await going;
+    assert.equal(f.requests.length,1);assert.equal(f.timers.size,1);
+    await c.handle('ponderhit');await c.handle('stop');assert.equal(f.requests.length,1);
+  }finally{release({bypassPublicationWait:true});await going.catch(()=>{});await c.close();}
+});
+test('pending ponderhit before admission schedules one unresolved experiment from the hit timestamp',async()=>{
+  const {createUciController}=await api(),f=fixture(),phases=[];let releaseAdmission,releaseIntent,entered;
+  f.deferAdmission(new Promise(resolve=>releaseAdmission=resolve));
+  const preparing=new Promise(resolve=>entered=resolve);
+  f.port.preparePublicationIntent=()=>{entered();return new Promise(resolve=>releaseIntent=resolve);};
+  const sha=text=>createHash('sha256').update(text).digest('hex'),identity={schema:'vector_engine_runtime_identity_v1',node:'v26.11.1'};
+  f.port.ready=async()=>identity;
+  const text=JSON.stringify({schema:'vector_timing_experiment_v1',diagnostic:true,campaign_id:'pending-hit',runtime_identity_sha256:sha(JSON.stringify(identity)),rules_profile:'orthodoxy-live-claims-v1',strategy:{kind:'target_blocks_v1',target_blocks:1},candidate_blocks_ms:[500],local_publication_reserve_ms:100,supported_inputs:{initial_time_ms:180000,increment_ms:3000},qualification:{timing:false,strength:false,useful_blocks:false,publication:false}});
+  const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row),experimentalTiming:{text,sha256:sha(text),initialTimeMs:180000,transportReserveMs:50}});
+  const admitting=c.handle('position startpos'),going=c.handle('go ponder wtime 900 btime 900 winc 3000 binc 3000');
+  try{
+    await flush();await f.advance(100);await c.handle('ponderhit');
+    assert.equal(f.timers.size,0);await f.advance(100);releaseAdmission();await admitting;await preparing;
+    assert.equal(f.timers.size,0);await f.advance(50);releaseIntent({bypassPublicationWait:false});await going;
+    const allocations=phases.filter(row=>row.phase==='experimentalAllocation');assert.equal(allocations.length,1);
+    assert.equal(allocations[0].decision.publicationDeadlineFromGoMs,650);assert.equal(f.timers.size,1);
+    await c.handle('ponderhit');await f.advance(499);assert.equal(f.requests.length,0);
+    await f.advance(1);assert.equal(f.requests.length,1);await c.handle('stop');assert.equal(f.requests.length,1);
+  }finally{releaseAdmission();await admitting.catch(()=>{});await preparing;releaseIntent({bypassPublicationWait:false});await going.catch(()=>{});await c.close();}
+});
+test('stop while intent is pending prevents ponderhit and classification from adding another publication timer',async()=>{
+  const {createUciController}=await api(),f=fixture();let release,entered;
+  const preparing=new Promise(resolve=>entered=resolve);
+  f.port.preparePublicationIntent=()=>{entered();return new Promise(resolve=>release=resolve);};
+  const c=createUciController(f.options);await c.handle('position startpos');
+  const going=c.handle('go ponder movetime 1000');await preparing;
+  try{
+    await c.handle('stop');await flush();assert.equal(f.requests.length,1);assert.equal(f.timers.size,1);
+    await c.handle('ponderhit');assert.equal(f.timers.size,1);
+    release({bypassPublicationWait:false});await going;assert.equal(f.requests.length,1);assert.equal(f.timers.size,1);
+  }finally{release({bypassPublicationWait:false});await going.catch(()=>{});await c.close();}
+});
 test('explicit diagnostic timing experiment schedules whole candidate opportunities against actual clock',async()=>{
   const {createUciController}=await api(),f=fixture(),phases=[];
   const sha=text=>createHash('sha256').update(text).digest('hex');
