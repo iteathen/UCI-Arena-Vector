@@ -1,0 +1,8 @@
+{
+  "name": "@uci-arena/vector-root-knowledge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=26.11.1 <27"},
+  "dependencies": {"@echecs/zobrist": "1.0.2", "chess.js": "1.4.0"}
+}
