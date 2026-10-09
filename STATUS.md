@@ -1,5 +1,28 @@
 # UCI Arena Vector Status
 
+**Active owner-directed continuation — 2026-10-08:** Complete the installed
+cuda-js engine, compatible services and functional installer, then start the
+Lichess bot. Execution is tracked in
+[the complete suite plan](docs/superpowers/plans/2026-10-08-complete-cuda-js-suite.md).
+The C++ engine deployment is cancelled. Model 73091 has separate independent
+reference and device-closed block32 parity evidence; Domain v1.1 and model input
+have physical qualification. Persistent cooperative graph search, operational
+UCI composition, release and installed acceptance remain in progress. This is
+not a completed product or a playing-strength claim.
+
+**Current verified delivery state:** MCGS dev.3 is protected at `39a274ac`.
+Vector composes the original model, persistent GPU search, UCI publication,
+retained-root reuse and external root knowledge through public contracts. Real
+diagnostic games completed with no flags and joined zero-residue GPU closure;
+the latest one-opening calibration is excluded from population qualification.
+Bot 1.0.41 is merged and signed. Timing consumption, independent study analysis,
+bounded publication measurements and generic Installer bindings are implemented
+and portable-tested. The final frozen native study, signed complete payload,
+transactional installation and installed bot activation remain pending.
+
+The dated September record below is retained historical evidence. Its dependency
+tuple and missing frozen 54499 oracle are not the active delivery target.
+
 **Updated:** 2026-09-06
 **Phase:** first-real-model FP32 independent numerical-oracle qualification
 **Current focus:** issue #3 — compare the protected frozen LatticeKnight FP32 public Tensor mapping against an independent checkpoint-bound oracle for full and partial admitted-item occupancy

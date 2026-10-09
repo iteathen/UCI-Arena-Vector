@@ -1,0 +1,35 @@
+{
+  "schema": "vector-explicit-model-successor-candidate-v1",
+  "modelId": "compact_chessformer_gab_v1",
+  "candidateId": "latticeknight-73091-fp32-qualification-v1",
+  "supersedesFrozenCheckpointForThisQualificationOnly": 54499,
+  "frozenCheckpointSha256": "62dec13c22a4414db6b78ea9b6ca76bcf6f29a16a963c01d13d947d158b09c7e",
+  "frozenProducerPackageBlob": "326ba7dd0584438a911baf5051e5f1bedd831274",
+  "runId": "run_1784364601_12348",
+  "batch": 73091,
+  "checkpointSha256": "39be73ad994a7615dfc5ba7d1988a3ed1c7596b363ec4c8100692f8f2374f026",
+  "parameterSha256": "8d8ce4d216911d9b0e9f58f58ade17e0ed3c23e8833636a3907237fef73ce548",
+  "descriptorSha256": "68a6f6f163e98178f12d8ec690f650ec0c443b63e11617dcd3cbcc9765e6e20e",
+  "onnxSha256": "8b7d382b22cb97e0e242c39923ff1057d14e3b8b033908a0597b5e1fdd989aa6",
+  "adapterSha256": "b217a6586d73854acd4a1d2e641c4bb7b879942eaa061219895afedc638e5632",
+  "layoutSchema": "restaurant_square_transformer_gab_checkpoint_layout_v1",
+  "tensorCount": 227,
+  "parameterBytes": 14551952,
+  "parameterDtype": "f32",
+  "storagePrefix": "archive/data",
+  "semanticContractSha256": {
+    "architecture_settings": "13d3d301ec237ad7d9abd9282d440a070088eb494722b7d4777eba102aa8240c",
+    "io_contract": "accdbf42785ad56c1afe4b40b725825e64258b6abbaa4c2482047c3404080e80",
+    "feature_capability_contract": "a1373cca39f9229a14fd4b05321ce470d7eb23d019a28f94f221bcc8bcce8bff"
+  },
+  "oraclePackage": {
+    "name": "onnxruntime-node",
+    "version": "1.30.0",
+    "integrity": "sha512-twhs1C2C/BFkz1yc5OY0KIU2GUq6DURO7hD4bx5Q2Qy3nAMJwRXW8xU3NVczE29VA9lolLOYepoD8fjTGOfIqw==",
+    "tarball": "https://registry.npmjs.org/onnxruntime-node/-/onnxruntime-node-1.30.0.tgz",
+    "source": "https://github.com/microsoft/onnxruntime/tree/v1.30.0/js/node"
+  },
+  "maximumPolicyAbsoluteError": 0.0002,
+  "maximumValueAbsoluteError": 0.00002,
+  "qualificationStatus": "successor_candidate_tensor_parity_pending"
+}

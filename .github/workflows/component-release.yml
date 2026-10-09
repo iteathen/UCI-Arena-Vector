@@ -1,0 +1,173 @@
+name: Vector component candidate
+
+on:
+  pull_request:
+    paths:
+      - tools/release-stage.mjs
+      - test/release-stage.test.mjs
+      - test/component-release-workflow.test.mjs
+      - .github/workflows/component-release.yml
+  push:
+    branches: [main]
+    paths:
+      - tools/release-stage.mjs
+      - test/release-stage.test.mjs
+      - test/component-release-workflow.test.mjs
+      - .github/workflows/component-release.yml
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact qualified Vector component version
+        required: true
+        type: string
+      archive_sha256:
+        description: Exact locally qualified atomic tar.gz SHA256
+        required: true
+        type: string
+      qualification_sha256:
+        description: Existing complete native owner receipt SHA256
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vector-component-${{ github.event_name }}-${{ github.sha }}-${{ inputs.version || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Release envelope portable (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26.11.1
+      - name: Verify exact packaging and release-envelope behavior
+        run: node --test test/component-package.test.mjs test/installer-integration.test.mjs test/release-stage.test.mjs test/component-release-workflow.test.mjs
+
+  stage-sign-draft:
+    name: Sign exact qualified input into draft provider candidate
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      COMPONENT_VERSION: ${{ inputs.version }}
+      QUALIFIED_ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
+      QUALIFICATION_SHA256: ${{ inputs.qualification_sha256 }}
+      RELEASE_WORKFLOW_IDENTITY: ${{ github.workflow_ref }}#${{ github.run_id }}.${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26.11.1
+      - name: Inspect exact same-repository draft intake before download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REPOSITORY -ne 'iteathen/UCI-Arena-Vector' -or
+              $env:GITHUB_REF -ne 'refs/heads/main' -or
+              $env:GITHUB_EVENT_NAME -ne 'workflow_dispatch' -or
+              $env:COMPONENT_VERSION -notmatch '^\d+\.\d+\.\d+$' -or
+              $env:QUALIFIED_ARCHIVE_SHA256 -notmatch '^[0-9a-f]{64}$' -or
+              $env:QUALIFICATION_SHA256 -notmatch '^[0-9a-f]{64}$' -or
+              $env:GITHUB_SHA -notmatch '^[0-9a-f]{40}$') {
+            throw 'Invalid protected source or typed release input'
+          }
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'vector-component-delivery'
+          New-Item -ItemType Directory -Path $taskRoot -ErrorAction Stop | Out-Null
+          gh api "repos/$env:GITHUB_REPOSITORY" --jq '{full_name,visibility,private}' |
+            Set-Content -LiteralPath (Join-Path $taskRoot 'repository.json') -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Repository metadata inspection failed' }
+          $tag = "qualification/vector/v$env:COMPONENT_VERSION/$env:GITHUB_SHA"
+          $encodedTag = [uri]::EscapeDataString($tag)
+          gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$encodedTag" --jq '{id,tag_name,target_commitish,draft,assets:[.assets[]|{id,name,size,digest}]}' |
+            Set-Content -LiteralPath (Join-Path $taskRoot 'intake.json') -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Draft intake inspection failed' }
+          node tools/release-stage.mjs inspect-intake `
+            --version $env:COMPONENT_VERSION --source-commit $env:GITHUB_SHA `
+            --archive-sha256 $env:QUALIFIED_ARCHIVE_SHA256 `
+            --repository-metadata (Join-Path $taskRoot 'repository.json') `
+            --intake-metadata (Join-Path $taskRoot 'intake.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Draft intake identity rejected before download' }
+          $inputRoot = Join-Path $taskRoot 'intake'
+          $assetName = "uci_arena.vector-$env:COMPONENT_VERSION-windows-x86_64.tar.gz"
+          gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern $assetName --dir $inputRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Exact draft archive download failed' }
+          if (@(Get-ChildItem -LiteralPath $inputRoot -File).Count -ne 1) { throw 'Intake must contain exactly one atomic archive' }
+      - name: Stage unchanged archive through actual owner gates
+        shell: pwsh
+        run: |
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'vector-component-delivery'
+          $assetName = "uci_arena.vector-$env:COMPONENT_VERSION-windows-x86_64.tar.gz"
+          node tools/release-stage.mjs stage `
+            --archive (Join-Path $taskRoot "intake/$assetName") `
+            --archive-sha256 $env:QUALIFIED_ARCHIVE_SHA256 `
+            --qualification-sha256 $env:QUALIFICATION_SHA256 `
+            --version $env:COMPONENT_VERSION --source-commit $env:GITHUB_SHA `
+            --source-root $env:GITHUB_WORKSPACE --workflow-identity $env:RELEASE_WORKFLOW_IDENTITY `
+            --repository-metadata (Join-Path $taskRoot 'repository.json') `
+            --intake-metadata (Join-Path $taskRoot 'intake.json') `
+            --output (Join-Path $taskRoot 'provider') |
+            Set-Content -LiteralPath (Join-Path $taskRoot 'stage-result.json') -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Exact runtime/source/qualification/license closure rejected' }
+      - name: Install pinned Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        with:
+          cosign-release: v3.0.6
+      - name: Sign and verify exact full provider predicate
+        shell: pwsh
+        run: |
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'vector-component-delivery'
+          $record = Get-Content -Raw -LiteralPath (Join-Path $taskRoot 'stage-result.json') | ConvertFrom-Json
+          cosign attest-blob --yes --statement $record.statementPath --bundle $record.bundlePath
+          if ($LASTEXITCODE -ne 0) { throw 'Exact provider statement signing failed' }
+          cosign verify-blob-attestation `
+            --bundle $record.bundlePath `
+            --certificate-identity "https://github.com/$env:GITHUB_WORKFLOW_REF" `
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com `
+            --certificate-github-workflow-repository $env:GITHUB_REPOSITORY `
+            --certificate-github-workflow-sha $env:GITHUB_SHA `
+            --certificate-github-workflow-name $env:GITHUB_WORKFLOW `
+            --certificate-github-workflow-ref $env:GITHUB_REF `
+            --certificate-github-workflow-trigger $env:GITHUB_EVENT_NAME `
+            --type https://uci-arena.example/attestations/provider-release-result/v1 `
+            --new-bundle-format $record.artifactPath
+          if ($LASTEXITCODE -ne 0) { throw 'Signature/source/workflow proof rejected' }
+          node tools/release-stage.mjs verify-statement --bundle $record.bundlePath --statement $record.statementPath
+          if ($LASTEXITCODE -ne 0) { throw 'Full verified DSSE predicate differs' }
+      - name: Create separate draft provider candidate without publishing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'vector-component-delivery'
+          $record = Get-Content -Raw -LiteralPath (Join-Path $taskRoot 'stage-result.json') | ConvertFrom-Json
+          $tag = "component/uci-arena-vector/v$env:COMPONENT_VERSION/windows-x86_64"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'Candidate tag already exists; replacement is forbidden' }
+          $assets = @(Get-ChildItem -LiteralPath (Join-Path $taskRoot 'provider') -File)
+          if ($assets.Count -ne 3) { throw 'Expected exactly archive/result/Sigstore bundle' }
+          gh release create $tag $record.artifactPath $record.resultPath $record.bundlePath `
+            --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft --prerelease `
+            --title "Vector $env:COMPONENT_VERSION windows-x86_64" `
+            --notes 'Signed atomic provider candidate. Draft only; Installer retains suite adoption/deployment authority. Root reviews complete qualification before publication.'
+          if ($LASTEXITCODE -ne 0) { throw 'Draft provider candidate creation failed' }

@@ -1,0 +1,90 @@
+# LatticeKnight successor qualification implementation plan
+
+> **For agentic workers:** Use superpowers:executing-plans to implement this bounded task with TDD.
+
+**Goal:** Materialize explicitly identified checkpoint 73091 and independent ONNX numerical references for later physical Tensor comparison.
+
+**Architecture:** Keep the frozen 54499 fixture unchanged. Read the producer's stored ZIP tensor archive using its exact descriptor, and snapshot the producer's JavaScript feature adapter. Run official prebuilt ONNX Runtime only as an independent evidence provider through its JavaScript API.
+
+**Tech stack:** Node.js, built-in Buffer/crypto/fs, onnxruntime-node 1.30.0.
+
+**Spec:** `docs/specs/VECTOR-0002-native-boundary-and-js-only-implementation.md`; explicit owner instruction to complete the working CUDA.js package using judgment.
+
+## Global constraints
+
+- Maintained Vector source is JavaScript/TypeScript.
+- Native evidence may be produced externally; Vector maintains no native source, builds, or bindings.
+- Preserve frozen 54499 fixtures and verifiers; 73091 is an explicit successor candidate.
+- All generated artifacts go to a new external evidence directory, never producer roots.
+- Numerical parity remains unqualified until a separate physical Tensor comparison.
+
+## Review focus
+
+- Malformed/truncated ZIP offsets must fail before reading outside bounds.
+- Duplicate storage entries, unsupported compression, CRC corruption, and overlapping ranges must fail.
+- Descriptor insertion order must not change canonical storage order; missing/duplicate indices fail.
+- Checkpoint, descriptor, ONNX, feature-adapter, and flat-parameter identity mismatches fail before writes.
+- Wrong ONNX output shape/nonfinite values fail, and session cleanup always runs.
+
+## Task 1: Explicit candidate extraction
+
+Create `test/fixtures/model-successor/latticeknight-73091.json`, `tools/latticeknight-successor-candidate.mjs`, and its test file. Interface: `readStoredCheckpointZip(Buffer) -> Map`, `extractCheckpointParameters({checkpointBytes,descriptor,candidate}) -> {parameters,identity}`, and CLI `--checkpoint --descriptor --onnx --adapter --package --output`. Tests cover each ZIP/storage/identity failure above and literal tiny tensors in reversed descriptor order.
+
+- [x] Write tests and run `node --test tools/latticeknight-successor-candidate.test.mjs`; observe missing-feature failures.
+- [x] Implement extraction and exclusive new-directory materialization (candidate identity is written last); run tests green.
+- [x] Materialize exact real 73091 candidate externally and record hashes.
+
+## Task 2: Independent ONNX oracle
+
+Create `tools/latticeknight-successor-oracle.mjs` and its test file. Interface: `runOracle({candidateDirectory,outputDirectory,runtimeModule})`; CLI `--candidate --output --runtime` requires the exact installed official ORT module path. Snapshot producer feature adapter is the sole encoding authority. Produce features, FP32 policy/value bytes and JSON identities for full two-item and partial one-item batches, plus release/cleanup receipt.
+
+- [x] Test output shape/nonfinite failures and guaranteed session release against a bounded public runtime port.
+- [x] Implement official runtime integration, pin exact package version, and run tests green.
+- [x] Install official prebuilt package outside source using pinned registry integrity; measure real producer model.
+- [x] Run repository verification and existing model tests with exact dependencies; commit bounded new files.
+
+## Execution record
+
+Baseline `node tools/verify-repository.mjs`: pass, 56 files. Native worktree tool cannot select this separate repository or the requested path; used explicit-path Git worktree on branch `codex/vector-model-parity-20261008` from `a977774305de1f113d01c23ba00504d00b1f5f9a`. Owner authorized inline implementation without another approval. Outputs retained as evidence for integration; worktree retained for root review.
+
+Ruling: full batch uses two producer-encoded positions (starting position and black-to-move tactical position), and partial batch repeats full slot zero, preserving the existing occupancy comparison seam. Producer adapter emits a standard Array; an observed real-run failure established that boundary, and a failing regression test preceded the fix to accept Array/Float32Array and serialize finite FP32 values without encoding duplication.
+
+Verification: 19 new tests and all 53 tool tests pass under Node 26.7.0 with exact Tensor revision `0da2c70a0a10df908a33e842aa4ba3dbd7605c48`; repository policy passes across 62 files. Official ORT 1.30.0 primary tagged documentation and registry version/integrity were checked, and installed with `--ignore-scripts` (Windows prebuilts already bundled). Runtime lock version/resolved/integrity are checked before loading.
+
+Evidence root: `E:/uci-arena-task-builds/vector-model-parity-evidence-20261008`. `candidate-73091/` contains 14,551,952 parameter bytes plus exact descriptor, ONNX, and producer JS feature-adapter snapshots. `oracle-73091-measured/` contains full/partial feature and policy/value bytes, `reference.json`, and successful `cleanup.json` with one release attempt. `oracle-73091/cleanup.json` retains the initial adapter-boundary failure and successful release as superseded diagnostic evidence. `oracle-runtime/` retains locked official dependencies for reproducible oracle reruns. No background processes or product-native code were created. Physical Tensor parity remains pending and no frozen-fixture identity is changed.
+
+## Physical qualification follow-up
+
+Owner authorized `tools/latticeknight-physical-observation.mjs` and its tests to exercise exact Tensor alpha.7/CUDA-JS alpha.21 through public host-planned execution, strictly as qualification rather than an active engine inference profile. Installed local Tensor tarball SHA256 `7b9cdc84f2b6cb330d304a6052f56875d5372d63cfe9260f4b9a4e246360465d`. Exact Node 26.11.1 executable at the owner-supplied managed qualification path was used.
+
+Three new tests pass: original tolerance/first-divergence reporting, nonfinite/length rejection, and unchanged full-model preflight. The 2216-node capacity-two program requires 48,914,008 material bytes; public whole-plan resolution fails before compiler/GPU work with `TENSOR_SIMT_BINDING_LIMIT`, maximum 64. Borrowed session/runtime cleanup is graceful and compiler programs created is zero. This routes a concrete generic host-plan realization gap to Tensor, without widening lower limits or changing mapper/math.
+
+`physical-host-plan-preflight-73091-measured/observation.json` records a native public matmul preview on Node 26.11.1, output `[58,64,139,154]`, zero error, compiler/module/program identity and graceful cleanup. Its preceding failed preview receipt is retained as superseded diagnostic evidence: read-only preview input allocations were corrected to public read-write initialization authority; the model builder remained untouched.
+
+Current full Vector tool suite with installed Tensor alpha.7: 55 pass, one historical exact-alpha.6 assertion fails (`root-public Tensor callable compilation owns exact item ABI and workspace`). That frozen test remains unchanged. All 22 new successor/oracle/physical-observation tests and repository policy pass. Product numerical comparison remains blocked at public full-plan admission and no model-parity or active-inference claim is made.
+
+## Resident host numerical qualification
+
+Root approved a separate, bounded Tensor-owned candidate execution profile after the exact prepared binding failure. Tensor alpha.8 package SHA256 `15f3ced369261d70c5e8c427040a598959b57005f1d9b058dff795b1af8b8e96` realizes the original graph through public `execution: 'resident-sequence'`, retaining 32 nodes/64 bindings per chunk. Original mapper source SHA256 remains `c6e9b74da76d4e7dff2a199a33f56954b0aadd26e328561fd317901e4c505116`.
+
+Actual Node 26.11.1/Windows/compute_75 execution of checkpoint 73091 passed independent ONNX FP32 tolerances for both full and partial batches. Original program identity `tensor-program-v1:9c86369d3d79a69bff047f21ec888bdef62ec0aca4d99e4a9fd4cb92fa7dea04` and plan identity `tensor-plan-v1:22cccf180cd4c0f1cce6ff43d2a0a695884b54350c330a5a14fe606fccc9d9f0` remain unchanged. Resolution produces 2610 kernels, 1540 bindings, 17,475,040 workspace bytes and 82 bounded public prepared chunks. The static preflight admits 1340 materials/48,914,008 bytes plus 14,560,696 input bytes and a conservative 64 MiB workspace ceiling under 256 MiB/4096 Tensor limits. CUDA-JS public transfer/allocation policy selects 64 MiB; the earlier rejected 128 MiB transfer attempt is retained as superseded diagnostic evidence.
+
+Full policy maximum absolute error `0.000011444091796875` against tolerance `0.0002`; full value `4.470348358154297e-8` against `0.00002`. Partial policy has the same maximum absolute error; partial value `2.60770320892334e-8`. Maximum relative errors are recorded separately and do not alter the original absolute gates. All first-divergence fields are null. Host partial input zero-pads its inactive capacity slot; this proves occupied output mathematics, not device inactive no-write guards.
+
+Evidence: `physical-resident-model-73091-public-policy/observation.json`, SHA256 `4061f225d99e1a30ab7eb73bc92b44b1c1f72b980c9eafcfaea6b98c299ed0f5`, plus full/partial observed policy/value bytes and independent reference hashes. Compiler created/destroyed 82 programs; driver closed 5862 resources with zero live/orphaned; session reports zero tensors/bytes/resolved plans and graceful terminal state. All 23 new tool tests and repository policy pass. Frozen alpha.6 tests are retained for their historical provider context; current host numerical qualification does not promote an active device-closed engine inference/search pipeline or performance claim.
+
+## Cooperative device-closed inference qualification
+
+Root authorized the additive Tensor-owned `SPEC-0009-block32-v1` candidate, keeping scalar behavior and original FP32 formulas/reduction order unchanged. Tensor commit `c4936f313d5e144c3119098ecdfec6c0d8f35d60` provides alpha.9, exact CUDA-JS alpha.21, and public participation admission. Tarball `E:/uci-arena-task-builds/tensor-block32-evidence-20261008/final/cuda-js-tensor-0.1.0-alpha.9.tgz` SHA256 is `4355e93d78b3fc54888fdd43cb849349dcfd668d232154e79da8ff3d4ff836e2`. No mapper, parameter, feature encoder, original graph identity, or numerical tolerance changed.
+
+New `tools/latticeknight-block32-observation.mjs` uses only public Tensor/CUDA-JS imports. It compiles the original 2216-node capacity-two plan with `participation: 'block32'`, verifies the exact 32-thread block/uniform-item/uniform-call admission, and invokes its callable once per participant in four blocks. Two blocks admit the full batch; one admits the partial batch. Remaining blocks return the uniform out-of-range status without touching model storage. Sixteen-byte guards surround every allocation; the partial inactive output/workspace half remains unchanged. Two guard tests reject boundary corruption, inactive writes, and truncated observations.
+
+Before full-model submission, a measured public native block32 calibration covered 536,870,912 serial MACs in 517.6042 ms with guarded outputs and graceful cleanup. The original model declares 466,260,352 capacity-two MACs. The larger calibration receipt is `E:/uci-arena-task-builds/tensor-block32-evidence-20261008/native-consumer/large-ladder-native-observation.json`, SHA256 `f830accd8ad15c7e5ccf0504d6cc26856ec8f2325a737ef2e2b11aa3366bfaa5`. This admission bounds the observed workload; it does not predict performance on other inputs/devices.
+
+Actual Node 26.11.1/Windows/compute_75 full and partial callable inference passed the independent official ORT reference. Full policy maximum absolute error is `0.000011444091796875`, value `4.470348358154297e-8`; partial policy has the same maximum error and value `2.60770320892334e-8`. Original absolute gates remain `0.0002`/`0.00002`; all first-divergence fields are null. Observed output bytes are identical to the preceding host-resident qualification. Statuses are `[0,0,1,1]` and `[0,1,1,1]`; all allocation guards and partial inactive no-write guards pass.
+
+Latest measured full submission/completed-wait latency is 266.7024 ms; partial is 196.4188 ms, excluding compilation and transfers. Cold compilation previously required roughly 150 seconds of CPU work; the retained public compiler cache supplies subsequent runs. The initial selected 4 MiB module budget rejected the 4,891,816-byte cubin before launch. The next observation selected the already permitted public 64 MiB module policy; no producer lower bound changed. Workspace remains 66,389,048 bytes under the selected 64 MiB per-allocation and 128 MiB total policies.
+
+Evidence directory `physical-block32-model-73091-publishable-evidence/` contains `observation.json` SHA256 `375e403fe404240c276dd12f945b423a82eae16eb225b628f9130991352b6b18`, both observed policy/value batches, and reusable public DeviceJS library snapshots. `tensor-model-library.bin` is 7,239,507-byte PTX SHA256 `302b609e9fff490614234586b9ad2688851e8141627d50932202bc68f2944599`; descriptor `tensor-model-library.json` SHA256 is `0bef6dc75fcb59dba270d17cea4703a6d488752f140c14840627411183110119`, library semantic SHA256 `08b4fb2ea01285eaf3f4789d2235a51e7a171c69e838e1424362ef31d4ffdb08`. Rehydrate the public descriptor by replacing `artifact.bytesFile` with `artifact.bytes = Uint8Array.from(readFileSync(bytesFile))`, then use the public DeviceJS library import. `linked-model.cubin` SHA256 `a0039348e952ef8a7f5957681abfcf62a1f3da40aef4fdbfe85797bb9be325eb` belongs only to this qualification caller. Callable identity is `tensor-device-program-v1:f0d5017c4da198a1df3843bd898b46b5fa87206bad129143f22959ebe684b214`.
+
+Final cached observation cleanup is graceful: session has zero tensors/bytes/plans; driver closed 21 resources with zero live/orphaned; compiler workers exited and cache reuse created no programs/links. All 25 new tool tests pass. Current Vector full suite retains one exact historical Tensor alpha.6 assertion failure with installed alpha.9; that frozen assertion is unchanged and belongs to the original provider-context CI. This evidence qualifies device-closed inference mathematics and these exact invocation latencies. Whole GPU search/inference pipeline qualification and engine integration remain root-owned pending work.

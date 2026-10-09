@@ -1,0 +1,14 @@
+{
+  "name": "vector-operational-gpu-engine-candidate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "26.11.1"
+  },
+  "dependencies": {
+    "cuda-js": "https://codeload.github.com/iteathen/CUDA-JS/tar.gz/dc2924657bb900cdce3fba4c9def62934419db03",
+    "cuda-js-tensor": "https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/759a1a07b8ca9a5934673aeb20864e52ad800b6e",
+    "cuda-mcgs": "https://codeload.github.com/iteathen/CUDA-MCGS/tar.gz/39a274ac4101c901f022ee3dfa8de741aa955f60"
+  }
+}

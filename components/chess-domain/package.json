@@ -1,0 +1,10 @@
+{
+  "name": "vector-chess-domain-qualification",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "chess.js": "1.4.0",
+    "cuda-js": "https://codeload.github.com/iteathen/CUDA-JS/tar.gz/dc2924657bb900cdce3fba4c9def62934419db03"
+  }
+}

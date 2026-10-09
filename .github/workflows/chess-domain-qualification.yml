@@ -1,0 +1,60 @@
+name: Chess Domain Qualification
+
+on:
+  pull_request:
+    paths:
+      - "components/chess-domain/**"
+      - "components/chess-model-input/**"
+      - "test/chess-domain/**"
+      - "test/chess-model-input/**"
+      - ".github/workflows/chess-domain-qualification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "components/chess-domain/**"
+      - "components/chess-model-input/**"
+      - "test/chess-domain/**"
+      - "test/chess-model-input/**"
+      - ".github/workflows/chess-domain-qualification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chess-domain-qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Chess Domain (${{ matrix.os }}, Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [26.7.0, 26.11.1]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up qualification Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install exact public dependencies without lifecycle scripts
+        run: |
+          npm ci --prefix components/chess-domain --ignore-scripts --no-audit --no-fund
+          npm ci --prefix components/chess-model-input --ignore-scripts --no-audit --no-fund
+      - name: Qualify portable admission and public Device-JS frontend
+        run: >-
+          node --experimental-ffi --test
+          test/chess-domain/action-admission.test.mjs
+          test/chess-domain/domain.test.mjs
+          test/chess-domain/raw-ep.test.mjs
+          test/chess-model-input/input.test.mjs
+      - name: State physical evidence boundary
+        run: >-
+          node -e "console.log('Hosted tests qualify admission and public frontend only. Physical GPU tests require VECTOR_CHESS_NATIVE=1 on an exact qualified NVIDIA host and separate recorded evidence.')"

@@ -1,0 +1,11 @@
+{
+  "status": "historical_evidence_not_current_authority",
+  "archived_at": "2026-10-08",
+  "original_path": "components/chess-domain/contract.md",
+  "archive_path": "components/chess-domain/archive/contract-v1.1.md",
+  "reason": "Domain1.2 preserves relevant reversible history across arbitrarily long admitted games rather than exhausting history after256totalplies",
+  "superseded_by": "components/chess-domain/contract.md",
+  "removed_from_active_authority": "The current component contract now selects Domain1.2; immutable Domain1.1 receipts retain their original source/profile identities",
+  "change_reference": "codex/vector-gpu-engine-runtime-20261008",
+  "original_revision": "de6952f26e2ff3a0a834182816d25a491937e1ae"
+}

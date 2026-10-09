@@ -1,0 +1,965 @@
+{
+  "schema": "vector.model-input-physical-qualification/1.0.0",
+  "status": "pass",
+  "generatedAt": "2026-10-08T19:32:06.719Z",
+  "node": {
+    "version": "v26.11.1",
+    "executableSha256": "a619e2e09eb0d50ef4c733d678b4d22689d2afef138cd67fd3fa107b535f8819"
+  },
+  "producerAdapterSha256": "b217a6586d73854acd4a1d2e641c4bb7b879942eaa061219895afedc638e5632",
+  "producerContract": {
+    "schema": "restaurant_chess_v1_dense_planes_runtime_adapter_contract_v3",
+    "adapter_id": "chess_v1_fen_to_dense_planes_v1",
+    "materializer_id": "restaurant_ccr_prep_chess_v1_declared_planes_v1",
+    "spec_ref": "specs/compact_chessformer_gab_v1.yaml#input_contract",
+    "common_api": "materialize_features_map_policy_decode_value_v1",
+    "input_format": "fen_with_optional_uci_move_and_repetition_count",
+    "output_tensor": "features",
+    "output_dtype": "float32",
+    "output_layout": "nchw_flattened",
+    "output_shape": [
+      "N",
+      17,
+      8,
+      8
+    ],
+    "feature_count": 1088,
+    "feature_set": "canonical_position_planes_v1",
+    "square_numbering": "a8=0,b8=1,...,h1=63",
+    "piece_plane_order": [
+      "P",
+      "N",
+      "B",
+      "R",
+      "Q",
+      "K",
+      "p",
+      "n",
+      "b",
+      "r",
+      "q",
+      "k"
+    ],
+    "canonical_numeric_piece_codes": {
+      "empty": 0,
+      "P": 1,
+      "N": 2,
+      "B": 3,
+      "R": 4,
+      "Q": 5,
+      "K": 6,
+      "p": 7,
+      "n": 8,
+      "b": 9,
+      "r": 10,
+      "q": 11,
+      "k": 12
+    },
+    "state_planes": {
+      "12": "white_kingside_castling_right_full_plane",
+      "13": "white_queenside_castling_right_full_plane",
+      "14": "black_kingside_castling_right_full_plane",
+      "15": "black_queenside_castling_right_full_plane",
+      "16": "en_passant_target_one_hot"
+    },
+    "omitted_state": [
+      "halfmove_clock",
+      "repetition_count"
+    ],
+    "canonicalization": {
+      "white_to_move": "identity",
+      "black_to_move": "rotate_180_swap_piece_case_rewrite_white_to_move",
+      "castling_black_to_move": "swap_KQkq_then_emit_KQkq_or_dash",
+      "en_passant_black_to_move": "rotate_180_or_dash",
+      "policy_move_black_to_move": "rotate_from_to_180_preserve_promotion"
+    },
+    "policy": {
+      "encoding": "from_to_4096_plus_underpromotion",
+      "mapping_identity": "from_to_4096_plus_underpromotion_source_file_major_v1",
+      "mapping_table_sha256": "8323f353a31bc61b2aee8ed1cdbc05e5062f6c096c9c54d1cfc1ad7b72d5905b",
+      "mapping_table_hash_payload": "canonical_move_uci_joined_by_lf_without_trailing_lf",
+      "canonical_move_slot_order": "source_file_a_through_h_then_target_file_left_to_right",
+      "underpromotion_piece_order": [
+        "n",
+        "b",
+        "r"
+      ],
+      "promotion_codes": {
+        "none": 0,
+        "n": 1,
+        "b": 2,
+        "r": 3,
+        "q": 4
+      },
+      "base_index_formula": "canonical_from_square * 64 + canonical_to_square",
+      "underpromotion_index_formula": "4096 + canonical_move_slot * 3 + (promotion_code - 1)",
+      "queen_rule": "queen promotions remain in the base from-to region",
+      "invalid_underpromotion_rule": "n/b/r metadata outside canonical promotion geometry is rejected",
+      "canonical_move_slots": [
+        {
+          "slot": 0,
+          "canonical_move_uci": "a7a8",
+          "canonical_from_square": 8,
+          "canonical_to_square": 0,
+          "indices": {
+            "n": 4096,
+            "b": 4097,
+            "r": 4098
+          }
+        },
+        {
+          "slot": 1,
+          "canonical_move_uci": "a7b8",
+          "canonical_from_square": 8,
+          "canonical_to_square": 1,
+          "indices": {
+            "n": 4099,
+            "b": 4100,
+            "r": 4101
+          }
+        },
+        {
+          "slot": 2,
+          "canonical_move_uci": "b7a8",
+          "canonical_from_square": 9,
+          "canonical_to_square": 0,
+          "indices": {
+            "n": 4102,
+            "b": 4103,
+            "r": 4104
+          }
+        },
+        {
+          "slot": 3,
+          "canonical_move_uci": "b7b8",
+          "canonical_from_square": 9,
+          "canonical_to_square": 1,
+          "indices": {
+            "n": 4105,
+            "b": 4106,
+            "r": 4107
+          }
+        },
+        {
+          "slot": 4,
+          "canonical_move_uci": "b7c8",
+          "canonical_from_square": 9,
+          "canonical_to_square": 2,
+          "indices": {
+            "n": 4108,
+            "b": 4109,
+            "r": 4110
+          }
+        },
+        {
+          "slot": 5,
+          "canonical_move_uci": "c7b8",
+          "canonical_from_square": 10,
+          "canonical_to_square": 1,
+          "indices": {
+            "n": 4111,
+            "b": 4112,
+            "r": 4113
+          }
+        },
+        {
+          "slot": 6,
+          "canonical_move_uci": "c7c8",
+          "canonical_from_square": 10,
+          "canonical_to_square": 2,
+          "indices": {
+            "n": 4114,
+            "b": 4115,
+            "r": 4116
+          }
+        },
+        {
+          "slot": 7,
+          "canonical_move_uci": "c7d8",
+          "canonical_from_square": 10,
+          "canonical_to_square": 3,
+          "indices": {
+            "n": 4117,
+            "b": 4118,
+            "r": 4119
+          }
+        },
+        {
+          "slot": 8,
+          "canonical_move_uci": "d7c8",
+          "canonical_from_square": 11,
+          "canonical_to_square": 2,
+          "indices": {
+            "n": 4120,
+            "b": 4121,
+            "r": 4122
+          }
+        },
+        {
+          "slot": 9,
+          "canonical_move_uci": "d7d8",
+          "canonical_from_square": 11,
+          "canonical_to_square": 3,
+          "indices": {
+            "n": 4123,
+            "b": 4124,
+            "r": 4125
+          }
+        },
+        {
+          "slot": 10,
+          "canonical_move_uci": "d7e8",
+          "canonical_from_square": 11,
+          "canonical_to_square": 4,
+          "indices": {
+            "n": 4126,
+            "b": 4127,
+            "r": 4128
+          }
+        },
+        {
+          "slot": 11,
+          "canonical_move_uci": "e7d8",
+          "canonical_from_square": 12,
+          "canonical_to_square": 3,
+          "indices": {
+            "n": 4129,
+            "b": 4130,
+            "r": 4131
+          }
+        },
+        {
+          "slot": 12,
+          "canonical_move_uci": "e7e8",
+          "canonical_from_square": 12,
+          "canonical_to_square": 4,
+          "indices": {
+            "n": 4132,
+            "b": 4133,
+            "r": 4134
+          }
+        },
+        {
+          "slot": 13,
+          "canonical_move_uci": "e7f8",
+          "canonical_from_square": 12,
+          "canonical_to_square": 5,
+          "indices": {
+            "n": 4135,
+            "b": 4136,
+            "r": 4137
+          }
+        },
+        {
+          "slot": 14,
+          "canonical_move_uci": "f7e8",
+          "canonical_from_square": 13,
+          "canonical_to_square": 4,
+          "indices": {
+            "n": 4138,
+            "b": 4139,
+            "r": 4140
+          }
+        },
+        {
+          "slot": 15,
+          "canonical_move_uci": "f7f8",
+          "canonical_from_square": 13,
+          "canonical_to_square": 5,
+          "indices": {
+            "n": 4141,
+            "b": 4142,
+            "r": 4143
+          }
+        },
+        {
+          "slot": 16,
+          "canonical_move_uci": "f7g8",
+          "canonical_from_square": 13,
+          "canonical_to_square": 6,
+          "indices": {
+            "n": 4144,
+            "b": 4145,
+            "r": 4146
+          }
+        },
+        {
+          "slot": 17,
+          "canonical_move_uci": "g7f8",
+          "canonical_from_square": 14,
+          "canonical_to_square": 5,
+          "indices": {
+            "n": 4147,
+            "b": 4148,
+            "r": 4149
+          }
+        },
+        {
+          "slot": 18,
+          "canonical_move_uci": "g7g8",
+          "canonical_from_square": 14,
+          "canonical_to_square": 6,
+          "indices": {
+            "n": 4150,
+            "b": 4151,
+            "r": 4152
+          }
+        },
+        {
+          "slot": 19,
+          "canonical_move_uci": "g7h8",
+          "canonical_from_square": 14,
+          "canonical_to_square": 7,
+          "indices": {
+            "n": 4153,
+            "b": 4154,
+            "r": 4155
+          }
+        },
+        {
+          "slot": 20,
+          "canonical_move_uci": "h7g8",
+          "canonical_from_square": 15,
+          "canonical_to_square": 6,
+          "indices": {
+            "n": 4156,
+            "b": 4157,
+            "r": 4158
+          }
+        },
+        {
+          "slot": 21,
+          "canonical_move_uci": "h7h8",
+          "canonical_from_square": 15,
+          "canonical_to_square": 7,
+          "indices": {
+            "n": 4159,
+            "b": 4160,
+            "r": 4161
+          }
+        }
+      ]
+    },
+    "value": {
+      "model_output_perspective": "side_to_move",
+      "white_perspective_decode": "white_value = model_value for original white; white_value = -model_value for original black"
+    },
+    "ownership_lifetime": "returned feature arrays are caller-owned values with no retained mutable adapter state",
+    "allocation_behavior": "reference adapters allocate output; not search-hotloop-ready",
+    "thread_safety": "reentrant_no_shared_mutable_state",
+    "batch_behavior": "single_position_api; callers stack flattened 1088-value rows in NCHW order",
+    "external_dependencies": [],
+    "binary_symbol_table_path": "runtime_adapters/chess_v1_dense_planes_symbols.bin"
+  },
+  "cudaJsRevision": "2bff226b752d3c0af8b9185274d411e5990008d4",
+  "domainCommit": "8df38d887beae72b156ad69a4b9de77345e8e528",
+  "stateFormat": "vector.chess-mailbox-u32/1.1.0",
+  "sources": [
+    {
+      "path": "components/chess-domain/admission.mjs",
+      "sha256": "cba538e7a2ca79bf0dd78f5c6b511cc6c932990dbcb1a0c136c1e6236e4bd847"
+    },
+    {
+      "path": "components/chess-domain/device.mjs",
+      "sha256": "2d1ef48206f284147bee66add53e4a226b5bf9eec839b5648217735d85143299"
+    },
+    {
+      "path": "components/chess-domain/runtime.mjs",
+      "sha256": "69fb0c344806ebac34948e97073273718975f0be0e7a5b3754ea1e85c657a06e"
+    },
+    {
+      "path": "components/chess-model-input/device.mjs",
+      "sha256": "b9f455368f71cccd053aa9a2ab81e78a81455684b027f86580e7198db1206246"
+    },
+    {
+      "path": "components/chess-model-input/runtime.mjs",
+      "sha256": "1cd627602367c560c124efeb739247c14569fe865618cc03398db7ce4ccb7f12"
+    },
+    {
+      "path": "components/chess-model-input/package.json",
+      "sha256": "2d023b6b427802111279c5bbd9f68427282b4b2ad2d49d2a9cdaa27206f17a56"
+    },
+    {
+      "path": "components/chess-model-input/package-lock.json",
+      "sha256": "fe5733d73286fdf85c510c9ddcf03cff1dc049619813e5ad51f2826b2cb06556"
+    },
+    {
+      "path": "test/chess-model-input/input.test.mjs",
+      "sha256": "ab9f91b65a5805be58652d0f378417813c968a22ee3a81cb0185472d3bc3bc9e"
+    }
+  ],
+  "gates": {
+    "features": {
+      "comparisons": [
+        {
+          "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          "repetitionCount": 0,
+          "expectedSha256": "3a701f736ba8135cefde0424a2df171f56733a83c9ea23cd8be5aed4d007e950",
+          "observedSha256": "3a701f736ba8135cefde0424a2df171f56733a83c9ea23cd8be5aed4d007e950"
+        },
+        {
+          "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
+          "repetitionCount": 0,
+          "expectedSha256": "59ab2219decc696622f7a3f540c109d742f2a5d92766d8972461098073b81da7",
+          "observedSha256": "59ab2219decc696622f7a3f540c109d742f2a5d92766d8972461098073b81da7"
+        },
+        {
+          "fen": "r3k2r/8/8/8/8/8/8/R3K2R w Kq - 0 1",
+          "repetitionCount": 0,
+          "expectedSha256": "2cdfc97aa5394b5d14f4ec42ca1da419e760d40a72bc45a178da9c1b6e8d7181",
+          "observedSha256": "2cdfc97aa5394b5d14f4ec42ca1da419e760d40a72bc45a178da9c1b6e8d7181"
+        },
+        {
+          "fen": "r3k2r/8/8/8/8/8/8/R3K2R b Kq - 0 1",
+          "repetitionCount": 0,
+          "expectedSha256": "002990aa7e7417847c7ab7858924cb6a812a9f5a0b9a313de1575f48d5dd0696",
+          "observedSha256": "002990aa7e7417847c7ab7858924cb6a812a9f5a0b9a313de1575f48d5dd0696"
+        },
+        {
+          "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 12 30",
+          "repetitionCount": 0,
+          "expectedSha256": "d5b4b1926a7099596a185349b8e8ff639a12a657dfabc3a7b82d20425b38e256",
+          "observedSha256": "d5b4b1926a7099596a185349b8e8ff639a12a657dfabc3a7b82d20425b38e256"
+        },
+        {
+          "fen": "4k3/8/8/8/3Pp3/8/8/4K3 b - d3 12 30",
+          "repetitionCount": 0,
+          "expectedSha256": "d1b4f720068f743f8e63c9a0ce5163773a13ef9f29cee6bcf8e9788dc3617064",
+          "observedSha256": "d1b4f720068f743f8e63c9a0ce5163773a13ef9f29cee6bcf8e9788dc3617064"
+        },
+        {
+          "fen": "1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+          "repetitionCount": 0,
+          "expectedSha256": "8d76ec6e9a0093173f24af6dcfb3da8c5640115c98a183a31c3f659dccdb7d39",
+          "observedSha256": "8d76ec6e9a0093173f24af6dcfb3da8c5640115c98a183a31c3f659dccdb7d39"
+        },
+        {
+          "fen": "4k3/8/8/8/8/8/7p/4K1R1 b - - 0 1",
+          "repetitionCount": 0,
+          "expectedSha256": "834face77c385ffe86d8eed6517da6e0d84ebb141c7fa94037ae7741bdc1031a",
+          "observedSha256": "834face77c385ffe86d8eed6517da6e0d84ebb141c7fa94037ae7741bdc1031a"
+        },
+        {
+          "fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+          "repetitionCount": 0,
+          "expectedSha256": "0d8c65d6a00382c9ea2c864342612fc5089bf3b715841d6dd929cbafbeadb802",
+          "observedSha256": "0d8c65d6a00382c9ea2c864342612fc5089bf3b715841d6dd929cbafbeadb802"
+        },
+        {
+          "fen": "4k3/8/8/8/8/8/8/4K3 w - - 100 60",
+          "repetitionCount": 0,
+          "expectedSha256": "0d8c65d6a00382c9ea2c864342612fc5089bf3b715841d6dd929cbafbeadb802",
+          "observedSha256": "0d8c65d6a00382c9ea2c864342612fc5089bf3b715841d6dd929cbafbeadb802"
+        },
+        {
+          "fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+          "repetitionCount": 3,
+          "expectedSha256": "0d8c65d6a00382c9ea2c864342612fc5089bf3b715841d6dd929cbafbeadb802",
+          "observedSha256": "0d8c65d6a00382c9ea2c864342612fc5089bf3b715841d6dd929cbafbeadb802"
+        }
+      ],
+      "environment": {
+        "schemaVersion": 1,
+        "package": {
+          "name": "cuda-js",
+          "version": "0.1.0-alpha.21",
+          "publicApiSchema": 1
+        },
+        "state": "open",
+        "health": "healthy",
+        "support": {
+          "schemaVersion": 1,
+          "status": "testing-unconfirmed",
+          "reason": "PROFILE_EVIDENCE_UNCONFIRMED",
+          "host": {
+            "schemaVersion": 1,
+            "node": {
+              "version": "v26.11.1",
+              "abi": "147",
+              "disposition": "testing-unconfirmed",
+              "reason": null,
+              "minimumVersion": "v26.1.0",
+              "qualifiedVersion": "v26.7.0"
+            },
+            "platform": "win32",
+            "architecture": "x64",
+            "os": {
+              "release": "10.0.26300",
+              "version": "Windows 11 Pro"
+            },
+            "hostKind": "windows-native-x64",
+            "disposition": "native-candidate",
+            "action": "run-windows-native-f7",
+            "ffi": {
+              "experimental": true,
+              "permission": "unrestricted-process"
+            }
+          },
+          "cuda": {
+            "driverApiVersion": 13030,
+            "selectedArchitecture": "cc-7.5",
+            "driverModel": "wddm-watchdog",
+            "watchdog": "enabled",
+            "integrated": false,
+            "computeMode": "default"
+          },
+          "claim": "testing-only-unconfirmed-profile"
+        },
+        "profile": {
+          "node": "v26.11.1",
+          "platform": "win32",
+          "architecture": "x64",
+          "cudaApiVersion": 13030,
+          "nativeOperational": true,
+          "nativeQualified": false
+        },
+        "driver": {
+          "apiVersion": 13030,
+          "deviceCount": 1
+        },
+        "device": {
+          "schemaVersion": 1,
+          "selection": "default",
+          "architecture": {
+            "major": 7,
+            "minor": 5,
+            "class": "cc-7.5"
+          },
+          "target": {
+            "policyVersion": "SPEC-0006-target-v1",
+            "compile": "compute_75",
+            "link": "sm_75",
+            "identity": "2b31c1c950698dabf4967645afb29d6050d7933eb5b9230a439c230370b93f2d"
+          }
+        },
+        "memory": {
+          "policy": {
+            "maxDeviceBytes": 1169352,
+            "maxAllocationBytes": 757812,
+            "maxTransferBytes": 757812
+          },
+          "reservedBytes": 0,
+          "allocationCount": 0,
+          "native": {
+            "freeBytes": 5383389184,
+            "totalBytes": 6442123264
+          }
+        },
+        "transfer": {
+          "schemaVersion": 1,
+          "profile": "internal-pinned-staging-v1",
+          "enabled": false,
+          "blockCount": 2,
+          "blockCapacity": 757812,
+          "allocatedBlockCount": 0,
+          "busyBlockCount": 0
+        },
+        "mailbox": {
+          "schemaVersion": 1,
+          "profile": "private-mapped-sab-named-u32-system-scope",
+          "maximumLanes": 64,
+          "mailboxCount": 0
+        },
+        "libraries": {
+          "schemaVersion": 1,
+          "profile": "cublaslt-f32-row-major-matmul-v1",
+          "state": "unopened",
+          "planCount": 0,
+          "optional": true
+        },
+        "execution": {
+          "policy": {
+            "maxModuleBytes": 8388608,
+            "maxArguments": 9,
+            "maxCompletionMilliseconds": 30000,
+            "maxPendingGpuOperations": 1
+          },
+          "moduleCount": 0,
+          "functionCount": 0,
+          "completionCount": 0,
+          "preparedDagCount": 0,
+          "inFlight": false,
+          "pendingOperation": false,
+          "pendingOperationCount": 0,
+          "privateStream": false,
+          "privateStreamCount": 0
+        },
+        "compiler": {
+          "schemaVersion": 1,
+          "provider": {
+            "profile": "cuda-13.3-windows-x64-compiler",
+            "nvrtc": {
+              "version": "13.3",
+              "byteLength": 101385328,
+              "sha256": "c7af6b5dbd001852d1b4a18effc6fbcfc94787eddadffea629a8333cb25b05fe"
+            },
+            "nvrtcBuiltins": {
+              "version": "13.3",
+              "byteLength": 6684784,
+              "sha256": "82c703802846329d3bab3d8df06f8c956516a0eeec568033092d6c0a69b2733a"
+            },
+            "nvJitLink": {
+              "version": "13.3",
+              "byteLength": 92465776,
+              "sha256": "727a0acfc4495b229143b53843004eef36e0a3463fb2e1c7c4215468607fd613"
+            },
+            "headerProfiles": {
+              "cudaCccl": {
+                "profile": "cuda-13.3-cccl-cuda-nv-v1",
+                "algorithm": "sha256-path-u32le-size-u64le-content-v1",
+                "roots": [
+                  "cuda",
+                  "nv"
+                ],
+                "fileCount": 1166,
+                "byteLength": 8527126,
+                "sha256": "e9a5447d01afe22e7d15d2a4bb8c71a9f3a74175d9788781d51a8b61f3c2913c"
+              },
+              "cudaCcclNv": {
+                "profile": "cuda-13.3-cccl-nv-v1",
+                "algorithm": "sha256-path-u32le-size-u64le-content-v1",
+                "roots": [
+                  "nv"
+                ],
+                "fileCount": 3,
+                "byteLength": 43086,
+                "sha256": "21727c2c9b50af2d0912e6ba8c2c1e78b5ba6a28c3a11bf8db1d87ce3e501cdc"
+              },
+              "cudaNumericBase": {
+                "profile": "cuda-13.3-dense-numeric-base-v1",
+                "algorithm": "sha256-path-u32le-size-u64le-content-v1",
+                "roots": [],
+                "files": [
+                  "builtin_types.h",
+                  "crt/host_defines.h",
+                  "cuda_bf16.h",
+                  "cuda_bf16.hpp",
+                  "cuda_device_runtime_api.h",
+                  "cuda_fp16.h",
+                  "cuda_fp16.hpp",
+                  "cuda_runtime_api.h",
+                  "device_types.h",
+                  "driver_types.h",
+                  "surface_types.h",
+                  "texture_types.h",
+                  "vector_functions.h",
+                  "vector_functions.hpp",
+                  "vector_types.h"
+                ],
+                "fileCount": 15,
+                "byteLength": 1726046,
+                "sha256": "8c0fa0c3d5a12eba3834564951a56725f97b2664e561b2b3a472c1483746d5c5"
+              },
+              "cudaNumeric": {
+                "profile": "cuda-13.3-dense-numeric-v1",
+                "algorithm": "sha256-header-profile-components-v1",
+                "components": [
+                  "cudaCcclNv",
+                  "cudaNumericBase"
+                ],
+                "roots": [
+                  "nv"
+                ],
+                "files": [
+                  "builtin_types.h",
+                  "crt/host_defines.h",
+                  "cuda_bf16.h",
+                  "cuda_bf16.hpp",
+                  "cuda_device_runtime_api.h",
+                  "cuda_fp16.h",
+                  "cuda_fp16.hpp",
+                  "cuda_runtime_api.h",
+                  "device_types.h",
+                  "driver_types.h",
+                  "surface_types.h",
+                  "texture_types.h",
+                  "vector_functions.h",
+                  "vector_functions.hpp",
+                  "vector_types.h"
+                ],
+                "fileCount": 18,
+                "byteLength": 1769132,
+                "sha256": "d403c1aac7e0cba6b99deeabb3de71e74a91db5e9c9cfdab444f14eb7dc71b78"
+              },
+              "cudaDevice": {
+                "profile": "cuda-13.3-device-headers-v1",
+                "algorithm": "sha256-header-profile-components-v1",
+                "components": [
+                  "cudaCccl",
+                  "cudaNumericBase"
+                ],
+                "roots": [
+                  "cuda",
+                  "nv"
+                ],
+                "files": [
+                  "builtin_types.h",
+                  "crt/host_defines.h",
+                  "cuda_bf16.h",
+                  "cuda_bf16.hpp",
+                  "cuda_device_runtime_api.h",
+                  "cuda_fp16.h",
+                  "cuda_fp16.hpp",
+                  "cuda_runtime_api.h",
+                  "device_types.h",
+                  "driver_types.h",
+                  "surface_types.h",
+                  "texture_types.h",
+                  "vector_functions.h",
+                  "vector_functions.hpp",
+                  "vector_types.h"
+                ],
+                "fileCount": 1181,
+                "byteLength": 10253172,
+                "sha256": "808866ffe4425d37f91add4eb6a5957ceed1134a483aa1eced3d614b42881687"
+              }
+            }
+          },
+          "cache": {
+            "mode": "disabled"
+          },
+          "resources": {
+            "programsCreated": 0,
+            "programsDestroyed": 0,
+            "linksCreated": 0,
+            "linksDestroyed": 0
+          },
+          "health": {
+            "current": "healthy"
+          },
+          "claim": "exact-windows-f6w-profile"
+        }
+      },
+      "sourceIdentity": "425962abf04717a7b6023cdbf4b98bc308f6a1ee27d73dddfc19f7fcbf48cba9",
+      "artifact": {
+        "sha256": "1999e2feb57716d4497734640c2bb5d678d62d5c8efb1b70f0d2b2f29c2275cc",
+        "format": "ptx",
+        "architecture": "compute_75"
+      },
+      "cleanup": {
+        "schemaVersion": 1,
+        "graceful": true,
+        "restartRequired": false,
+        "state": "closed",
+        "compiler": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-native-resources-and-libraries",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "resources": {
+            "programsCreated": 1,
+            "programsDestroyed": 1,
+            "linksCreated": 0,
+            "linksDestroyed": 0
+          }
+        },
+        "driver": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-exact-windows-profile",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "health": "closed",
+          "resourceCounts": {
+            "live": 0,
+            "closing": 0,
+            "closed": 14,
+            "orphaned": 0
+          }
+        }
+      },
+      "guardsIntact": true,
+      "pressure": {
+        "status": 1,
+        "untouched": true,
+        "cleanup": {
+          "schemaVersion": 1,
+          "graceful": true,
+          "restartRequired": false,
+          "state": "closed",
+          "compiler": {
+            "graceful": true,
+            "restartRequired": false,
+            "cleanupClaim": "proved-native-resources-and-libraries",
+            "workerExited": true,
+            "workerExitCode": 0,
+            "resources": {
+              "programsCreated": 1,
+              "programsDestroyed": 1,
+              "linksCreated": 0,
+              "linksDestroyed": 0
+            }
+          },
+          "driver": {
+            "graceful": true,
+            "restartRequired": false,
+            "cleanupClaim": "proved-exact-windows-profile",
+            "workerExited": true,
+            "workerExitCode": 0,
+            "health": "closed",
+            "resourceCounts": {
+              "live": 0,
+              "closing": 0,
+              "closed": 14,
+              "orphaned": 0
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "comparisons": [
+        {
+          "side": "white",
+          "count": 4096,
+          "expectedSha256": "151474188be55e8a39f87cbc13867b71d94f186623ce3657816fdf381f5a8c31",
+          "observedSha256": "151474188be55e8a39f87cbc13867b71d94f186623ce3657816fdf381f5a8c31"
+        },
+        {
+          "side": "black",
+          "count": 4096,
+          "expectedSha256": "8519c6eab78d4f01a20d022b76d7fc6d43dc33e55dfc33a965467fe818b9fb37",
+          "observedSha256": "8519c6eab78d4f01a20d022b76d7fc6d43dc33e55dfc33a965467fe818b9fb37"
+        },
+        {
+          "side": "white",
+          "count": 88,
+          "expectedSha256": "56dc30e1871d7ac6c01507d5dceef3b96e2f904eb66e8a8e3b05a29926c72749",
+          "observedSha256": "56dc30e1871d7ac6c01507d5dceef3b96e2f904eb66e8a8e3b05a29926c72749"
+        },
+        {
+          "side": "black",
+          "count": 88,
+          "expectedSha256": "56dc30e1871d7ac6c01507d5dceef3b96e2f904eb66e8a8e3b05a29926c72749",
+          "observedSha256": "56dc30e1871d7ac6c01507d5dceef3b96e2f904eb66e8a8e3b05a29926c72749"
+        }
+      ],
+      "baseMappings": 8192,
+      "promotionMappings": 176,
+      "invalidMappings": 5,
+      "cleanup": {
+        "schemaVersion": 1,
+        "graceful": true,
+        "restartRequired": false,
+        "state": "closed",
+        "compiler": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-native-resources-and-libraries",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "resources": {
+            "programsCreated": 1,
+            "programsDestroyed": 1,
+            "linksCreated": 0,
+            "linksDestroyed": 0
+          }
+        },
+        "driver": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-exact-windows-profile",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "health": "closed",
+          "resourceCounts": {
+            "live": 0,
+            "closing": 0,
+            "closed": 14,
+            "orphaned": 0
+          }
+        }
+      },
+      "mappingTableSha256": "8323f353a31bc61b2aee8ed1cdbc05e5062f6c096c9c54d1cfc1ad7b72d5905b"
+    },
+    "rawEp": {
+      "cases": [
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+        "k7/8/8/4KPpr/8/8/8/8 w - g6 0 1"
+      ],
+      "byteParity": true,
+      "cleanup": {
+        "schemaVersion": 1,
+        "graceful": true,
+        "restartRequired": false,
+        "state": "closed",
+        "compiler": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-native-resources-and-libraries",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "resources": {
+            "programsCreated": 1,
+            "programsDestroyed": 1,
+            "linksCreated": 0,
+            "linksDestroyed": 0
+          }
+        },
+        "driver": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-exact-windows-profile",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "health": "closed",
+          "resourceCounts": {
+            "live": 0,
+            "closing": 0,
+            "closed": 14,
+            "orphaned": 0
+          }
+        }
+      }
+    },
+    "invalid": {
+      "statuses": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "untouched": true,
+      "guardsIntact": true,
+      "cleanup": {
+        "schemaVersion": 1,
+        "graceful": true,
+        "restartRequired": false,
+        "state": "closed",
+        "compiler": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-native-resources-and-libraries",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "resources": {
+            "programsCreated": 1,
+            "programsDestroyed": 1,
+            "linksCreated": 0,
+            "linksDestroyed": 0
+          }
+        },
+        "driver": {
+          "graceful": true,
+          "restartRequired": false,
+          "cleanupClaim": "proved-exact-windows-profile",
+          "workerExited": true,
+          "workerExitCode": 0,
+          "health": "closed",
+          "resourceCounts": {
+            "live": 0,
+            "closing": 0,
+            "closed": 14,
+            "orphaned": 0
+          }
+        }
+      }
+    }
+  },
+  "claimLimits": [
+    "feature/action adapter only; no NN, search, UCI or release claim",
+    "exact executed native profile only",
+    "omitted model state remains Domain-owned"
+  ]
+}

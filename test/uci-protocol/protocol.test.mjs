@@ -1,0 +1,169 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {createHash} from 'node:crypto';
+import {mkdtempSync,writeFileSync,rmSync,rmdirSync} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+async function api() { try { return await import('../../components/uci-protocol/index.mjs'); } catch (error) { if (error.code === 'ERR_MODULE_NOT_FOUND') assert.fail('UCI protocol implementation is missing'); throw error; } }
+const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
+function fixture() {
+  let clock = 0, admission, requests = [];
+  const timers = new Set(), output = [], snapshots = new Map();
+  const port = { ready: async () => {}, admitPosition: async ({rootEpoch}) => { if (admission) await admission; return {rootEpoch,sideToMove:0}; }, requestPublication: request => requests.push(request), readPublication: request => snapshots.get(request.requestId) ?? null, close: async () => ({graceful:true}) };
+  const advance = async ms => { clock += ms; for (const timer of [...timers]) if (timer.at <= clock) { timers.delete(timer); timer.fn(); } await flush(); };
+  return { port, output, timers, requests, snapshots, advance, deferAdmission: promise => { admission = promise; }, options: {port,write: line => output.push(line),now:()=>clock,setTimer:(fn,ms)=>{ const t={fn,at:clock+ms};timers.add(t);return t; },clearTimer:t=>timers.delete(t)} };
+}
+test('parser admits coordinate moves and rejects malformed or ambiguous UCI position', async () => { const {parseUciCommand}=await api(); assert.deepEqual(parseUciCommand('position startpos moves e2e4 a7a8q').moves,[1804,20016]); assert.throws(()=>parseUciCommand('position fen 8/8/8/8/8/8/8/8 w - - 0'),/six|FEN/i); assert.throws(()=>parseUciCommand('position startpos moves e2e9'),/move/i); assert.throws(()=>parseUciCommand('position startpos garbage'),/position/i); });
+test('parser rejects unsupported search budgets instead of using them as GPU work limits', async () => { const {parseUciCommand}=await api(); assert.throws(()=>parseUciCommand('go depth 5'),/unsupported/i); assert.throws(()=>parseUciCommand('go nodes 500'),/unsupported/i); assert.throws(()=>parseUciCommand('go movetime -1'),/time|integer/i); assert.equal(parseUciCommand('go wtime 1000 btime 2000 winc 20 binc 10').wtime,1000); });
+test('clock deadline publishes a legal snapshot while active GPU work remains pending', async () => { const {createUciController}=await api(); const f=fixture(),c=createUciController(f.options); await c.handle('position startpos'); await c.handle('go movetime 30'); assert.equal(f.requests.length,0); await f.advance(30); assert.equal(f.requests.length,1); const r=f.requests[0]; f.snapshots.set(r.requestId,{...r,action:1804,legalProof:{rootEpoch:r.rootEpoch,action:1804,legal:true},terminal:false}); await f.advance(5); assert.deepEqual(f.output,['bestmove e2e4']); await c.close(); });
+test('position replacement fences stale publication and does not wait for active search', async () => { const {createUciController}=await api(); const f=fixture(),c=createUciController(f.options); await c.handle('position startpos'); await c.handle('go infinite'); await c.handle('stop'); const old=f.requests[0]; await c.handle('position startpos moves e2e4'); f.snapshots.set(old.requestId,{...old,action:1804,legalProof:{rootEpoch:old.rootEpoch,action:1804,legal:true},terminal:false}); await f.advance(5); assert.deepEqual(f.output,[]); assert.equal(f.requests.length,1); await c.close(); });
+test('duplicate stop publishes once and rejects a missing or mismatched legal proof', async () => { const {createUciController}=await api(); const f=fixture(),c=createUciController(f.options); await c.handle('position startpos'); await c.handle('go infinite'); await c.handle('stop'); await c.handle('stop'); const r=f.requests[0]; assert.equal(f.requests.length,1); f.snapshots.set(r.requestId,{...r,action:1804,terminal:false}); await f.advance(5); assert.equal(f.output.some(x=>x.startsWith('bestmove')),false); f.snapshots.set(r.requestId,{...r,action:1804,legalProof:{rootEpoch:r.rootEpoch,action:1805,legal:true},terminal:false}); await f.advance(5); assert.equal(f.output.some(x=>x.startsWith('bestmove')),false); await c.close(); });
+test('terminal null action requires current terminal proof and maps to bestmove 0000', async () => { const {createUciController}=await api(); const f=fixture(),c=createUciController(f.options); await c.handle('position startpos'); await c.handle('go infinite'); await c.handle('stop'); const r=f.requests[0]; f.snapshots.set(r.requestId,{...r,action:null,terminal:true,legalProof:{rootEpoch:r.rootEpoch,action:null,legal:true}}); await f.advance(5); assert.deepEqual(f.output,['bestmove 0000']); await c.close(); });
+test('isready and stop remain processable during pending position admission', async () => { const {createUciController}=await api(); const f=fixture(); let release; f.deferAdmission(new Promise(resolve=>release=resolve)); const c=createUciController(f.options),p=c.handle('position startpos'); await c.handle('isready'); await c.handle('stop'); assert.deepEqual(f.output,['readyok']); release(); await p; await c.close(); assert.equal(f.timers.size,0); });
+test('new game never reuses a root epoch and requires a fresh position before go', async () => { const {createUciController}=await api(); const f=fixture(),c=createUciController(f.options); await c.handle('position startpos'); await c.handle('go infinite'); await c.handle('stop'); const first=f.requests[0]; await c.handle('ucinewgame'); await assert.rejects(c.handle('go infinite'),/position/i); await c.handle('position startpos'); await c.handle('go infinite'); await c.handle('stop'); assert(f.requests[1].rootEpoch>first.rootEpoch); await c.close(); });
+test('stop during pending admission records intent and publishes only after legal admission', async () => { const {createUciController}=await api(); const f=fixture(); let release; f.deferAdmission(new Promise(resolve=>release=resolve)); const c=createUciController(f.options),position=c.handle('position startpos'),go=c.handle('go infinite'); await c.handle('stop'); assert.equal(f.requests.length,0); release(); await position; await go; assert.equal(f.requests.length,1); await c.close(); });
+test('readiness publishes the admitted backend public identity without a fingerprint option',async()=>{const {createUciController}=await api();const f=fixture(),identity={schema:'vector_engine_runtime_identity_v1',node:'v26.11.1',model:{checkpointSha256:'39be'}};f.port.ready=async()=>identity;const c=createUciController(f.options);await c.handle('isready');assert.deepEqual(f.output,[`info string vector_identity ${JSON.stringify(identity)}`,'readyok']);await c.close();});
+test('backend initialization is lazy so advertised options precede ready',async()=>{const {createUciController}=await api();const f=fixture(),events=[];f.port.options=[{name:'ModelRoot',type:'string',default:''}];f.port.configure=async request=>events.push(request);f.port.ready=async()=>{events.push('ready');};const c=createUciController(f.options);await flush();assert.deepEqual(events,[]);await c.handle('uci');assert(f.output.includes('option name ModelRoot type string default <empty>'));await c.handle('setoption name ModelRoot value models/default');await c.handle('isready');assert.deepEqual(events,[{name:'ModelRoot',value:'models/default'},'ready']);await c.close();});
+test('setoption preserves exact internal path whitespace and rejects unsupported/multiline input',async()=>{const {parseUciCommand,createUciController}=await api();assert.deepEqual(parseUciCommand('setoption name ModelRoot value E:/Two  Spaces/model'),{kind:'setoption',name:'ModelRoot',value:'E:/Two  Spaces/model'});assert.throws(()=>parseUciCommand('setoption name ModelRoot value foo\nquit'),/line|control/i);const f=fixture();f.port.options=[{name:'ModelRoot',type:'string',default:''}];f.port.configure=async()=>{};const c=createUciController(f.options);await assert.rejects(c.handle('setoption name Unknown value anything'),/advertised|option/i);await c.close();});
+test('rejected model configuration preserves owner state and blocks readyok until valid configuration',async()=>{const {createUciController}=await api();const f=fixture();let model='old';f.port.options=[{name:'ModelRoot',type:'string',default:''}];f.port.configure=async({value})=>{if(value==='bad')throw new Error('Model admission rejected');model=value;};const c=createUciController(f.options);await assert.rejects(c.handle('setoption name ModelRoot value bad'),/rejected/i);await assert.rejects(c.handle('isready'),/rejected/i);assert.equal(model,'old');assert.deepEqual(f.output,[]);await c.handle('setoption name ModelRoot value good');await c.handle('isready');assert.equal(model,'good');assert.equal(f.output.at(-1),'readyok');await c.close();});
+test('configuration changes cannot alter an admitted game and ucinewgame owns retirement intent',async()=>{const {createUciController}=await api();const f=fixture();let retired=0;f.port.options=[{name:'ModelRoot',type:'string',default:''}];f.port.configure=async()=>{};f.port.endGame=async()=>{retired++;};const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go infinite');await assert.rejects(c.handle('setoption name ModelRoot value replacement'),/game|active/i);assert.equal(retired,0);await c.handle('ucinewgame');assert.equal(retired,1);await c.close();});
+test('unqualified remaining-clock allocation fails closed without fabricated timing policy',async()=>{const {createUciController,publicationDelay}=await api();assert.throws(()=>publicationDelay({wtime:1000,winc:20},0),/qualified|timing|unsupported/i);const f=fixture(),c=createUciController(f.options);await c.handle('position startpos');await assert.rejects(c.handle('go wtime 1000 btime 1000'),/qualified|timing|unsupported/i);await c.handle('stop');assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);await c.close();});
+test('concurrent teardown retains actual pending closure and does not invent graceful success',async()=>{const {createUciController}=await api();const f=fixture();let release;f.port.close=()=>new Promise(resolve=>release=resolve);const c=createUciController(f.options),first=c.close(),second=c.close();assert.equal(first,second);await flush();let done=false;second.then(()=>done=true);await flush();assert.equal(done,false);release({graceful:false,retained:['runtime']});assert.deepEqual(await first,{graceful:false,retained:['runtime']});assert.deepEqual(await c.close(),{graceful:false,retained:['runtime']});});
+test('failed closure remains failed on every repeated teardown',async()=>{const {createUciController}=await api();const f=fixture();f.port.close=async()=>{throw new Error('closure unproved');};const c=createUciController(f.options);await assert.rejects(c.close(),/unproved/);await assert.rejects(c.close(),/unproved/);});
+test('new position waits for explicit game retirement while protocol remains asynchronous',async()=>{const {createUciController}=await api();const f=fixture();let release,admitted=0;f.port.admitPosition=async({rootEpoch})=>{admitted++;return{rootEpoch,sideToMove:0};};f.port.endGame=()=>new Promise(resolve=>release=resolve);const c=createUciController(f.options);await c.handle('position startpos');const retirement=c.handle('ucinewgame'),replacement=c.handle('position startpos');await flush();assert.equal(admitted,1);release();await retirement;await replacement;assert.equal(admitted,2);await c.close();});
+test('closure drains already admitted external work before releasing backend resources',async()=>{const {createUciController}=await api();const f=fixture();let release,closes=0;f.deferAdmission(new Promise(resolve=>release=resolve));f.port.close=async()=>{closes++;return{graceful:true};};const c=createUciController(f.options),admission=c.handle('position startpos');await flush();const closing=c.close();await flush();assert.equal(closes,0);release();await admission;await closing;assert.equal(closes,1);});
+test('asynchronous publication failure is bounded and cannot fabricate a move or escape timer handling',async()=>{const {createUciController}=await api();const f=fixture();f.port.requestPublication=async()=>{throw new Error('observer failed\nbestmove a1a2');};const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go movetime 1');await f.advance(1);await flush();assert.equal(f.output.length,1);assert.match(f.output[0],/^info string error/);assert(!f.output[0].includes('\n'));assert.equal(f.timers.size,0);await c.close();});
+test('snapshot read failure is reported without selecting a host fallback',async()=>{const {createUciController}=await api();const f=fixture();f.port.readPublication=()=>{throw new Error('snapshot failed');};const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go infinite');await c.handle('stop');await flush();assert.deepEqual(f.output,['info string error snapshot failed']);assert.equal(f.timers.size,0);await c.close();});
+test('clock diagnostics retain absolute go deadline across deferred admission',async()=>{const {createUciController}=await api();const f=fixture(),phases=[];let release;f.deferAdmission(new Promise(resolve=>release=resolve));const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row)}),admitting=c.handle('position startpos'),going=c.handle('go movetime 100');await flush();await f.advance(40);release();await admitting;await going;await f.advance(59);assert.equal(f.requests.length,0);await f.advance(1);assert.equal(f.requests.length,1);const request=f.requests[0];f.snapshots.set(request.requestId,{...request,action:1804,legalProof:{rootEpoch:request.rootEpoch,action:1804,legal:true},terminal:false});await f.advance(5);assert.equal(phases.find(p=>p.phase==='goReceived').time,0);assert.equal(phases.find(p=>p.phase==='admissionReady').time,40);assert.equal(phases.find(p=>p.phase==='publicationRequested').time,100);assert.equal(phases.find(p=>p.phase==='emit').time,105);await c.close();});
+test('isready after newgame waits for retirement then admits fresh backend identity',async()=>{const {createUciController}=await api();const f=fixture();let reads=0,release;f.port.ready=async()=>{reads++;};f.port.endGame=()=>new Promise(resolve=>release=resolve);const c=createUciController(f.options);await c.handle('position startpos');assert.equal(reads,1);const retiring=c.handle('ucinewgame'),ready=c.handle('isready');await flush();assert.deepEqual(f.output,[]);release();await retiring;await ready;assert.equal(reads,2);assert.deepEqual(f.output,['readyok']);await c.close();});
+
+test('advertised check and spin options admit typed values and reject malformed or out-of-range replacements',async()=>{const {createUciController}=await api();const f=fixture(),values=[];f.port.options=[{name:'OwnBook',type:'check',default:true},{name:'BookSeed',type:'spin',default:0,min:0,max:2147483647}];f.port.configure=async v=>values.push(v);const c=createUciController(f.options);await c.handle('uci');assert(f.output.includes('option name OwnBook type check default true'));assert(f.output.includes('option name BookSeed type spin default 0 min 0 max 2147483647'));await c.handle('setoption name OwnBook value false');await c.handle('setoption name BookSeed value 2147483647');assert.deepEqual(values,[{name:'OwnBook',value:false},{name:'BookSeed',value:2147483647}]);for(const command of ['setoption name OwnBook value 0','setoption name BookSeed value -1','setoption name BookSeed value 2147483648','setoption name BookSeed value 1.0'])await assert.rejects(c.handle(command),/option|range|integer/i);assert.equal(values.length,2);await c.close();});
+
+test('next-go configuration admits during a game and becomes an immutable option snapshot only for the next go',async()=>{const {createUciController}=await api();const f=fixture(),values=[];f.port.options=[{name:'OwnBook',type:'check',default:true,apply:'next-go'}];f.port.configure=async v=>values.push(v);const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go infinite');await c.handle('setoption name OwnBook value false');assert.deepEqual(values,[{name:'OwnBook',value:false}]);await c.handle('stop');assert.deepEqual(f.requests[0].options,{OwnBook:true});await c.handle('go infinite');await c.handle('stop');assert.deepEqual(f.requests[1].options,{OwnBook:false});await c.close();});
+test('resolved root knowledge bypasses publication wait while preserving GPU final selection and request fence',async()=>{const {createUciController}=await api(),f=fixture();let prepared;f.port.preparePublicationIntent=async input=>{prepared=input;return {bypassPublicationWait:true};};const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go movetime 1000');assert.equal(prepared.rootEpoch,1);assert.equal(f.requests.length,1);assert.equal(f.requests[0].requestId,prepared.requestId);assert.equal(f.timers.size,1);const r=f.requests[0];f.snapshots.set(r.requestId,{...r,action:1804,legalProof:{rootEpoch:r.rootEpoch,action:1804,legal:true},terminal:false});await f.advance(5);assert.deepEqual(f.output,['bestmove e2e4']);await c.close();});
+test('isready after a next-go provider option preloads that config without resetting an active go',async()=>{const {createUciController}=await api(),f=fixture();let reads=0;f.port.options=[{name:'OwnBook',type:'check',default:true,apply:'next-go'}];f.port.ready=async()=>{reads++;};f.port.configure=async()=>{};const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go infinite');await c.handle('setoption name OwnBook value false');await c.handle('isready');assert.equal(reads,2);await c.handle('stop');assert.deepEqual(f.requests[0].options,{OwnBook:true});await c.close();});
+
+test('resolved legal knowledge bypasses remaining-clock policy admission',async()=>{
+  const {createUciController}=await api(),f=fixture();f.port.preparePublicationIntent=async()=>({bypassPublicationWait:true});
+  const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go wtime 1000 btime 1000');
+  assert.equal(f.requests.length,1);await c.close();
+});
+test('qualified policy options belong to timing and preserve hard transport reserve at publication',async()=>{
+  const {createUciController}=await api(),f=fixture(),sha=text=>createHash('sha256').update(text).digest('hex'),identity={schema:'vector_engine_runtime_identity_v1',vectorRevision:'a'.repeat(40)};
+  f.port.ready=async()=>identity;const dir=mkdtempSync(path.join(os.tmpdir(),'vector-policy-test-')),file=path.join(dir,'policy.json');
+  const text=JSON.stringify({schema:'vector_timing_policy_v1',producer:'vector-evidence-runtime/clock-allocation-v1',runtime_identity_sha256:sha(JSON.stringify(identity)),control:{initial_time_ms:180000,increment_ms:3000},strategy:{kind:'target_blocks_v1',target_blocks:1},useful_blocks_ms:[500],local_publication_reserve_ms:100,unsupported_fallback:'publish-current',qualification:{status:'qualified',study_sha256:sha('study'),discovery_sha256:sha('discovery'),held_out_sha256:sha('heldout'),reserve_sha256:sha('reserve'),allocation:true,useful_blocks:true,clock_safety:true,discovery:{opening_units:8,mean_score_gain:.25,directional_p:.00390625},held_out:{opening_units:8,mean_score_gain:.25,directional_p:.00390625}}});
+  writeFileSync(file,text);const c=createUciController({...f.options,timingPolicySupport:true});
+  try{await c.handle('uci');assert(f.output.some(row=>row.startsWith('option name TimingPolicyFile ')));await c.handle('setoption name TimingPolicyFile value '+file);await c.handle('setoption name TimingPolicySha256 value '+sha(text));await c.handle('setoption name TimingInitialTimeMs value 180000');await c.handle('setoption name Move Overhead value 300');await c.handle('position startpos');await c.handle('go wtime 800 btime 800 winc 3000 binc 3000');await f.advance(0);assert.equal(f.requests.length,1);const row=f.output.find(row=>row.startsWith('info string vector_timing_policy ')),decision=JSON.parse(row.slice('info string vector_timing_policy '.length));assert.equal(decision.safeEnvelopeFromGoMs,400);assert.equal(decision.reason,'no_affordable_useful_block');assert.equal(decision.transportReserveMs,300);await assert.rejects(c.handle('setoption name TimingInitialTimeMs value 60000'),/game|active/);}finally{await c.close();rmSync(file);rmdirSync(dir);}
+});
+test('rejected ponderhit allocation clears the active request and timers',async()=>{
+  const {createUciController}=await api(),f=fixture(),c=createUciController(f.options);await c.handle('position startpos');await c.handle('go ponder wtime 1000 btime 1000');
+  await assert.rejects(c.handle('ponderhit'),/qualified|timing/);await c.handle('stop');assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);await c.close();
+});
+test('resolved knowledge preserves ponder and infinite publication gates',async()=>{
+  const {createUciController}=await api();
+  for(const command of ['go ponder wtime 1000 btime 1000','go infinite']){
+    const f=fixture();f.port.preparePublicationIntent=async()=>({bypassPublicationWait:true});const c=createUciController(f.options);
+    await c.handle('position startpos');await c.handle(command);assert.equal(f.requests.length,0);
+    await c.handle(command.includes('ponder')?'ponderhit':'stop');assert.equal(f.requests.length,1);await c.close();
+  }
+});
+test('ponderhit waits for pending resolved intent before admitting remaining-clock timing',async()=>{
+  const {createUciController}=await api(),f=fixture();let release,entered;
+  const preparing=new Promise(resolve=>entered=resolve);
+  f.port.preparePublicationIntent=()=>{entered();return new Promise(resolve=>release=resolve);};
+  const c=createUciController(f.options);await c.handle('position startpos');
+  const going=c.handle('go ponder wtime 1000 btime 1000');await preparing;
+  try{
+    await f.advance(30);await assert.doesNotReject(c.handle('ponderhit'));
+    await f.advance(20);assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);
+    release({bypassPublicationWait:true});await going;
+    assert.equal(f.requests.length,1);assert.equal(f.timers.size,1);
+    await c.handle('ponderhit');await c.handle('stop');assert.equal(f.requests.length,1);
+  }finally{release({bypassPublicationWait:true});await going.catch(()=>{});await c.close();}
+});
+test('pending ponderhit before admission schedules one unresolved experiment from the hit timestamp',async()=>{
+  const {createUciController}=await api(),f=fixture(),phases=[];let releaseAdmission,releaseIntent,entered;
+  f.deferAdmission(new Promise(resolve=>releaseAdmission=resolve));
+  const preparing=new Promise(resolve=>entered=resolve);
+  f.port.preparePublicationIntent=()=>{entered();return new Promise(resolve=>releaseIntent=resolve);};
+  const sha=text=>createHash('sha256').update(text).digest('hex'),identity={schema:'vector_engine_runtime_identity_v1',node:'v26.11.1'};
+  f.port.ready=async()=>identity;
+  const text=JSON.stringify({schema:'vector_timing_experiment_v1',diagnostic:true,campaign_id:'pending-hit',runtime_identity_sha256:sha(JSON.stringify(identity)),rules_profile:'orthodoxy-live-claims-v1',strategy:{kind:'target_blocks_v1',target_blocks:1},candidate_blocks_ms:[500],local_publication_reserve_ms:100,supported_inputs:{initial_time_ms:180000,increment_ms:3000},qualification:{timing:false,strength:false,useful_blocks:false,publication:false}});
+  const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row),experimentalTiming:{text,sha256:sha(text),initialTimeMs:180000,transportReserveMs:50}});
+  const admitting=c.handle('position startpos'),going=c.handle('go ponder wtime 900 btime 900 winc 3000 binc 3000');
+  try{
+    await flush();await f.advance(100);await c.handle('ponderhit');
+    assert.equal(f.timers.size,0);await f.advance(100);releaseAdmission();await admitting;await preparing;
+    assert.equal(f.timers.size,0);await f.advance(50);releaseIntent({bypassPublicationWait:false});await going;
+    const allocations=phases.filter(row=>row.phase==='experimentalAllocation');assert.equal(allocations.length,1);
+    assert.equal(allocations[0].decision.publicationDeadlineFromGoMs,650);assert.equal(f.timers.size,1);
+    await c.handle('ponderhit');await f.advance(499);assert.equal(f.requests.length,0);
+    await f.advance(1);assert.equal(f.requests.length,1);await c.handle('stop');assert.equal(f.requests.length,1);
+  }finally{releaseAdmission();await admitting.catch(()=>{});await preparing;releaseIntent({bypassPublicationWait:false});await going.catch(()=>{});await c.close();}
+});
+test('stop while intent is pending prevents ponderhit and classification from adding another publication timer',async()=>{
+  const {createUciController}=await api(),f=fixture();let release,entered;
+  const preparing=new Promise(resolve=>entered=resolve);
+  f.port.preparePublicationIntent=()=>{entered();return new Promise(resolve=>release=resolve);};
+  const c=createUciController(f.options);await c.handle('position startpos');
+  const going=c.handle('go ponder movetime 1000');await preparing;
+  try{
+    await c.handle('stop');await flush();assert.equal(f.requests.length,1);assert.equal(f.timers.size,1);
+    await c.handle('ponderhit');assert.equal(f.timers.size,1);
+    release({bypassPublicationWait:false});await going;assert.equal(f.requests.length,1);assert.equal(f.timers.size,1);
+  }finally{release({bypassPublicationWait:false});await going.catch(()=>{});await c.close();}
+});
+test('explicit diagnostic timing experiment schedules whole candidate opportunities against actual clock',async()=>{
+  const {createUciController}=await api(),f=fixture(),phases=[];
+  const sha=text=>createHash('sha256').update(text).digest('hex');
+  const identity={schema:'vector_engine_runtime_identity_v1',node:'v26.11.1',vectorRevision:'a'.repeat(40)};
+  f.port.ready=async()=>identity;
+  const text=JSON.stringify({schema:'vector_timing_experiment_v1',diagnostic:true,campaign_id:'clock180+3',runtime_identity_sha256:sha(JSON.stringify(identity)),rules_profile:'orthodoxy-live-claims-v1',strategy:{kind:'target_blocks_v1',target_blocks:2},candidate_blocks_ms:[500,500],local_publication_reserve_ms:100,supported_inputs:{initial_time_ms:180000,increment_ms:3000},qualification:{timing:false,strength:false,useful_blocks:false,publication:false}});
+  const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row),experimentalTiming:{text,sha256:sha(text),initialTimeMs:180000,transportReserveMs:50}});
+  await c.handle('position startpos');await c.handle('go wtime 900 btime 900 winc 3000 binc 3000');
+  await f.advance(499);assert.equal(f.requests.length,0);await f.advance(1);assert.equal(f.requests.length,1);
+  const decision=phases.find(p=>p.phase==='experimentalAllocation').decision;
+  assert.deepEqual(decision.purchasedBlocksMs,[500]);assert.equal(decision.diagnostic,true);assert.equal(decision.usefulBlockAuthority,false);
+  await c.close();
+});
+test('admission clock observation retains only the returned current GPU owner facts',async()=>{const {createUciController}=await api(),f=fixture(),facts={authority:{arena:1,root:0,generation:1,epoch:3},telemetry:{rootEvaluatorAdmissions:{value:1,scope:'node-incarnation'}}},phases=[];f.port.admitPosition=async({rootEpoch})=>({rootEpoch,sideToMove:0,observation:facts});const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row)});await c.handle('position startpos');assert.deepEqual(phases.find(p=>p.phase==='admissionReady').observation,facts);await c.close();});
+
+test('late current-focus resolution cancels only remaining publication wait',async()=>{
+  const {createUciController}=await api(),f=fixture();let listener,subscription,unsubscribed=0;
+  f.port.subscribePublicationResolution=(identity,callback)=>{subscription=identity;listener=callback;return()=>unsubscribed++;};
+  const c=createUciController(f.options);try{
+    await c.handle('position startpos');await c.handle('go movetime 1000');assert.equal(typeof listener,'function');
+    await f.advance(100);listener({...subscription,requestId:subscription.requestId+1,resolved:true});assert.equal(f.requests.length,0);
+    listener({...subscription,resolved:true});await flush();assert.equal(f.requests.length,1);assert.equal(unsubscribed,1);
+    listener({...subscription,resolved:true});await f.advance(1000);assert.equal(f.requests.length,1);
+  }finally{await c.close();}
+});
+test('late resolution preserves ponder and infinite gates and replacement fences callbacks',async()=>{
+  const {createUciController}=await api();
+  for(const command of ['go ponder movetime 1000','go infinite']){
+    const f=fixture();let listener,identity;f.port.subscribePublicationResolution=(value,callback)=>{identity=value;listener=callback;return()=>{};};
+    const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle(command);assert.equal(typeof listener,'function');listener({...identity,resolved:true});await f.advance(2000);assert.equal(f.requests.length,0);await c.handle(command.includes('ponder')?'ponderhit':'stop');assert.equal(f.requests.length,1);await c.handle('position startpos moves e2e4');listener({...identity,resolved:true});assert.equal(f.requests.length,1);}finally{await c.close();}
+  }
+});
+test('resolution already completed at subscription publishes once and retires returned handle',async()=>{
+  const {createUciController}=await api(),f=fixture();let removed=0;f.port.subscribePublicationResolution=(identity,listener)=>{listener({...identity,resolved:true});return()=>removed++;};
+  const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle('go movetime 1000');await flush();assert.equal(f.requests.length,1);assert.equal(removed,1);await f.advance(1000);assert.equal(f.requests.length,1);}finally{await c.close();}
+});
+test('failed subscription retirement still closes backend and cannot report clean teardown',async()=>{
+  const {createUciController}=await api(),f=fixture();let closed=0;f.port.subscribePublicationResolution=()=>()=>{throw new Error('subscription close failed');};f.port.close=async()=>{closed++;return{graceful:true};};
+  const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go movetime 1000');await assert.rejects(c.close(),/subscription retirement/);assert.equal(closed,1);assert.equal(f.timers.size,0);await assert.rejects(c.close(),/subscription retirement/);assert.equal(closed,1);
+});
+test('newgame releases resolution subscription and ignores its later callback',async()=>{
+  const {createUciController}=await api(),f=fixture();let removed=0,listener,identity;f.port.subscribePublicationResolution=(value,callback)=>{identity=value;listener=callback;return()=>removed++;};
+  const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle('go movetime 1000');await c.handle('ucinewgame');assert.equal(removed,1);listener({...identity,resolved:true});await f.advance(1000);assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);}finally{await c.close();}
+});
+test('an early or rounded timer callback cannot publish before the absolute deadline',async()=>{
+  const {createUciController}=await api(),f=fixture(),c=createUciController(f.options);try{
+    await c.handle('position startpos');await c.handle('go movetime 100');await f.advance(99);
+    const timer=[...f.timers][0];f.timers.delete(timer);timer.fn();await flush();assert.equal(f.requests.length,0);assert.equal(f.timers.size,1);
+    await f.advance(1);assert.equal(f.requests.length,1);
+  }finally{await c.close();}
+});
+test('resolution reasons cannot replace neutral applicability authority classes',async()=>{
+  const {createUciController}=await api();for(const intent of [{bypassPublicationWait:true,applicability:'objective_no_choice'},{bypassPublicationWait:false,applicability:'resolved_without_search_time'}]){const f=fixture();f.port.preparePublicationIntent=async()=>intent;const c=createUciController(f.options);try{await c.handle('position startpos');await assert.rejects(c.handle('go movetime 1000'),/applicability/);assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);}finally{await c.close();}}
+});
