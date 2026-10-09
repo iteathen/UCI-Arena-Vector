@@ -14,6 +14,30 @@ export function consumeClockInput(value,{allowUnknownInitial=false}={}){
   if(!['search_derived','constrained_search','advisory_search','resolved_without_search_time'].includes(input.applicability))throw new Error('invalid timing applicability');
   return Object.freeze({...input,focusIdentity:Object.freeze(input.focusIdentity)});
 }
+
+// Unconfigured remaining-clock mode has no supported discretionary purchase.
+// Unknown local publication reserve cannot establish a safe allocation envelope.
+export function decideUnqualifiedPublication(value){
+  const input=consumeClockInput(value,{allowUnknownInitial:true});
+  if(input.applicability==='resolved_without_search_time'){
+    throw new Error('unconfigured searched timing requires unresolved applicability');
+  }
+  const hardClockEnvelopeFromGoMs=Math.max(0,
+    Math.min(input.remainingMs,input.explicitLimitMs??input.remainingMs)-input.transportReserveMs);
+  return Object.freeze({
+    schema:'vector_unconfigured_timing_decision_v1',reason:'profile_not_configured',
+    focusIdentity:input.focusIdentity,applicability:input.applicability,
+    clock:Object.freeze({initialTimeMs:input.initialTimeMs,remainingMs:input.remainingMs,
+      incrementMs:input.incrementMs,movesToGo:input.movesToGo,
+      explicitLimitMs:input.explicitLimitMs,elapsedMs:input.elapsedMs}),
+    transportReserveMs:input.transportReserveMs,localPublicationReserveMs:null,
+    localPublicationReserveSupport:'unsupported',usefulBlockAuthority:false,
+    allocationPolicyAuthority:false,publicationDeadlineFromGoMs:input.elapsedMs,
+    purchasedBlocksMs:Object.freeze([]),hardClockEnvelopeFromGoMs,
+    safeEnvelopeFromGoMs:null,
+  });
+}
+
 // Pure composition over already-admitted owner data; never calls search or
 // learns population parameters. Authority and interpretation remain callers'.
 export function chooseElapsedBlocks({strategy,blocks,localReserve},input){

@@ -82,8 +82,28 @@ The production launch advertises timing-owned startup options `TimingPolicyFile`
 `TimingPolicySha256`, `TimingInitialTimeMs` and `Move Overhead`. The adapter admits
 the bounded regular file before a game, never forwards these options to search,
 and performs no file access on publication. Both artifact and digest are
-required together. Remaining-clock operation without an admitted policy remains
-unsupported unless a configured authority has already resolved the exact move.
+required together. An unconfigured policy grants no supported useful block or
+allocation strategy; the no-purchase path publishes the completed current-focus
+move immediately. A configured missing, invalid or incompatible policy still
+fails explicit between-game readiness before position admission.
+
+`decideUnqualifiedPublication(input)` in `allocation.mjs` accepts the existing
+closed clock/focus input with a required actual remaining clock; initial control
+may be unknown. It returns immutable `vector_unconfigured_timing_decision_v1`
+facts, reason `profile_not_configured`, deadline equal to current elapsed time,
+an empty purchase list and false useful-block/allocation-policy authority.
+Local publication reserve is explicitly unsupported with a null value; the safe
+allocation envelope is null. The separately labelled hard clock envelope uses
+only the supplied clock/explicit maximum and external transport reserve and
+does not claim measured local safety. Already elapsed latency is retained even
+when it exceeds that bound; the helper does not pretend to recover lost clock.
+
+This helper applies only to unresolved searched remaining-clock decisions. The
+protocol adapter retains explicit movetime-only, infinite, ponder and resolved
+move gates; it never passes those command flags to this closed data port. The
+decision buys no guessed fraction or duration, creates no profile artifact and
+does not grant clock-safety, strength or learned-policy qualification. It does
+not access files, request fresh cuda-js work, select an action or affect search.
 
 An independently supplied initial control is required for supported block
 purchases; zero means unknown. Unknown control, unsupported increment or

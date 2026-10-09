@@ -19,7 +19,7 @@ function fixture(t){
   const controller=createUciController({port,timingPolicySupport:true,write:row=>output.push(row),now:()=>time,setTimer:(fn,delay)=>{const timer={fn,at:time+delay};timers.add(timer);return timer;},clearTimer:timer=>timers.delete(timer)});
   t.after(async()=>{await controller.close();unlinkSync(file);rmdirSync(dir);});
   const advance=async ms=>{time+=ms;for(const timer of [...timers])if(timer.at<=time){timers.delete(timer);timer.fn();}for(let i=0;i<10;i++)await Promise.resolve();};
-  const configure=async({initial=180000,overhead=50,digest=sha(text)}={})=>{for(const [name,value] of [['TimingPolicyFile',file],['TimingPolicySha256',digest],['TimingInitialTimeMs',initial],['Move Overhead',overhead]])await controller.handle(`setoption name ${name} value ${value}`);};
+  const configure=async({initial=180000,overhead=50,digest=sha(text),ready=true}={})=>{for(const [name,value] of [['TimingPolicyFile',file],['TimingPolicySha256',digest],['TimingInitialTimeMs',initial],['Move Overhead',overhead]])await controller.handle(`setoption name ${name} value ${value}`);if(ready)await controller.handle('isready');};
   return{controller,port,output,requests,configures,timers,snapshots,file,text,configure,advance,defer(){let resolve;const promise=new Promise(r=>resolve=r);releaseAdmission={promise,resolve};return resolve;}};
 }
 test('timing options never enter search configuration or publication intent',async t=>{
@@ -29,7 +29,7 @@ test('timing options never enter search configuration or publication intent',asy
 });
 test('policy readiness rejects incomplete bindings, changed bytes, wrong runtime and invalid UTF8',async t=>{
   for(const fault of ['partial','digest','identity','utf8']){
-    const f=fixture(t);if(fault==='partial')await f.controller.handle(`setoption name TimingPolicyFile value ${f.file}`);else await f.configure();
+    const f=fixture(t);if(fault==='partial')await f.controller.handle(`setoption name TimingPolicyFile value ${f.file}`);else await f.configure({ready:false});
     if(fault==='digest')writeFileSync(f.file,f.text+' ');
     if(fault==='identity')f.port.ready=async()=>({schema:'vector_engine_runtime_identity_v1',node:'changed'});
     if(fault==='utf8')writeFileSync(f.file,Buffer.from([0xff,0xfe]));
@@ -58,4 +58,37 @@ test('latched policy survives a game while the next game readmits exact artifact
   const f=fixture(t);await f.configure();await f.controller.handle('position startpos');await f.controller.handle('go ponder wtime 180000 btime 180000 winc 3000 binc 3000');writeFileSync(f.file,f.text+' ');
   await f.controller.handle('setoption name OwnBook value true');await f.controller.handle('isready');await f.controller.handle('ponderhit');await f.advance(500);assert.equal(f.requests.length,1);
   await f.controller.handle('ucinewgame');await assert.rejects(f.controller.handle('isready'),/digest/);
+});
+test('position cannot load a timing profile when between-game readiness was skipped',async t=>{
+  const f=fixture(t);await f.configure({ready:false});writeFileSync(f.file,Buffer.from([0xff,0xfe]));
+  let admissions=0,firstGame;f.port.admitPosition=async({rootEpoch,newGame})=>{admissions++;firstGame=newGame;return{rootEpoch,sideToMove:0};};
+  await assert.rejects(f.controller.handle('position startpos'),/isready.*between games/);
+  assert.equal(admissions,0);assert.equal(f.output.includes('readyok'),false);
+  writeFileSync(f.file,f.text);await f.controller.handle('isready');
+  await f.controller.handle('position startpos');assert.equal(admissions,1);assert.equal(firstGame,true);
+});
+test('failed position replacement cannot reopen timing-profile configuration inside a game',async t=>{
+  const f=fixture(t);await f.configure();await f.controller.handle('position startpos');
+  f.port.admitPosition=async()=>{throw new Error('replacement rejected');};
+  await assert.rejects(f.controller.handle('position startpos moves e2e4'),/replacement rejected/);
+  writeFileSync(f.file,f.text+' ');
+  await assert.rejects(f.controller.handle('setoption name TimingPolicySha256 value '+sha('changed')),/game/);
+  await assert.doesNotReject(f.controller.handle('isready'));
+  await f.controller.handle('ucinewgame');await assert.rejects(f.controller.handle('isready'),/digest/);
+});
+test('queued rejected initial positions cannot consume the first actual game admission',async t=>{
+  const f=fixture(t);await f.configure({ready:false});const admissions=[];
+  f.port.admitPosition=async input=>{admissions.push(input);return{rootEpoch:input.rootEpoch,sideToMove:0};};
+  const attempts=await Promise.allSettled([f.controller.handle('position startpos'),f.controller.handle('position startpos moves e2e4')]);
+  assert(attempts.every(result=>result.status==='rejected'&&/isready.*between games/.test(result.reason.message)));assert.equal(admissions.length,0);
+  await f.controller.handle('isready');await f.controller.handle('position startpos');assert.equal(admissions.length,1);assert.equal(admissions[0].newGame,true);
+});
+test('unconfigured remaining clock publishes the completed move without inventing policy authority',async t=>{
+  const f=fixture(t);f.port.readPublication=request=>({...request,action:1804,legalProof:{rootEpoch:request.rootEpoch,action:1804,legal:true},terminal:false});
+  await f.controller.handle('isready');await f.controller.handle('position startpos');
+  await f.controller.handle('go wtime 180000 btime 180000 winc 3000 binc 3000');await f.advance(0);
+  assert.equal(f.requests.length,1);assert.equal(f.output.at(-1),'bestmove e2e4');assert.equal(f.timers.size,0);
+  const line=f.output.find(row=>row.startsWith('info string vector_timing_unconfigured '));assert(line);
+  const decision=JSON.parse(line.slice('info string vector_timing_unconfigured '.length));
+  assert.equal(decision.reason,'profile_not_configured');assert.equal(decision.allocationPolicyAuthority,false);assert.equal(decision.usefulBlockAuthority,false);assert.deepEqual(decision.purchasedBlocksMs,[]);assert.equal(decision.localPublicationReserveMs,null);
 });

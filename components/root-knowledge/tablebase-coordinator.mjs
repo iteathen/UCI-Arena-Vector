@@ -11,7 +11,7 @@ export function createTablebaseCoordinator({loadBinding=loadRootTablebaseBinding
  const status=description=>report({state:description.status,providerGeneration:description.provider_generation??null,dataset:description.status==='ready'?{cardinality:description.provider_identity?.dataset?.admitted_cardinality,fileCount:description.provider_identity?.dataset?.file_count}:null,internalGpuProbe:'unsupported'});
  const clearResolution=()=>{if(resolution){const old=resolution;resolution=undefined;old.active=false;old.unsubscribe?.();}};
  const abandon=()=>{try{clearResolution();}finally{ticket?.abandon();ticket=undefined;ticketKey=undefined;}};
- const key=(context,searchmoves)=>JSON.stringify([context.rootEpoch,context.rootFence,context.input,searchmoves]);
+ const key=(context,searchmoves)=>JSON.stringify([bindingPath,context.rootEpoch,context.rootFence,context.input,context.legalActions,context.terminal,context.claimPolicy,searchmoves]);
  const eligible=context=>{
   if(context.terminal||!provider||provider.describe().status!=='ready')return false;
   const maximum=provider.describe().provider_identity?.dataset?.admitted_cardinality;if(!Number.isInteger(maximum)||maximum<3||maximum>6)return false;
@@ -20,8 +20,9 @@ export function createTablebaseCoordinator({loadBinding=loadRootTablebaseBinding
   return board.board().flat().filter(Boolean).length<=maximum;
  };
  const start=(context,searchmoves,enabled)=>{
-  if(!enabled||!eligible(context)){abandon();return false;}
-  const next=key(context,searchmoves);if(ticketKey===next)return true;abandon();
+  if(!enabled){abandon();return false;}
+  const next=key(context,searchmoves);if(ticket&&ticketKey===next)return true;
+  abandon();if(!eligible(context))return false;
   if(sequence>=0xffff_fffe)throw new Error('Root provider request identity exhausted');
   ticket=provider.probe({context,searchmoves,requestId:`root-${++sequence}`});ticketKey=next;return true;
  };
