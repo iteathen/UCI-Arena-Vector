@@ -1,6 +1,8 @@
 import { admitPosition, actionToUci } from '../chess-domain/admission.mjs';
 import {createHash} from 'node:crypto';
 import {admitTimingExperiment,decideExperimentalPublication} from '../move-timing/experiment.mjs';
+import {admitTimingPolicy,decidePolicyPublication} from '../move-timing/policy.mjs';
+import {readTimingArtifact} from '../move-timing/artifact-file.mjs';
 
 export const START_POSITION = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export function uciToAction(move) {
@@ -49,7 +51,7 @@ export function publicationDelay(command, sideToMove) {
   return null;
 }
 
-export function createUciController({port,write,now=()=>performance.now(),setTimer=setTimeout,clearTimer=clearTimeout,onDiagnostic,experimentalTiming}) {
+export function createUciController({port,write,now=()=>performance.now(),setTimer=setTimeout,clearTimer=clearTimeout,onDiagnostic,experimentalTiming,timingPolicySupport=false}) {
   for (const method of ['ready','admitPosition','requestPublication','readPublication','close']) if(typeof port?.[method]!=='function') throw new Error(`GameSearchPort requires ${method}`);
   if(typeof write!=='function')throw new Error('UCI output writer is required');
   const experimentRequest=experimentalTiming===undefined?null:Object.freeze(structuredClone(experimentalTiming));
@@ -60,14 +62,33 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     options.set(option.name.toLowerCase(),Object.freeze({...option}));
   }
   if(options.size&&typeof port.configure!=='function')throw new Error('Advertised UCI options require configuration admission');
+  const timingNames=new Set();
+  if(typeof timingPolicySupport!=='boolean')throw new Error('Invalid timing support declaration');
+  if(timingPolicySupport){
+    if(experimentRequest)throw new Error('Production policy and diagnostic experiment are separate launch modes');
+    for(const option of [
+      {name:'TimingPolicyFile',type:'string',default:''},
+      {name:'TimingPolicySha256',type:'string',default:''},
+      {name:'TimingInitialTimeMs',type:'spin',default:0,min:0,max:3600000},
+      {name:'Move Overhead',type:'spin',default:0,min:0,max:60000}
+    ]){
+      const key=option.name.toLowerCase();if(options.has(key))throw new Error('Timing option collides with search option');
+      options.set(key,Object.freeze(option));timingNames.add(option.name);
+    }
+  }
   let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,newGame=true,admission=Promise.resolve(),retirement=Promise.resolve(),active=null,closed=false;
-  let runtimeIdentity,readyPromise,configurationError,experiment,configuration=Promise.resolve();
+  let runtimeIdentity,readyPromise,configurationError,experiment,policy,configuration=Promise.resolve();
   const diagnostic=(phase,facts={})=>{if(onDiagnostic)try{onDiagnostic({schema:'vector_uci_clock_phase_v1',phase,time:now(),rootEpoch,requestId,...facts});}catch{/* diagnostics cannot alter search/publication ownership */}};
   const ready=async()=>{
     await configuration;
     if(configurationError)throw configurationError;
     if(!readyPromise)readyPromise=Promise.resolve().then(()=>port.ready()).then(identity=>{if(identity!==undefined){if(identity?.schema!=='vector_engine_runtime_identity_v1')throw new Error('Backend public runtime identity schema mismatch');const encoded=JSON.stringify(identity);if(encoded.length>16384)throw new Error('Backend public runtime identity exceeds bounded extent');runtimeIdentity=encoded;}if(experimentRequest){if(!runtimeIdentity)throw new Error('Timing experiment requires actual runtime identity');experiment=admitTimingExperiment(experimentRequest.text,{sha256:experimentRequest.sha256,runtimeIdentitySha256:createHash('sha256').update(runtimeIdentity).digest('hex')});if(experimentRequest.initialTimeMs!==experiment.supported_inputs.initial_time_ms)throw new Error('Timing experiment initial control mismatch');}});
-    return readyPromise;
+    await readyPromise;
+    if(timingPolicySupport&&!policy){
+      const file=optionValues.TimingPolicyFile,sha256=optionValues.TimingPolicySha256;
+      if(Boolean(file)!==Boolean(sha256))throw new Error('Timing policy requires both artifact and SHA256');
+      if(file){if(!runtimeIdentity)throw new Error('Timing policy requires actual runtime identity');policy=admitTimingPolicy(readTimingArtifact(file),{sha256,runtimeIdentitySha256:createHash('sha256').update(runtimeIdentity).digest('hex')});}
+    }
   };
   const optionValues=Object.fromEntries([...options.values()].map(o=>[o.name,o.default]));
   const clearActive=()=>{if(active?.timer)clearTimer(active.timer);active=null;};
@@ -89,7 +110,12 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
   const schedule=token=>{
     if(token.requested)return;
     let delay;
-    if(experiment&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
+    if(policy&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
+      const command=token.command,remainingMs=sideToMove===0?command.wtime:command.btime;
+      if(remainingMs===undefined)throw new Error('Current side remaining clock is required');
+      const decision=decidePolicyPublication(policy,{initialTimeMs:optionValues.TimingInitialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:optionValues['Move Overhead'],elapsedMs:now()-token.started,applicability:'search_derived',focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
+      diagnostic('policyAllocation',{decision});write(`info string vector_timing_policy ${JSON.stringify(decision)}`);delay=decision.publicationDeadlineFromGoMs;
+    }else if(experiment&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
       const command=token.command,remainingMs=sideToMove===0?command.wtime:command.btime;
       if(remainingMs===undefined)throw new Error('Current side remaining clock is required');
       const decision=decideExperimentalPublication(experiment,{initialTimeMs:experimentRequest.initialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:experimentRequest.transportReserveMs,elapsedMs:now()-token.started,applicability:'search_derived',focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
@@ -112,7 +138,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       if(option.type==='check'){if(!['true','false'].includes(value))throw new Error('Check option requires true or false');value=value==='true';}
       if(option.type==='spin'){if(!/^-?\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<option.min||Number(value)>option.max)throw new Error('Spin option integer outside declared range');value=Number(value);}
       const pending=configuration.then(async()=>{
-        try{await port.configure({name:option.name,value});optionValues[option.name]=value;configurationError=undefined;readyPromise=undefined;runtimeIdentity=undefined;}
+        try{if(!timingNames.has(option.name))await port.configure({name:option.name,value});optionValues[option.name]=value;configurationError=undefined;readyPromise=undefined;runtimeIdentity=undefined;policy=undefined;}
         catch(error){configurationError=error;throw error;}
       });
       configuration=pending.catch(()=>{});
@@ -127,7 +153,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       if(!hasPosition)throw new Error('UCI go requires admitted position');clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
       const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,classified:false,timer:null};active=token;
       diagnostic('goReceived',{rootEpoch:token.rootEpoch,requestId:token.requestId});
-      try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze({...optionValues});await admission;if(active===token&&!closed){const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;token.resolved=intent?.bypassPublicationWait===true;token.classified=true;if(active===token&&!closed){if(token.stopPending||(token.resolved&&!command.ponder&&!command.infinite))publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
+      try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze(Object.fromEntries(Object.entries(optionValues).filter(([name])=>!timingNames.has(name))));await admission;if(active===token&&!closed){const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;token.resolved=intent?.bypassPublicationWait===true;token.classified=true;if(active===token&&!closed){if(token.stopPending||(token.resolved&&!command.ponder&&!command.infinite))publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){const token=active;delete token.command.ponder;token.started=now();if(!token.classified)return;try{if(token.resolved&&!token.command.infinite)publish(token);else schedule(token);}catch(error){if(active===token)clearActive();throw error;}}}
     else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;});retirement=admission;await admission;}

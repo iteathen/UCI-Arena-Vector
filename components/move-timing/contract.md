@@ -68,3 +68,31 @@ classification captures its clock start immediately. Allocation waits for that
 classification, counts elapsed time since the hit once, and preserves resolved
 move bypass and infinite/stop gates. An already requested publication cannot
 acquire another allocation timer. These are protocol deadline facts only.
+
+## Production consumer
+
+The distinct `vector_timing_policy_v1` reader consumes producer-qualified
+allocation, useful-block, reserve and discovery/held-out declarations. These
+declarations are an interface, not completed qualification. No test fixture is
+eligible for packaging or Bot activation. The producer must retain the actual
+study and exact evidence digests; runtime admission also binds the complete
+artifact bytes and actual backend runtime identity.
+
+The production launch advertises timing-owned startup options `TimingPolicyFile`,
+`TimingPolicySha256`, `TimingInitialTimeMs` and `Move Overhead`. The adapter admits
+the bounded regular file before a game, never forwards these options to search,
+and performs no file access on publication. Both artifact and digest are
+required together. Remaining-clock operation without an admitted policy remains
+unsupported unless a configured authority has already resolved the exact move.
+
+An independently supplied initial control is required for supported block
+purchases; zero means unknown. Unknown control, unsupported increment or
+authoritative moves-to-go use the artifact's explicit `publish-current` fallback
+without asserting useful-block authority. Current remaining clock and explicit
+maximum still bound feasibility. `Move Overhead` retains external transport
+reserve meaning, separate from the producer's local publication reserve.
+
+Production decisions emit a bounded `vector_timing_policy` record with exact
+policy, focus, clock, reserve, applicability and publication reason. Explicit
+movetime-only commands retain their ordinary protocol meaning. Diagnostic
+experiment and production policy launches are mutually exclusive.

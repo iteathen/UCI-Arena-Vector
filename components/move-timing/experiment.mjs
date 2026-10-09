@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {consumeClockInput,chooseElapsedBlocks} from './allocation.mjs';
 
 const admitted=new WeakSet();
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -6,12 +7,6 @@ const hex=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 function closed(value,keys,label){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!keys.includes(key))||keys.some(key=>!Object.hasOwn(value,key)))throw new Error(`invalid ${label} fields`);}
 function integer(value,min,max,label){if(!Number.isSafeInteger(value)||value<min||value>max)throw new Error(`invalid ${label}`);return value;}
 function freeze(value){if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}return value;}
-function ownedData(value){
-  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('timing input requires a data record');
-  const descriptors=Object.getOwnPropertyDescriptors(value),result={};
-  for(const key of Reflect.ownKeys(descriptors)){const descriptor=descriptors[key];if(typeof key!=='string'||!Object.hasOwn(descriptor,'value'))throw new Error('timing input requires data properties without accessors');Object.defineProperty(result,key,{value:descriptor.value,enumerable:true,writable:true,configurable:true});}
-  return result;
-}
 
 // Candidate elapsed treatments are deliberately not called useful blocks.
 // Admission cannot confer production allocation or qualification authority.
@@ -38,33 +33,12 @@ export function admitTimingExperiment(text,{sha256,runtimeIdentitySha256}){
 
 export function decideExperimentalPublication(handle,input){
   if(!admitted.has(handle))throw new Error('unadmitted timing experiment');
-  input=ownedData(input);input.focusIdentity=ownedData(input.focusIdentity);
-  closed(input,['initialTimeMs','remainingMs','incrementMs','movesToGo','explicitLimitMs','transportReserveMs','elapsedMs','applicability','focusIdentity'],'timing input');
-  integer(input.initialTimeMs,1,3600000,'initial time');
-  integer(input.remainingMs,0,0xffff_fffe,'remaining clock');integer(input.incrementMs,0,60000,'increment');integer(input.transportReserveMs,0,60000,'transport reserve');
-  if(!Number.isFinite(input.elapsedMs)||input.elapsedMs<0||input.elapsedMs>0xffff_fffe)throw new Error('invalid elapsed time');
-  if(input.movesToGo!==null)integer(input.movesToGo,1,0xffff_fffe,'moves to go');
-  if(input.explicitLimitMs!==null)integer(input.explicitLimitMs,0,0xffff_fffe,'explicit limit');
-  closed(input.focusIdentity,['rootEpoch','requestId'],'focus identity');for(const word of Object.values(input.focusIdentity))integer(word,1,0xffff_fffe,'focus identity');
-  if(!['search_derived','constrained_search','advisory_search','resolved_without_search_time'].includes(input.applicability))throw new Error('invalid timing applicability');
+  input=consumeClockInput(input);
   const reserve=handle.local_publication_reserve_ms+input.transportReserveMs;
   const safeEnvelopeFromGoMs=Math.max(0,Math.min(input.remainingMs,input.explicitLimitMs??input.remainingMs)-reserve);
   const result=(deadline,blocks,reason)=>freeze({schema:'vector_timing_experiment_decision_v1',diagnostic:true,experiment_sha256:handle.sha256,focusIdentity:{...input.focusIdentity},applicability:input.applicability,clock:{initialTimeMs:input.initialTimeMs,remainingMs:input.remainingMs,incrementMs:input.incrementMs,movesToGo:input.movesToGo},localPublicationReserveMs:handle.local_publication_reserve_ms,transportReserveMs:input.transportReserveMs,safeEnvelopeFromGoMs,publicationDeadlineFromGoMs:deadline,purchasedBlocksMs:blocks,reason,usefulBlockAuthority:false});
   if(input.applicability==='resolved_without_search_time')return result(0,[],'timing_not_applicable');
   if(input.initialTimeMs!==handle.supported_inputs.initial_time_ms||input.incrementMs!==handle.supported_inputs.increment_ms||input.movesToGo!==null)throw new Error('unsupported experimental clock regime');
-  if(handle.strategy.target_blocks===0)return result(input.elapsedMs,[],'baseline_no_discretionary_purchase');
-  let deadline=input.elapsedMs;const purchased=[];
-  for(let index=0;index<handle.strategy.target_blocks;index++){
-    const block=handle.candidate_blocks_ms[index];
-    if(deadline+block>safeEnvelopeFromGoMs)return result(deadline,purchased,purchased.length?'next_candidate_block_unaffordable':'no_affordable_candidate_block');
-    if(handle.strategy.kind==='preserve_future_blocks_v1'){
-      // This is a frozen candidate, not a learned opportunity-cost claim.
-      // Increment remains distinct; only income less than the next full
-      // candidate block/reserve can reduce the proposed future capacity.
-      const futureCost=handle.strategy.future_decisions*Math.max(0,block+reserve-input.incrementMs);
-      if(deadline+block+futureCost>safeEnvelopeFromGoMs)return result(deadline,purchased,'future_candidate_capacity_reserved');
-    }
-    purchased.push(block);deadline+=block;
-  }
-  return result(deadline,purchased,'candidate_target_reached');
+  const chosen=chooseElapsedBlocks({strategy:handle.strategy,blocks:handle.candidate_blocks_ms,localReserve:handle.local_publication_reserve_ms},input),reason=({baseline_no_discretionary_purchase:'baseline_no_discretionary_purchase',next_block_unaffordable:'next_candidate_block_unaffordable',no_affordable_block:'no_affordable_candidate_block',future_capacity_reserved:'future_candidate_capacity_reserved',target_reached:'candidate_target_reached'})[chosen.reason];
+  return result(chosen.publicationDeadlineFromGoMs,chosen.purchasedBlocksMs,reason);
 }

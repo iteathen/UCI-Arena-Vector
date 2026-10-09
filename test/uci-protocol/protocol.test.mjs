@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createHash} from 'node:crypto';
+import {mkdtempSync,writeFileSync,rmSync,rmdirSync} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 async function api() { try { return await import('../../components/uci-protocol/index.mjs'); } catch (error) { if (error.code === 'ERR_MODULE_NOT_FOUND') assert.fail('UCI protocol implementation is missing'); throw error; } }
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 function fixture() {
@@ -44,6 +47,13 @@ test('resolved legal knowledge bypasses remaining-clock policy admission',async(
   const {createUciController}=await api(),f=fixture();f.port.preparePublicationIntent=async()=>({bypassPublicationWait:true});
   const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go wtime 1000 btime 1000');
   assert.equal(f.requests.length,1);await c.close();
+});
+test('qualified policy options belong to timing and preserve hard transport reserve at publication',async()=>{
+  const {createUciController}=await api(),f=fixture(),sha=text=>createHash('sha256').update(text).digest('hex'),identity={schema:'vector_engine_runtime_identity_v1',vectorRevision:'a'.repeat(40)};
+  f.port.ready=async()=>identity;const dir=mkdtempSync(path.join(os.tmpdir(),'vector-policy-test-')),file=path.join(dir,'policy.json');
+  const text=JSON.stringify({schema:'vector_timing_policy_v1',producer:'vector-evidence-runtime/clock-allocation-v1',runtime_identity_sha256:sha(JSON.stringify(identity)),control:{initial_time_ms:180000,increment_ms:3000},strategy:{kind:'target_blocks_v1',target_blocks:1},useful_blocks_ms:[500],local_publication_reserve_ms:100,unsupported_fallback:'publish-current',qualification:{status:'qualified',study_sha256:sha('study'),discovery_sha256:sha('discovery'),held_out_sha256:sha('heldout'),reserve_sha256:sha('reserve'),allocation:true,useful_blocks:true,clock_safety:true,discovery:{opening_units:8,mean_score_gain:.25,directional_p:.00390625},held_out:{opening_units:8,mean_score_gain:.25,directional_p:.00390625}}});
+  writeFileSync(file,text);const c=createUciController({...f.options,timingPolicySupport:true});
+  try{await c.handle('uci');assert(f.output.some(row=>row.startsWith('option name TimingPolicyFile ')));await c.handle('setoption name TimingPolicyFile value '+file);await c.handle('setoption name TimingPolicySha256 value '+sha(text));await c.handle('setoption name TimingInitialTimeMs value 180000');await c.handle('setoption name Move Overhead value 300');await c.handle('position startpos');await c.handle('go wtime 800 btime 800 winc 3000 binc 3000');await f.advance(0);assert.equal(f.requests.length,1);const row=f.output.find(row=>row.startsWith('info string vector_timing_policy ')),decision=JSON.parse(row.slice('info string vector_timing_policy '.length));assert.equal(decision.safeEnvelopeFromGoMs,400);assert.equal(decision.reason,'no_affordable_useful_block');assert.equal(decision.transportReserveMs,300);await assert.rejects(c.handle('setoption name TimingInitialTimeMs value 60000'),/game|active/);}finally{await c.close();rmSync(file);rmdirSync(dir);}
 });
 test('rejected ponderhit allocation clears the active request and timers',async()=>{
   const {createUciController}=await api(),f=fixture(),c=createUciController(f.options);await c.handle('position startpos');await c.handle('go ponder wtime 1000 btime 1000');
