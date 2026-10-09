@@ -23,7 +23,7 @@ export async function executeRequest(request) {
       if(cancelled)throw new Error('evidence request cancelled');
       const options={...request.launch.uci_options,
         ...(role==='candidate'?request.config?.candidateOptions:request.config?.controlOptions)};
-      const session=new UciSession(artifact.launch,options);sessions.add(session);
+      const session=new UciSession(artifact.launch,options,{requireOwnerTeardown:true,role});sessions.add(session);
       const ready=session.ready.bind(session);
       session.ready=async()=>{const identity=await ready();validateEngineIdentity(identity,expected);return identity;};
       return session;

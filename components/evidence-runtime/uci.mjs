@@ -1,8 +1,11 @@
 import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
+import {validateOwnerTeardown} from './teardown.mjs';
 
 export class UciSession {
-  constructor(launch,options={}) {
+  constructor(launch,options={},requirements={}) {
+    if(requirements.requireOwnerTeardown!==undefined&&typeof requirements.requireOwnerTeardown!=='boolean')throw new Error('invalid owner teardown requirement');
+    this.requirements={...requirements};this.ownerReports=[];
     this.closed=false;this.options=options;this.lines=[];this.buffer='';this.bytes=0;this.waiter=null;this.failure=null;
     this.process=spawn(launch.executable,launch.args,{cwd:launch.cwd,env:{...process.env},stdio:['pipe','pipe','pipe'],windowsHide:true});
     this.exited=new Promise(resolve=>this.process.once('close',(code,signal)=>{
@@ -24,7 +27,12 @@ export class UciSession {
       this.buffer+=bytes.toString('utf8');
       if(this.buffer.length>1048576){this.failure=new Error('UCI line exceeded limit');this.wake();this.process.kill();return;}
       let offset;
-      while((offset=this.buffer.indexOf('\n'))!==-1){this.lines.push(this.buffer.slice(0,offset).replace(/\r$/u,''));this.buffer=this.buffer.slice(offset+1);}
+      while((offset=this.buffer.indexOf('\n'))!==-1){const line=this.buffer.slice(0,offset).replace(/\r$/u,'');this.lines.push(line);this.buffer=this.buffer.slice(offset+1);
+        if(line.startsWith('info string vector_teardown ')){
+          try{if(this.ownerReports.length||Buffer.byteLength(line)>32832)throw new Error('ambiguous owner teardown');this.ownerReports.push(JSON.parse(line.slice('info string vector_teardown '.length)));}
+          catch{this.ownerTeardownFailure=new Error('invalid owner teardown framing');}
+        }
+      }
       if(this.lines.length>100000){this.failure=new Error('UCI queue exceeded limit');this.process.kill();}
       this.wake();
     });
@@ -60,6 +68,7 @@ export class UciSession {
     if(fen!==undefined&&(typeof fen!=='string'||/[\r\n\u0000]/u.test(fen)))throw new Error('unsafe UCI position');
     if(!Array.isArray(moves)||moves.some(move=>typeof move!=='string'||!/^[a-h][1-8][a-h][1-8][qrbn]?$/u.test(move)))throw new Error('invalid UCI move history');
     this.send(`position ${fen?`fen ${fen}`:'startpos'}${moves.length?` moves ${moves.join(' ')}`:''}`);
+    this.hadPosition=true;
   }
   async go(control,timeoutMs) {
     const fields=Object.entries(control);
@@ -83,11 +92,18 @@ export class UciSession {
         try{await Promise.race([this.exited,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('owned UCI process did not close after termination')),5000);})]);}
         finally{clearTimeout(timer);}
       }
+      let owner,ownerFailure=this.ownerTeardownFailure;
+      if(!ownerFailure&&(this.requirements.requireOwnerTeardown||this.ownerReports.length)){
+        try{if(this.ownerReports.length!==1)throw new Error('missing owner teardown');owner=validateOwnerTeardown(this.ownerReports[0],{requireJoined:this.hadPosition===true});}
+        catch{ownerFailure=new Error('owner teardown validation failed');}
+      }
       const observation=Object.freeze({schema:'vector_uci_process_close_observation_v1',...this.exitObservation,
         forced,normal_close:!forced&&this.exitObservation?.exit_code===0&&this.exitObservation.signal===null,
+        role:this.requirements.role??null,owner_teardown_status:ownerFailure?'failed':owner?'validated':'not_required',owner_teardown:owner??null,
         elapsed_ms:performance.now()-started});
       this.closeObservation=observation;
       if(!observation.normal_close)throw new Error('owned UCI process normal close failed');
+      if(ownerFailure)throw ownerFailure;
       return observation;
     })();
     return this.closePromise;

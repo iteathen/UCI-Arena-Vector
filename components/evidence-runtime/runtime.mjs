@@ -55,8 +55,9 @@ export async function playGame(config,candidate,control) {
 }
 export async function runEvidence(request,{openSession}) {
   if(request?.schema!=='uci_arena_evidence_request_v2'||!['complete_game','paired_sprt','timing_profile'].includes(request.workload))throw new Error('unsupported evidence request');
-  const config=validateConfig(request.config);const games=[];const samples=[];const failures=[];
+  const config=validateConfig(request.config);const games=[];const samples=[];const failures=[],processObservations=[];
   const sessions=new Set();const identities=[];
+  const closeSessions=async owned=>{const results=await Promise.allSettled(owned.map(s=>s.close()));for(let i=0;i<results.length;i++){const result=results[i],observation=result.status==='fulfilled'?result.value:owned[i].closeObservation;if(observation?.schema==='vector_uci_process_close_observation_v1')processObservations.push(observation);if(result.status==='rejected')failures.push(String(result.reason?.message??'owned process close failed').slice(0,2048));}};
   const open=async(role)=>{const session=await openSession(role,request);sessions.add(session);const identity=await session.ready(request);if(identity)identities.push({role,identity});return session;};
   try {
     if(request.workload==='timing_profile') {
@@ -75,22 +76,20 @@ export async function runEvidence(request,{openSession}) {
         const candidate=await open('candidate');const control=await open('control');
         try {games.push(await playGame({...config,opening,candidateColor},candidate,control));}
         finally {
-          const closing=await Promise.allSettled([candidate.close(),control.close()]);
-          for(const result of closing)if(result.status==='rejected')failures.push(String(result.reason?.message??'owned process close failed').slice(0,2048));
+          await closeSessions([candidate,control]);
           sessions.delete(candidate);sessions.delete(control);
         }
       }
     }
   }catch(error){failures.push(String(error.message).slice(0,2048));}
   finally{
-    const closing=await Promise.allSettled([...sessions].map(s=>s.close()));
-    for(const result of closing)if(result.status==='rejected')failures.push(String(result.reason?.message??'owned process close failed').slice(0,2048));
+    await closeSessions([...sessions]);
   }
   for(const game of games)if(game.failure)failures.push(game.failure);
   const status=failures.length?'failed':games.some(g=>!g.complete)?'incomplete':'completed';
   return {schema:'uci_arena_evidence_result_v2',request_id:request.request_id,job_id:request.job_id,shard_id:request.shard_id,
     workload:request.workload,target_identity:request.target_identity,runtime_identity:request.runtime_identity,
-    status,completed:status==='completed',games,samples,engine_identities:identities,failures,
+    status,completed:status==='completed',games,samples,engine_identities:identities,process_observations:processObservations,failures,
     qualification:{diagnostic:true,timing:false,strength:false,profile_publication:false,
       reasons:['timing_policy_and_statistical_qualification_not_declared']}};
 }

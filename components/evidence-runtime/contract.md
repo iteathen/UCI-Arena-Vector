@@ -77,3 +77,27 @@ the retained game or timing measurements are otherwise complete. Process exit
 facts do not establish joined GPU cleanup; that requires the engine owner's
 separate genuine resource and completion observations. Portable protocol fixtures
 test this distinction without granting native qualification.
+
+The current Vector adapter requires exactly one bounded
+`info string vector_teardown` owner record before normal EOF. It retains this
+separately from exit/signal/pipe observations and validates the declared
+`vector_engine_teardown_v1` receipt: actual graceful driver closure with zero
+live/orphaned resources, zero path/work/backup/request/batch/protection residue,
+balanced lease counts, nonzero four-word accepted cancel identity/generation,
+and zero declared drain disposition when present. A position-bearing process
+must retain a genuine joined game receipt; `noActiveRuntime` can describe only
+the current empty owner while preserving and validating retired game receipts.
+Missing, duplicate, malformed, inconsistent or non-quiescent owner records fail
+the diagnostic batch even if process exit is normal. These checks consume the
+public owner record without importing engine/private search code or producing
+GPU facts. The exact artifact and readiness identity remain required.
+
+Results retain `process_observations` as additional diagnostic provenance. Their
+presence does not alter v2's unavailable timing/strength/publication authority.
+An optional bounded `vector_closure_journal_v1` retains at most eight proved
+receipts. The consumer checks retained/evicted disposition counts and verifies
+the retained SHA chain when its predecessor is available, or from zero when
+nothing was evicted. Earlier evicted closures remain owner-declared historical
+disposition; a suffix chain never substitutes for individually observed old GPU
+resource facts. No empty journal or absent current runtime can supply a joined
+game observation on its own.

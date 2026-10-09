@@ -6,6 +6,7 @@ import { UciSession } from '../uci.mjs';
 import { validateLaunchArtifact, validateEngineIdentity } from '../artifact.mjs';
 import { buildRuntimeContract } from '../contract.mjs';
 import { executeRequest } from '../cli.mjs';
+import { validateOwnerTeardown } from '../teardown.mjs';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
@@ -72,6 +73,25 @@ test('failed process retirement cannot produce a completed Evidence batch',async
   const output=await runEvidence({schema:'uci_arena_evidence_request_v2',request_id:'r',job_id:'j',shard_id:'s',workload:'timing_profile',target_identity:{},runtime_identity:{},config:{movetimesMs:[5],repetitions:1}}, {openSession:async()=>session});
   assert.equal(output.status,'failed');assert.equal(output.completed,false);
   assert.ok(output.failures.some(failure=>failure.includes('normal close')));
+});
+const syntheticTeardown=()=>({schema:'vector_engine_teardown_v1',joined:true,gameArena:1,semantic:{quiescent:true,fields:{activePathOccurrences:0,activeWorkLease:0,backupPhase:0,pathProtections:0,evaluatorProtections:0,edgeLeaseClaims:3,edgeLeaseReleases:3,workLeaseClaims:2,workLeaseReleases:2,evaluatorRequestState:0,evaluatorBatchState:0,stopCause:2},acceptedCancel:{id:[1,0,0,0],generation:[1,0,0,0]}},cleanup:{status:'complete',failures:[],runtime:{graceful:true,driver:{resourceCounts:{live:0,orphaned:0,closed:79}}}}});
+test('owner receipt validates independent GPU quiescence and rejects residue, imbalance, absent cancel and driver leaks',()=>{
+ const receipt=syntheticTeardown();assert.equal(validateOwnerTeardown(receipt,{requireJoined:true}).joined,true);
+ for(const mutate of [r=>r.semantic.fields.activeWorkLease=1,r=>r.semantic.fields.edgeLeaseReleases=2,r=>r.semantic.acceptedCancel.id=[0,0,0,0],r=>r.cleanup.runtime.driver.resourceCounts.live=1,r=>r.semantic.quiescent=false]){const changed=structuredClone(receipt);mutate(changed);assert.throws(()=>validateOwnerTeardown(changed,{requireJoined:true}),/teardown/);}
+ assert.throws(()=>validateOwnerTeardown({schema:'vector_engine_teardown_v1',joined:false,noRuntimeOpened:true},{requireJoined:true}),/teardown/);
+});
+test('no-current-runtime aggregate retains genuine joined history and cannot claim never opened',()=>{const receipt={schema:'vector_engine_teardown_v1',joined:false,noActiveRuntime:true,noRuntimeOpened:false,gameTeardowns:[syntheticTeardown()]};assert.equal(validateOwnerTeardown(receipt,{requireJoined:true}).noActiveRuntime,true);assert.throws(()=>validateOwnerTeardown({...receipt,noRuntimeOpened:true}),/teardown/);assert.throws(()=>validateOwnerTeardown({...receipt,gameTeardowns:[]},{requireJoined:true}),/teardown/);});
+test('bounded closure journal counts and retained SHA chain must match actual receipt suffix',()=>{const record=syntheticTeardown(),prefix='0'.repeat(64);const chain=createHash('sha256').update(prefix).update(JSON.stringify(record)).digest('hex');const receipt={...record,gameTeardowns:[record],closureJournal:{schema:'vector_closure_journal_v1',capacity:8,scope:'latest-proved-retirements-with-historical-disposition',totalRetirements:1,totalJoined:1,evictedRetirements:0,evictedJoined:0,chainSha256:chain,retainedPredecessorSha256:prefix}};assert.equal(validateOwnerTeardown(receipt).closureJournal.chainSha256,chain);for(const mutate of [r=>r.closureJournal.totalRetirements=2,r=>r.closureJournal.totalJoined=0,r=>r.closureJournal.chainSha256='a'.repeat(64)]){const changed=structuredClone(receipt);mutate(changed);assert.throws(()=>validateOwnerTeardown(changed),/teardown/);}});
+test('normal process exit without required owner receipt is not joined GPU evidence',async()=>{
+ const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
+ const session=new UciSession({executable:process.execPath,args:[script],cwd:path.dirname(script)},{},{requireOwnerTeardown:true});
+ await session.ready();await assert.rejects(session.close(),/owner teardown/);
+});
+test('real process framing retains one owner receipt and rejects duplicate or malformed footer',async()=>{const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));for(const mode of ['teardown','duplicate-teardown','invalid-teardown']){const session=new UciSession({executable:process.execPath,args:[script,mode],cwd:path.dirname(script)},{},{requireOwnerTeardown:true});await session.ready();if(mode==='teardown'){const observation=await session.close();assert.equal(observation.owner_teardown_status,'validated');assert.equal(observation.owner_teardown.joined,false);}else await assert.rejects(session.close(),/owner teardown/);}});
+test('Evidence retains successful close observations as diagnostics without changing qualification',async()=>{
+ const session=fake(['e2e4']);session.close=async()=>({schema:'vector_uci_process_close_observation_v1',normal_close:true,owner_teardown:syntheticTeardown()});
+ const output=await runEvidence({schema:'uci_arena_evidence_request_v2',request_id:'r',job_id:'j',shard_id:'s',workload:'timing_profile',target_identity:{},runtime_identity:{},config:{movetimesMs:[5],repetitions:1}}, {openSession:async()=>session});
+ assert.equal(output.process_observations.length,1);assert.equal(output.process_observations[0].normal_close,true);assert.equal(output.qualification.timing,false);
 });
 test('launch artifact validates profile and complete inventory, rejects byte drift',t=>{
   const root=mkdtempSync(path.join(os.tmpdir(),'vector-artifact-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
