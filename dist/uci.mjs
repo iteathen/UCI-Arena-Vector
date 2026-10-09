@@ -8,7 +8,7 @@ const candidateRevision=process.env.VECTOR_CANDIDATE_SOURCE_REVISION;
 const revision=expected?.vectorRevision??candidateRevision;
 if(!/^[0-9a-f]{40}$/.test(revision??''))throw new Error('Inventoried runtime identity is required; qualification may explicitly supply candidate source revision');
 if(expected&&expected.schema!=='vector_engine_runtime_identity_v1')throw new Error('Inventoried runtime identity schema mismatch');
-const port=createGameSearchPort({revision,cacheDirectory:process.env.VECTOR_CANDIDATE_COMPILER_CACHE});
+const port=createGameSearchPort({revision,cacheDirectory:process.env.VECTOR_CANDIDATE_COMPILER_CACHE,onKnowledgeStatus:status=>process.stdout.write(`info string vector_knowledge ${JSON.stringify(status)}\n`)});
 try{
  const onDiagnostic=process.env.VECTOR_CANDIDATE_CLOCK_DIAGNOSTICS==='1'?row=>process.stdout.write(`info string vector_clock_phase ${JSON.stringify(row)}\n`):undefined;
  const report=await runUciProcess({input:process.stdin,output:process.stdout,port,onDiagnostic});
