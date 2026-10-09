@@ -47,6 +47,6 @@ jobs:
           npm ci --prefix components/root-knowledge --ignore-scripts --no-audit --no-fund
           npm ci --prefix components/evidence-runtime --ignore-scripts --no-audit --no-fund
       - name: Verify portable contracts and retain native evidence boundary
-        run: node --experimental-ffi --test
+        run: node --experimental-ffi --test "**/*.test.mjs"
       - name: Verify repository policy
         run: node tools/verify-repository.mjs
