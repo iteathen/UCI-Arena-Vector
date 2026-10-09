@@ -43,6 +43,7 @@ jobs:
         run: |
           npm ci --prefix components/chess-domain --ignore-scripts --no-audit --no-fund
           npm ci --prefix components/chess-model-input --ignore-scripts --no-audit --no-fund
+          npm ci --prefix components/chess-policy --ignore-scripts --no-audit --no-fund
           npm ci --prefix components/engine-runtime --ignore-scripts --no-audit --no-fund
           npm ci --prefix components/root-knowledge --ignore-scripts --no-audit --no-fund
           npm ci --prefix components/evidence-runtime --ignore-scripts --no-audit --no-fund
