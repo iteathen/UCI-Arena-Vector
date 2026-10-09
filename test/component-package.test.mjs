@@ -89,7 +89,10 @@ test('an inventoried external root selection adds only declared optional provide
   writeFileSync(path.join(options.root,name),bytes);options.closure.files.push({path:name,sha256:sha(bytes)});
   const receiptPath=path.join(options.root,options.closure.qualification.receipt),receipt=JSON.parse(readFileSync(receiptPath));receipt.files.push({path:name,sha256:sha(bytes)});const receiptBytes=JSON.stringify(receipt);writeFileSync(receiptPath,receiptBytes);options.closure.qualification.receipt_sha256=sha(receiptBytes);options.closure.files.find(row=>row.path===options.closure.qualification.receipt).sha256=sha(receiptBytes);
   const {manifest}=buildAtomicComponent(options);assert.deepEqual(manifest.installer_integration.dependency_bindings,[{name:'root_tablebase_provider',component_id:'syzygy.root-provider',source:'component_path',path:'runtime',required:false}]);assert.deepEqual(manifest.installer_integration.locator_bindings,[{name:'syzygy',kind:'syzygy',required:false}]);
-  assert(manifest.dependencies.some(row=>row.component_id==='syzygy.root-provider'&&row.required===false));assert.equal(verifyAtomicComponent(options.root).component_version,options.version);
+  assert.deepEqual(manifest.dependencies,['node_runtime.private'],'component dependencies are required string ids; optional provider belongs only in its declared binding');assert.equal(verifyAtomicComponent(options.root).component_version,options.version);
+  manifest.dependencies.push({component_id:'syzygy.root-provider',required:false,binding:'optional-root-knowledge'});
+  writeFileSync(path.join(options.root,'arena-component.json'),JSON.stringify(manifest));
+  assert.throws(()=>verifyAtomicComponent(options.root),/installer integration/,'unsupported dependency objects cannot re-enter the accepted string-only component format');
 });
 
 test('bundled timing declarations require exact runtime compatibility before launch projection',t=>{
