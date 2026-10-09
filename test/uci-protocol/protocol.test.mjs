@@ -45,6 +45,18 @@ test('resolved legal knowledge bypasses remaining-clock policy admission',async(
   const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go wtime 1000 btime 1000');
   assert.equal(f.requests.length,1);await c.close();
 });
+test('rejected ponderhit allocation clears the active request and timers',async()=>{
+  const {createUciController}=await api(),f=fixture(),c=createUciController(f.options);await c.handle('position startpos');await c.handle('go ponder wtime 1000 btime 1000');
+  await assert.rejects(c.handle('ponderhit'),/qualified|timing/);await c.handle('stop');assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);await c.close();
+});
+test('resolved knowledge preserves ponder and infinite publication gates',async()=>{
+  const {createUciController}=await api();
+  for(const command of ['go ponder wtime 1000 btime 1000','go infinite']){
+    const f=fixture();f.port.preparePublicationIntent=async()=>({bypassPublicationWait:true});const c=createUciController(f.options);
+    await c.handle('position startpos');await c.handle(command);assert.equal(f.requests.length,0);
+    await c.handle(command.includes('ponder')?'ponderhit':'stop');assert.equal(f.requests.length,1);await c.close();
+  }
+});
 test('explicit diagnostic timing experiment schedules whole candidate opportunities against actual clock',async()=>{
   const {createUciController}=await api(),f=fixture(),phases=[];
   const sha=text=>createHash('sha256').update(text).digest('hex');

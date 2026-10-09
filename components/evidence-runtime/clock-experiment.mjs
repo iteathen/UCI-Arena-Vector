@@ -2,7 +2,22 @@ import {performance} from 'node:perf_hooks';
 import {createReferee} from './referee.mjs';
 
 function bound(value,min,max,label){if(!Number.isSafeInteger(value)||value<min||value>max)throw new Error(`invalid clock experiment ${label}`);return value;}
+function dataRecord(value,keys,required=keys){
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('clock experiment requires data records');
+  const descriptors=Object.getOwnPropertyDescriptors(value),result={};
+  if(Reflect.ownKeys(descriptors).some(key=>typeof key!=='string'||!keys.includes(key)||!Object.hasOwn(descriptors[key],'value'))||required.some(key=>!Object.hasOwn(descriptors,key)))throw new Error('invalid clock experiment data fields or accessors');
+  for(const key of Object.keys(descriptors))result[key]=descriptors[key].value;return result;
+}
+function snapshotConfig(value){
+  const config=dataRecord(value,['opening','candidateColor','initialTimeMs','incrementMs','maxPlies','responseTimeoutMs','maxDurationMs','referenceGo']);
+  config.opening=dataRecord(config.opening,['id','fen','moves'],['id','moves']);config.referenceGo=dataRecord(config.referenceGo,['movetime']);
+  const moves=config.opening.moves;if(!Array.isArray(moves))throw new Error('invalid opening history');
+  const length=Object.getOwnPropertyDescriptor(moves,'length')?.value;bound(length,0,1024,'opening history extent');const copy=[];
+  for(let index=0;index<length;index++){const descriptor=Object.getOwnPropertyDescriptor(moves,String(index));if(!descriptor||!Object.hasOwn(descriptor,'value')||typeof descriptor.value!=='string')throw new Error('opening history requires coordinate data');copy.push(descriptor.value);}
+  config.opening.moves=Object.freeze(copy);Object.freeze(config.opening);Object.freeze(config.referenceGo);return Object.freeze(config);
+}
 export async function playClockExperimentGame(config,candidate,reference){
+  config=snapshotConfig(config);
   if(!['white','black'].includes(config.candidateColor))throw new Error('invalid candidate color');
   bound(config.initialTimeMs,1,3600000,'initial time');bound(config.incrementMs,0,60000,'increment');bound(config.maxPlies,1,2048,'ply bound');bound(config.responseTimeoutMs,100,300000,'response timeout');bound(config.maxDurationMs,1000,3600000,'duration');
   if(!config.opening||typeof config.opening.id!=='string'||!config.opening.id||!Array.isArray(config.opening.moves)||config.opening.moves.length>1024)throw new Error('invalid clock experiment opening');
@@ -30,5 +45,5 @@ export async function playClockExperimentGame(config,candidate,reference){
     }
   }catch(error){outcome={result:null,termination:'engine_failure'};failure=String(error?.message??error).slice(0,2048);}
   outcome??={result:null,termination:'max_plies'};
-  return {schema:'vector_clock_experiment_game_v1',diagnostic:true,rules_profile:'orthodoxy-live-claims-v1',opening_id:config.opening.id,candidate_color:config.candidateColor,...outcome,complete:!['flag_fall','max_plies','duration_bound','illegal_move','engine_failure'].includes(outcome.termination),legal:!['illegal_move','engine_failure'].includes(outcome.termination),records,clocks_ms:clocks,final_fen:ref.fen(),pgn:ref.pgn(),failure,qualification:{timing:false,strength:false,useful_blocks:false,publication:false}};
+  return {schema:'vector_clock_experiment_game_v1',diagnostic:true,rules_profile:'orthodoxy-live-claims-v1',trial_controls:config,opening_id:config.opening.id,candidate_color:config.candidateColor,...outcome,complete:!['flag_fall','max_plies','duration_bound','illegal_move','engine_failure'].includes(outcome.termination),legal:!['illegal_move','engine_failure'].includes(outcome.termination),records,clocks_ms:clocks,final_fen:ref.fen(),pgn:ref.pgn(),failure,qualification:{timing:false,strength:false,useful_blocks:false,publication:false}};
 }

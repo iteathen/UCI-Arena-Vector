@@ -26,6 +26,12 @@ test('clock experiment reports genuine flag and bounds without claiming complete
   const flag=await campaign.playClockExperimentGame(config,session(101),session(1));assert.equal(flag.termination,'flag_fall');assert.equal(flag.complete,false);
   const bound=await campaign.playClockExperimentGame(config,session(1),session(1));assert.equal(bound.termination,'max_plies');assert.equal(bound.result,null);
 });
+test('caller mutation during position admission cannot extend the frozen game bound',async()=>{
+  const config={opening:{id:'fools',moves:[]},candidateColor:'white',initialTimeMs:1000,incrementMs:0,maxPlies:1,responseTimeoutMs:1000,maxDurationMs:10000,referenceGo:{movetime:10}};
+  const session=moves=>({position:async()=>{config.maxPlies=4;config.incrementMs=60000;},go:async()=>({move:moves.shift(),elapsed_ms:1,info:[]})});
+  const game=await campaign.playClockExperimentGame(config,session(['f2f3','g2g4']),session(['e7e5','d8h4']));
+  assert.equal(game.termination,'max_plies');assert.equal(game.records.length,1);assert.equal(game.clocks_ms.white,999);
+});
 test('live rule-75 is separate from optional rule-50 and checkmate has precedence',()=>{
   assert.equal(createReferee('7k/8/8/8/8/8/8/KR6 w - - 100 80',{rulesProfile:'orthodoxy-live-claims-v1'}).terminal(),null);
   assert.deepEqual(createReferee('7k/8/8/8/8/8/8/KR6 w - - 150 80',{rulesProfile:'orthodoxy-live-claims-v1'}).terminal(),{result:'1/2-1/2',termination:'rule_75'});
