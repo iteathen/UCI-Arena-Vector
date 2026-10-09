@@ -22,7 +22,7 @@ export function createTablebaseTicket({context,requestId,description,searchmoves
  if(!limits||Object.keys(limits).sort().join(',')!=='max_depth,max_milliseconds,max_nodes'||!Number.isInteger(limits.max_nodes)||limits.max_nodes<1||limits.max_nodes>16384||!Number.isInteger(limits.max_depth)||limits.max_depth<1||limits.max_depth>128||!Number.isInteger(limits.max_milliseconds)||limits.max_milliseconds<1||limits.max_milliseconds>1000)throw new Error('Provider proof limits outside declared bounds');
  const request=freeze({schema:'uci_arena_syzygy_root_request_v2',request_id:requestId,root_fence:fence(context),position:{origin_fen:input.originFen,moves:input.moves.map(actionToUci)},legal_moves:legal,searchmoves:restrictions.length?restrictions:null,rules:{rule50:true,repetition:'threefold-as-draw',claim_policy:'orthodoxy-live-claims-v1'},history_mode:'replay-from-origin',limits:{...limits}});
  if(Buffer.byteLength(canonicalJson(request))>262144)throw new Error('Provider request extent exceeded');
- const requestSha256=digest(request),providerIdentity=canonicalJson(description.provider_identity),allowed=restrictions.length?restrictions:legal,moveAction=new Map(context.legalActions.map((a,i)=>[legal[i],a]));let abandoned=false,failed=false,sequence=-1,safe,exactAction=null;
+ const requestSha256=digest(request),providerIdentity=canonicalJson(description.provider_identity),allowed=restrictions.length?legal.filter(m=>restrictions.includes(m)):legal,moveAction=new Map(context.legalActions.map((a,i)=>[legal[i],a]));let abandoned=false,failed=false,sequence=-1,safe,exactAction=null;
  return Object.freeze({request,requestSha256,
   abandon(){abandoned=true;safe=undefined;exactAction=null;},
   fail(){failed=true;exactAction=null;},

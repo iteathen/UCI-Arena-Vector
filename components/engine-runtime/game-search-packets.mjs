@@ -17,6 +17,11 @@ export function decodeSessionReply(core,bytes,expected){
  const C=core.protocol.command,w=wordsOf(bytes);if(w.length!==32)throw new Error('Session response extent invalid');
  if(w[C.phase]!==C.phases.acknowledged)return {pending:true,phase:w[C.phase],disposition:w[C.result]};
  if(!identity(expected.id).every((v,i)=>w[C.idBase+i]===v)||!identity(expected.generation).every((v,i)=>w[C.generationBase+i]===v))throw new Error('Session response command identity mismatch');
+ if(expected.kind===C.kinds.readyAdvance&&w[C.result]===C.results.advanceNotReady){
+  const authority={root:w[C.responseRootSlot],generation:w[C.responseRootGeneration],epoch:w[C.responseFocusEpoch]};
+  if(!expected.authority||Object.entries(authority).some(([key,value])=>value!==expected.authority[key]))throw new Error('Rejected advance changed canonical authority');
+  return {pending:false,disposition:'advance-not-ready',authority};
+ }
  if(w[C.result]!==C.results.accepted)throw new Error(`GPU Session rejected command: ${w[C.result]}`);
  return {pending:false,authority:{root:w[C.responseRootSlot],generation:w[C.responseRootGeneration],epoch:w[C.responseFocusEpoch]}};
 }
