@@ -87,7 +87,11 @@ The renderer reports configured data as pending engine admission.
 The closed binding has `schema`, `schemaVersion`, `authorityMode`, `capability`,
 `selection:{path,kind,source,storageMode}`, `files:{bookFile,statsFile,policyFile,
 manifestFile}`, and `pin`. Paths are absolute, each file role is explicit and the
-UTF-8 document is at most 65,536 bytes. V2 directories use the producer's exact
+UTF-8 document is at most 65,536 bytes. The UCI binding filename accepts ordinary
+Windows absolute forward-slash spelling by normalizing separators before the
+existing path/link checks; document-owned selection and role paths remain strictly
+canonical. Relative/control/dot-traversal inputs remain rejected. V2 directories
+use the producer's exact
 `strong_rare_v1.bin/.stats/.policy` and `snapshot.manifest.json` names.
 A file-only `.bin`/`.book` import is base Polyglot capability with empty sidecar
 and manifest roles; it never discovers or claims neighboring v2 statistics.

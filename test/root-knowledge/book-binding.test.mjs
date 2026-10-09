@@ -22,3 +22,13 @@ test('binding file reader admits exact bounded regular UTF8 document and rejects
  await fs.writeFile(file,Buffer.from([0xff,0xff]));assert.throws(()=>readBookBinding(file));
  await fs.writeFile(file,JSON.stringify(document()));const link=path.join(dir,'linked');await fs.symlink(dir,link,process.platform==='win32'?'junction':'dir');assert.throws(()=>readBookBinding(path.join(link,'binding.json')),/BOOK_BINDING_INVALID/);
 });
+
+test('Windows UCI binding filename accepts absolute forward slashes while document roles stay canonical',{skip:process.platform!=='win32'},async t=>{
+ const parent=await fs.realpath(os.tmpdir()),dir=await fs.mkdtemp(path.join(parent,'vector-book-binding-')),incarnation=await fs.lstat(dir,{bigint:true});
+ t.after(async()=>{const now=await fs.lstat(dir,{bigint:true});assert(now.isDirectory()&&!now.isSymbolicLink());assert.equal(await fs.realpath(dir),dir);assert.equal(path.dirname(dir),parent);assert(path.basename(dir).startsWith('vector-book-binding-'));for(const k of ['dev','ino','birthtimeNs'])assert.equal(now[k],incarnation[k]);await fs.rm(dir,{recursive:true});});
+ const file=path.join(dir,'binding.json'),doc=document();await fs.writeFile(file,JSON.stringify(doc));
+ const input=file.replaceAll('\\','/');assert(path.isAbsolute(input));assert.notEqual(input,path.resolve(input));assert.deepEqual(readBookBinding(input),doc);
+ for(const mutate of [d=>{d.selection.path=d.selection.path.replaceAll('\\','/');},d=>{d.files.bookFile=d.files.bookFile.replaceAll('\\','/');}]){const d=document();mutate(d);assert.throws(()=>admitBookBindingDocument(d),/BOOK_BINDING_INVALID/);}
+ for(const input of ['binding.json',file+'\n',path.join(dir,'unused')+'\\..\\binding.json'])assert.throws(()=>readBookBinding(input),/BOOK_BINDING_INVALID/);
+ const link=path.join(dir,'linked');await fs.symlink(dir,link,'junction');assert.throws(()=>readBookBinding(path.join(link,'binding.json').replaceAll('\\','/')),/BOOK_BINDING_INVALID/);
+});

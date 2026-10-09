@@ -25,7 +25,7 @@ export function admitBookBindingDocument(value){
  return Object.freeze({...value,selection:Object.freeze({...value.selection}),files:Object.freeze({...value.files}),pin:value.pin===null?null:Object.freeze({...value.pin})});
 }
 export function readBookBinding(filenameInput){
- const file=filename(filenameInput);let cursor=path.parse(file).root;
+ const file=filename(process.platform==='win32'&&typeof filenameInput==='string'&&filenameInput.length<=4096?filenameInput.replaceAll('/','\\'):filenameInput);let cursor=path.parse(file).root;
  for(const part of file.slice(cursor.length).split(path.sep).filter(Boolean)){cursor=path.join(cursor,part);if(lstatSync(cursor).isSymbolicLink())fail();}
  const same=(a,b)=>a.dev===b.dev&&a.ino===b.ino&&a.size===b.size&&a.mtimeMs===b.mtimeMs&&a.ctimeMs===b.ctimeMs;
  const before=lstatSync(file);if(!before.isFile()||before.size<2||before.size>65536)fail();
