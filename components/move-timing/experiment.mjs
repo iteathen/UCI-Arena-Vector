@@ -29,7 +29,7 @@ export function admitTimingExperiment(text,{sha256,runtimeIdentitySha256}){
   else throw new Error('unsupported experimental strategy');
   if(!Array.isArray(value.candidate_blocks_ms)||value.candidate_blocks_ms.length<1||value.candidate_blocks_ms.length>32)throw new Error('invalid candidate elapsed blocks');
   value.candidate_blocks_ms.forEach(v=>integer(v,1,60000,'candidate block'));
-  integer(strategy.target_blocks,1,value.candidate_blocks_ms.length,'target blocks');
+  integer(strategy.target_blocks,strategy.kind==='target_blocks_v1'?0:1,value.candidate_blocks_ms.length,'target blocks');
   integer(value.local_publication_reserve_ms,0,10000,'local publication reserve');
   closed(value.supported_inputs,['initial_time_ms','increment_ms'],'supported inputs');
   integer(value.supported_inputs.initial_time_ms,1,3600000,'initial time');integer(value.supported_inputs.increment_ms,0,60000,'increment');
@@ -52,6 +52,7 @@ export function decideExperimentalPublication(handle,input){
   const result=(deadline,blocks,reason)=>freeze({schema:'vector_timing_experiment_decision_v1',diagnostic:true,experiment_sha256:handle.sha256,focusIdentity:{...input.focusIdentity},applicability:input.applicability,clock:{initialTimeMs:input.initialTimeMs,remainingMs:input.remainingMs,incrementMs:input.incrementMs,movesToGo:input.movesToGo},localPublicationReserveMs:handle.local_publication_reserve_ms,transportReserveMs:input.transportReserveMs,safeEnvelopeFromGoMs,publicationDeadlineFromGoMs:deadline,purchasedBlocksMs:blocks,reason,usefulBlockAuthority:false});
   if(input.applicability==='resolved_without_search_time')return result(0,[],'timing_not_applicable');
   if(input.initialTimeMs!==handle.supported_inputs.initial_time_ms||input.incrementMs!==handle.supported_inputs.increment_ms||input.movesToGo!==null)throw new Error('unsupported experimental clock regime');
+  if(handle.strategy.target_blocks===0)return result(input.elapsedMs,[],'baseline_no_discretionary_purchase');
   let deadline=input.elapsedMs;const purchased=[];
   for(let index=0;index<handle.strategy.target_blocks;index++){
     const block=handle.candidate_blocks_ms[index];

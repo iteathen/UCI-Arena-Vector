@@ -50,3 +50,9 @@ test('changing accessors cannot bypass clock or focus validation',()=>{
   const focus=input();Object.defineProperty(focus.focusIdentity,'rootEpoch',{enumerable:true,get:()=>Infinity});
   assert.throws(()=>module.decideExperimentalPublication(admit(candidate()),focus),/data|accessor/);
 });
+test('explicit no-purchase baseline is distinct from a useful elapsed block',()=>{
+  const baseline=candidate();baseline.strategy.target_blocks=0;
+  const decision=module.decideExperimentalPublication(admit(baseline),input({elapsedMs:40}));
+  assert.equal(decision.publicationDeadlineFromGoMs,40);assert.deepEqual(decision.purchasedBlocksMs,[]);assert.equal(decision.usefulBlockAuthority,false);
+  assert.equal(decision.reason,'baseline_no_discretionary_purchase');
+});

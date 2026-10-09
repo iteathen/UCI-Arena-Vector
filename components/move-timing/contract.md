@@ -22,6 +22,12 @@ of future full candidate blocks plus per-publication reserves, reduced only by
 the separately supplied increment. These are experimental formulas with no
 population-benefit authority.
 
+An explicitly frozen `target_blocks: 0` treatment is the no-discretionary-purchase
+baseline. Its reason is `baseline_no_discretionary_purchase`; it is not a zero
+useful block. Search is already continuous and publication still incurs actual
+admission/observer/emission latency. Resolved knowledge moves remain a separate
+inapplicable class and cannot contaminate that searched baseline.
+
 The campaign supplies its actual initial control separately; remaining clock
 cannot identify that control after moves and increments. The producer checks
 this context against its own immutable request, and admission requires an exact
