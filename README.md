@@ -1,37 +1,59 @@
 # UCI Arena Vector
 
-UCI Arena Vector is a planned GPU-resident chess engine with a standard UCI interface, intended for chess GUIs and the UCI Arena suite.
+UCI Arena Vector is a GPU-resident chess engine with a standard UCI interface
+for chess GUIs and the UCI Arena suite. Runnable provisional Windows candidates
+compose persistent cuda-js/MCGS search with the original LatticeKnight model.
+Actual candidate evidence covers legal moves, complete diagnostic games,
+retained graph work, root knowledge and joined GPU teardown on the measured
+hardware/runtime tuple. It does not establish playing strength or population
+latency guarantees.
 
-**There is no runnable Vector engine or supported engine release yet.**
+The current source targets install component **0.1.2**, adding optional selected
+Book binding with enforced live-channel and immutable-snapshot authority.
+Its fresh native, relocated-payload and signing qualification is pending.
+Historical signed 0.1.1 payloads and receipts retain their original scope.
+Complete-suite transactional installation and installed Bot acceptance remain
+in progress; this is not a stable general release.
 
-## What exists
+Vector owns chess rules, UCI lifecycle, model feature/action meaning, concrete
+search policy and product knowledge. Generic search, tensor mathematics and CUDA
+execution remain with the public CUDA-MCGS, CUDA-JS-Tensor and CUDA-JS libraries.
+Maintained production source is JavaScript and restricted Device-JS through
+those contracts, with device-owned search progress and bounded public control
+and observation. There is no maintained C++ engine or CPU search fallback.
+See [current status](STATUS.md) and the
+[connector map](docs/architecture/CONNECTOR_MAP.md).
 
-The repository contains chess/UCI product contracts, architecture and connector maps, model-to-Tensor coverage tooling, and repository validation. Current work addresses the first model's precision, workspace/resource requirements, and independent numerical evidence.
+## Candidate packaging and verification
 
-There is no qualified end-to-end GPU engine, tournament executable, or engine-strength, latency, or performance claim.
+[The atomic component packager](tools/component-package.mjs) emits one complete
+`uci_arena.vector` runtime payload, including its model, public library closure,
+launch profile and exact runtime qualification receipt. It retains all native
+qualification, inventory, source and license gates. The
+[release workflow](.github/workflows/component-release.yml) verifies and signs
+only an unchanged qualified archive into a draft provider candidate. Installer
+consumes signed, verified component rows through its public composition route;
+no source checkout or partial payload is an installed-engine substitute.
 
-## Intended engine
+[The selected Book binding contract](components/root-knowledge/contract.md)
+describes the new optional installed selection. Missing/incompatible optional
+knowledge is explicitly degraded. Unconfigured useful-block timing authority
+purchases no discretionary search time and publishes the available current
+completed move; measured clock safety remains separately qualified.
 
-Vector aims to combine GPU-resident Monte Carlo Graph Search and tensor evaluation through public CUDA-MCGS, CUDA-JS, and CUDA-JS-Tensor libraries. Planned product integrations include opening books, timing policies, and tablebase resources.
-
-Vector owns chess rules, UCI behavior, model inputs/outputs, and engine lifecycle. Generic search, tensor mathematics, and CUDA execution remain with their libraries. See the [connector map](docs/architecture/CONNECTOR_MAP.md) for the integration design.
-
-## Start here
-
-Start with [current status](STATUS.md) to assess development progress and unresolved dependencies. There are no engine installation instructions yet.
-
-Contributors can validate repository structure from a Git checkout with Node.js and Git available:
+Contributors can run portable checks with the admitted public dependencies and
+Node 26.11.1:
 
 ```bash
-git clone https://github.com/iteathen/UCI-Arena-Vector.git
-cd UCI-Arena-Vector
+node --experimental-ffi --test "**/*.test.mjs"
 node tools/verify-repository.mjs
 ```
 
-This validates repository documents and contracts, not chess-engine operation.
+Native tests are explicit opt-in gates against the exact source/runtime/model
+and hardware tuple; portable test skips do not qualify a release.
 
-- [Next development step](next_step.yaml).
-- [Proposed chess search product boundary](docs/specs/VECTOR-0001-chess-search-product.md).
-- [Contributing](CONTRIBUTING.md) and [developer instructions](AGENTS.md).
-- [Support](SUPPORT.md), [governance](GOVERNANCE.md), and [private security reporting](SECURITY.md).
-- [GNU GPL v3 license](LICENSE).
+- [Complete suite plan](docs/superpowers/plans/2026-10-08-complete-cuda-js-suite.md).
+- [Book binding source candidate](docs/development/2026-10-09-installed-book-binding.md).
+- [Accepted chess search boundary](docs/specs/VECTOR-0002-native-boundary-and-js-only-implementation.md).
+- [Contributing](CONTRIBUTING.md), [developer instructions](AGENTS.md),
+  [support](SUPPORT.md), [security reporting](SECURITY.md), and [GNU GPL v3 license](LICENSE).

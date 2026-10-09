@@ -1,6 +1,6 @@
 # Installed optional Book binding
 
-Status: source candidate; portable qualification only, independent review pending.
+Status: scope independently reviewed; version 0.1.2 source candidate, native release qualification pending.
 
 This change owns the optional `opening_book` locator in the atomic component,
 Installer renderer and Vector root-knowledge admission. Search, model, Tensor,
@@ -77,5 +77,16 @@ fixtures cover personal directory and file imports, unavailable optional data
 and exact package locator projection. They cannot publish qualification files.
 
 No GPU campaign, installed mutation, model change or signed payload rewrite was
-performed. Version 0.1.2 and fresh native/relocated/signing gates follow independent
-review of this frozen scope; signed 0.1.1 evidence remains historical.
+performed. The packaging owner exports `VECTOR_COMPONENT_VERSION=0.1.2` and uses it for new
+component builds when no explicit version is supplied. Manifest, runtime closure,
+launch profile and optional Evidence contract retain the same exact version.
+Explicit historical versions remain verifiable. Fresh native/relocated/signing
+gates are pending; signed 0.1.1 evidence remains historical.
+
+For the separately owned native interop probe, set `VECTOR_UCI_BOOK_ROOT` to
+an explicitly unqualified fixture snapshot and `VECTOR_UCI_BOOK_BINDING` to its
+actual renderer-produced binding document. `NativeUci.ready` requires the engine
+to advertise `BookSnapshotBinding`, then sends that option before `isready` with
+normalized explicit Book role paths. Portable transport tests exercise this
+helper without spawning an engine. Native receipts retain `includes_fixture`
+and `qualified=false`; they cannot establish a qualified Book population.

@@ -6,6 +6,8 @@ import { isDeepStrictEqual } from 'node:util';
 import { buildRuntimeContract } from '../components/evidence-runtime/contract.mjs';
 import {admitTimingPolicy} from '../components/move-timing/policy.mjs';
 
+export const VECTOR_COMPONENT_VERSION='0.1.2';
+
 const GENERATED = new Set(['arena-component.json', 'contracts/uci-engine-launch-profile.json', 'contracts/runtime-closure.json']);
 const SHA = /^[0-9a-f]{64}$/u;
 const COMMIT = /^[0-9a-f]{40}$/u;
@@ -175,7 +177,7 @@ function validateOptionalEvidenceRuntime(root, closure, version) {
   return true;
 }
 
-export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }) {
+export function buildAtomicComponent({ root, closure, version=VECTOR_COMPONENT_VERSION, sourceDateEpoch }) {
   root = regularRoot(root);
   if (!Number.isSafeInteger(sourceDateEpoch) || sourceDateEpoch < 0) throw new Error('invalid source date epoch');
   validateClosure(root, closure, version);

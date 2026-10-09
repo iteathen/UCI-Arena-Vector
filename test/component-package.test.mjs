@@ -193,3 +193,13 @@ test('Book locator is optional independently of root tablebase component selecti
  assert.deepEqual(out.manifest.installer_integration.locator_bindings,[{name:'opening_book',kind:'opening_book',required:false,accepted_sources:['saved_locator','install_receipt']}]);
  const manifestPath=path.join(options.root,'arena-component.json'),manifest=JSON.parse(readFileSync(manifestPath));manifest.installer_integration.locator_bindings[0].required=true;writeFileSync(manifestPath,JSON.stringify(manifest));assert.throws(()=>verifyAtomicComponent(options.root),/installer integration/i);
 });
+
+test('current component version projects consistently through default packaging and launch identity',async t=>{
+ const module=await import('../tools/component-package.mjs');assert.equal(module.VECTOR_COMPONENT_VERSION,'0.1.2');
+ const options=fixture(t);options.closure.component_version=module.VECTOR_COMPONENT_VERSION;delete options.version;
+ const {manifest}=module.buildAtomicComponent(options);
+ assert.equal(manifest.component_version,'0.1.2');
+ const profile=JSON.parse(readFileSync(path.join(options.root,'contracts/uci-engine-launch-profile.json')));assert.equal(profile.component.version,'0.1.2');
+ assert.equal(JSON.parse(readFileSync(path.join(options.root,'contracts/runtime-closure.json'))).component_version,'0.1.2');
+ assert.equal(module.verifyAtomicComponent(options.root).component_version,'0.1.2');
+});
