@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const u32=value=>Number.isInteger(value)&&value>=0&&value<=0xfffffffe;
 const failure=()=>{throw new Error('owner teardown receipt is absent, inconsistent or not quiescent');};
-const identity=value=>Array.isArray(value)&&value.length===4&&value.every(u32)&&value.some(word=>word!==0);
+const identity=value=>Array.isArray(value)&&value.length===4&&value.every(word=>Number.isInteger(word)&&word>=0&&word<=0xffffffff)&&value.some(word=>word!==0)&&value.some(word=>word!==0xffffffff);
 // Independent consumer checks on the published owner receipt. No engine imports,
 // private state, GPU operations, or search-derived facts are produced here.
 export function validateOwnerTeardown(value,{requireJoined=false}={}){
@@ -17,7 +17,7 @@ export function validateOwnerTeardown(value,{requireJoined=false}={}){
  if(value.noRuntimeOpened===true&&retained.length)failure();
  let joined=0;
  for(const receipt of [value,...retained]){
-  if(!plain(receipt)||receipt.schema!=='vector_engine_teardown_v1'||typeof receipt.joined!=='boolean')failure();
+  if(!plain(receipt)||receipt.schema!=='vector_engine_teardown_v1'||receipt.fixture===true||typeof receipt.joined!=='boolean')failure();
   if(receipt===value&&receipt.noActiveRuntime===true&&receipt.cleanup===undefined){if(receipt.joined||receipt.semantic!==undefined||typeof receipt.noRuntimeOpened!=='boolean'||!receipt.noRuntimeOpened&&!retained.length)failure();continue;}
   if(receipt.noRuntimeOpened===true){if(receipt.joined||receipt.cleanup!==undefined||receipt.semantic!==undefined)failure();continue;}
   const cleanup=receipt.cleanup,driver=cleanup?.runtime?.driver?.resourceCounts;

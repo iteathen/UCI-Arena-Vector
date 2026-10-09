@@ -101,3 +101,6 @@ nothing was evicted. Earlier evicted closures remain owner-declared historical
 disposition; a suffix chain never substitutes for individually observed old GPU
 resource facts. No empty journal or absent current runtime can supply a joined
 game observation on its own.
+Fixture-tagged records are rejected at every retained receipt, not only at the
+aggregate. Cancel identity words span the full u32 range; only the whole reserved
+zero or exhausted 128-bit identity is rejected. Counter bounds remain separate.
