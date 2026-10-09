@@ -13,6 +13,10 @@ and a fixed 64 KiB I/O chunk populate the typed entry store. Cold processing yie
 between chunks. Statistics match every key/move and exact base-file FNV digest.
 All configured activated files match the adjacent v2 manifest's SHA-256 digests.
 Unknown/duplicate/invalid policy keys and partial sidecars reject admission.
+Configured role basenames cannot alias, so every activated artifact retains its
+own digest. Exit coefficients preserve the specified evaluation direction and
+finite arithmetic throughout the declared clamp range; worsening evaluation
+cannot increase the exit probability. Selection reports that probability.
 The manifest identity covers its exact bytes. A base-only explicit file retains
 the original FNV identity and never claims statistics from Polyglot weights.
 Manifest qualification flags are reported producer provenance, not independent
