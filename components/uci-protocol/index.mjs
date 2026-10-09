@@ -76,7 +76,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       const proof=result.legalProof;
       if(result.rootEpoch===rootEpoch&&result.requestId===token.requestId&&proof?.rootEpoch===rootEpoch&&proof.action===result.action&&proof.legal===true&&(result.action!==null||result.terminal===true)) {
         const text=result.action===null?'0000':actionToUci(result.action);
-        clearActive();diagnostic('emit',{rootEpoch:token.rootEpoch,requestId:token.requestId,...(result.authority?{observation:{authority:result.authority,telemetry:result.telemetry,terminal:result.terminal}}:{})});write(`bestmove ${text}`);return;
+        clearActive();diagnostic('emit',{rootEpoch:token.rootEpoch,requestId:token.requestId,...(result.authority?{observation:{authority:result.authority,telemetry:result.telemetry,timing:result.timing,terminal:result.terminal}}:{})});write(`bestmove ${text}`);return;
       }
     }
     token.timer=setTimer(()=>poll(token),5);
