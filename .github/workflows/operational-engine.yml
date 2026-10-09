@@ -1,0 +1,52 @@
+name: Operational engine portable contracts
+
+on:
+  pull_request:
+    paths:
+      - components/**
+      - test/**
+      - tools/**
+      - dist/**
+      - contracts/**
+      - .github/workflows/operational-engine.yml
+  push:
+    branches: [main]
+    paths:
+      - components/**
+      - test/**
+      - tools/**
+      - dist/**
+      - contracts/**
+      - .github/workflows/operational-engine.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Operational contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26.11.1
+      - name: Admit lock-pinned public dependencies without lifecycle scripts
+        run: |
+          npm ci --prefix components/chess-domain --ignore-scripts --no-audit --no-fund
+          npm ci --prefix components/chess-model-input --ignore-scripts --no-audit --no-fund
+          npm ci --prefix components/engine-runtime --ignore-scripts --no-audit --no-fund
+          npm ci --prefix components/root-knowledge --ignore-scripts --no-audit --no-fund
+          npm ci --prefix components/evidence-runtime --ignore-scripts --no-audit --no-fund
+      - name: Verify portable contracts and retain native evidence boundary
+        run: node --experimental-ffi --test
+      - name: Verify repository policy
+        run: node tools/verify-repository.mjs
