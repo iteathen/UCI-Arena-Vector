@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 import {admitTimingExperiment,decideExperimentalPublication} from '../move-timing/experiment.mjs';
 import {admitTimingPolicy,decidePolicyPublication} from '../move-timing/policy.mjs';
 import {readTimingArtifact} from '../move-timing/artifact-file.mjs';
+import {decideUnqualifiedPublication} from '../move-timing/allocation.mjs';
 
 export const START_POSITION = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export function uciToAction(move) {
@@ -102,7 +103,8 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       const proof=result.legalProof;
       if(result.rootEpoch===rootEpoch&&result.requestId===token.requestId&&proof?.rootEpoch===rootEpoch&&proof.action===result.action&&proof.legal===true&&(result.action!==null||result.terminal===true)&&(!token.command.searchmoves?.length||token.command.searchmoves.includes(result.action))) {
         let text;try{text=result.action===null?'0000':actionToUci(result.action);}catch(error){publicationFailure(token,error);return;}
-        clearActive();diagnostic('emit',{rootEpoch:token.rootEpoch,requestId:token.requestId,...(result.authority?{observation:{authority:result.authority,telemetry:result.telemetry,timing:result.timing,terminal:result.terminal}}:{})});write(`bestmove ${text}`);return;
+        const emittedAt=now();clearActive();write(`bestmove ${text}`);
+        diagnostic('emit',{time:emittedAt,rootEpoch:token.rootEpoch,requestId:token.requestId,...(result.authority?{observation:{authority:result.authority,telemetry:result.telemetry,timing:result.timing,terminal:result.terminal,...(result.sourceObservation?{sourceObservation:result.sourceObservation,publicationIntent:result.publicationIntent,decisionAuthority:result.decisionAuthority}:{})}}:{})});return;
       }
     }
     publicationFailure(token,new Error('Missing or invalid completed current-focus publication authority'));
@@ -148,6 +150,11 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       if(remainingMs===undefined)throw new Error('Current side remaining clock is required');
       const decision=decideExperimentalPublication(experiment,{initialTimeMs:experimentRequest.initialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:experimentRequest.transportReserveMs,elapsedMs:now()-token.started,applicability:token.applicability,focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
       diagnostic('experimentalAllocation',{decision});write(`info string vector_timing_experiment ${JSON.stringify(decision)}`);delay=decision.publicationDeadlineFromGoMs;
+    }else if(timingPolicySupport&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
+      const command=token.command,remainingMs=sideToMove===0?command.wtime:command.btime;
+      if(remainingMs===undefined)throw new Error('Current side remaining clock is required');
+      const decision=decideUnqualifiedPublication({initialTimeMs:token.timingInputs.initialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:token.timingInputs.transportReserveMs,elapsedMs:now()-token.started,applicability:token.applicability,focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
+      diagnostic('unconfiguredTimingAllocation',{decision});write(`info string vector_timing_unconfigured ${JSON.stringify(decision)}`);delay=decision.publicationDeadlineFromGoMs;
     }else delay=publicationDelay(token.command,sideToMove);
     if(delay!==null){
       const due=token.started+delay;

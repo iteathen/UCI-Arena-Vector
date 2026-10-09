@@ -50,6 +50,12 @@ test('malformed completed move cannot escape publication failure handling',async
     const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle('go infinite');await assert.doesNotReject(c.handle('stop'));assert.match(f.output[0],/^info string error/);assert.equal(f.output[1],'bestmove 0000');assert.equal(f.timers.size,0);}finally{await c.close();}
   }
 });
+test('rich diagnostics follow move emission and retain source observation separately from host intent',async()=>{
+  const {createUciController}=await api(),f=fixture(),events=[],source={schema:'vector_completed_gpu_observation_v1',sequence:4,rootEpoch:1,authority:{arena:1,root:0,generation:1,epoch:1},selectedAction:1804,constraints:[]};
+  f.port.readPublication=request=>({...request,action:1804,terminal:false,legalProof:{rootEpoch:request.rootEpoch,action:1804,legal:true},authority:source.authority,sourceObservation:source,publicationIntent:request,decisionAuthority:'gpu-search-output'});
+  const c=createUciController({...f.options,onDiagnostic:event=>{if(event.phase==='emit')events.push({event,written:f.output.at(-1)});}});
+  try{await c.handle('position startpos');await c.handle('go infinite');await c.handle('stop');assert.equal(events[0].written,'bestmove e2e4');assert.deepEqual(events[0].event.observation.sourceObservation,source);assert.equal(events[0].event.observation.publicationIntent.requestId,1);assert.equal(events[0].event.observation.decisionAuthority,'gpu-search-output');}finally{await c.close();}
+});
 function fixture() {
   let clock = 0, admission, requests = [];
   const timers = new Set(), output = [], snapshots = new Map();

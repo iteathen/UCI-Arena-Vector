@@ -83,3 +83,12 @@ test('queued rejected initial positions cannot consume the first actual game adm
   assert(attempts.every(result=>result.status==='rejected'&&/isready.*between games/.test(result.reason.message)));assert.equal(admissions.length,0);
   await f.controller.handle('isready');await f.controller.handle('position startpos');assert.equal(admissions.length,1);assert.equal(admissions[0].newGame,true);
 });
+test('unconfigured remaining clock publishes the completed move without inventing policy authority',async t=>{
+  const f=fixture(t);f.port.readPublication=request=>({...request,action:1804,legalProof:{rootEpoch:request.rootEpoch,action:1804,legal:true},terminal:false});
+  await f.controller.handle('isready');await f.controller.handle('position startpos');
+  await f.controller.handle('go wtime 180000 btime 180000 winc 3000 binc 3000');await f.advance(0);
+  assert.equal(f.requests.length,1);assert.equal(f.output.at(-1),'bestmove e2e4');assert.equal(f.timers.size,0);
+  const line=f.output.find(row=>row.startsWith('info string vector_timing_unconfigured '));assert(line);
+  const decision=JSON.parse(line.slice('info string vector_timing_unconfigured '.length));
+  assert.equal(decision.reason,'profile_not_configured');assert.equal(decision.allocationPolicyAuthority,false);assert.equal(decision.usefulBlockAuthority,false);assert.deepEqual(decision.purchasedBlocksMs,[]);assert.equal(decision.localPublicationReserveMs,null);
+});
