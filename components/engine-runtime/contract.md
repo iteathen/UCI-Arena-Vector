@@ -92,3 +92,16 @@ retains the runtime rather than retrying or closing beneath unresolved ownership
 The port retains proved cold retirements in its bounded journal. Unknown/failed
 ownership quarantines future preparation and prevents a successful EOF/close
 claim; it never becomes noRuntimeOpened merely because no backend was assigned.
+
+Optional `subscribePublicationResolution({rootEpoch,requestId}, listener)` returns
+an idempotent unsubscribe function. It supports one current listener, immediately
+replays an already accepted resolution and otherwise observes accepted exact
+external root proof. Its neutral DTO is exactly `{rootEpoch,requestId,resolved:true}`.
+The port validates current intent/native fence/legal authority before notification;
+replacement, new game and close detach it. Listener failure cannot poison the
+provider or change GPU search. Failed detach is retained while actual owners
+still close and causes final closure failure. Notification itself launches no GPU
+operation and contains no move, clock or search budget. Protocol owns ordinary
+wait cancellation/publication and Ponder/infinite/stale-token gates. The final
+GPU observer remains the sole emission action authority, and its snapshot records
+the knowledge fact actually used when that observation was submitted.

@@ -22,10 +22,12 @@ export function createTablebaseTicket({context,requestId,description,searchmoves
  if(!limits||Object.keys(limits).sort().join(',')!=='max_depth,max_milliseconds,max_nodes'||!Number.isInteger(limits.max_nodes)||limits.max_nodes<1||limits.max_nodes>16384||!Number.isInteger(limits.max_depth)||limits.max_depth<1||limits.max_depth>128||!Number.isInteger(limits.max_milliseconds)||limits.max_milliseconds<1||limits.max_milliseconds>1000)throw new Error('Provider proof limits outside declared bounds');
  const request=freeze({schema:'uci_arena_syzygy_root_request_v2',request_id:requestId,root_fence:fence(context),position:{origin_fen:input.originFen,moves:input.moves.map(actionToUci)},legal_moves:legal,searchmoves:restrictions.length?restrictions:null,rules:{rule50:true,repetition:'threefold-as-draw',claim_policy:'orthodoxy-live-claims-v1'},history_mode:'replay-from-origin',limits:{...limits}});
  if(Buffer.byteLength(canonicalJson(request))>262144)throw new Error('Provider request extent exceeded');
- const requestSha256=digest(request),providerIdentity=canonicalJson(description.provider_identity),allowed=restrictions.length?legal.filter(m=>restrictions.includes(m)):legal,moveAction=new Map(context.legalActions.map((a,i)=>[legal[i],a]));let abandoned=false,failed=false,sequence=-1,safe,exactAction=null;
+ const requestSha256=digest(request),providerIdentity=canonicalJson(description.provider_identity),allowed=restrictions.length?legal.filter(m=>restrictions.includes(m)):legal,moveAction=new Map(context.legalActions.map((a,i)=>[legal[i],a]));let abandoned=false,failed=false,sequence=-1,safe,exactAction=null,observer;
+ const notify=()=>{if(observer){try{Promise.resolve(observer.callback()).catch(()=>{});}catch{}}};
  return Object.freeze({request,requestSha256,
-  abandon(){abandoned=true;safe=undefined;exactAction=null;},
-  fail(){failed=true;exactAction=null;},
+  subscribe(callback){if(typeof callback!=='function')throw new Error('Ticket observer callable required');const current={callback};observer=current;if(sequence>=0&&!abandoned)notify();return()=>{if(observer===current)observer=undefined;};},
+  abandon(){abandoned=true;safe=undefined;exactAction=null;observer=undefined;},
+  fail(){if(!failed){failed=true;exactAction=null;notify();}},
   accept(event){
    if(abandoned||failed)return;
    if(event?.schema!=='uci_arena_syzygy_root_result_v2'||event.request_id!==requestId||event.root_fence!==request.root_fence||event.request_sha256!==requestSha256||event.provider_generation!==description.provider_generation||canonicalJson(event.provider_identity)!==providerIdentity||!same(event.rules,request.rules))throw new Error('Tablebase result binding mismatch');
@@ -40,7 +42,7 @@ export function createTablebaseTicket({context,requestId,description,searchmoves
     if(!nextExact&&(event.authority.exact_move!==false||event.move!==null))throw new Error('Raw safety cannot acquire exact move authority');
     safe=[...event.safe_moves];exactAction=nextExact?moveAction.get(event.move):null;
    }else if(event.safe_moves!==null||event.move!==null||event.authority?.exact_move!==false||safe)throw new Error('Unavailable result cannot alter completed safety');
-   sequence=event.sequence;
+   sequence=event.sequence;notify();
   },
   read(current){if(abandoned||!safe||current?.rootEpoch!==context.rootEpoch||fence(current)!==request.root_fence||!same(current.input,input)||!same(current.legalActions,context.legalActions))return null;return {status:exactAction===null?'safety-only':'exact',actions:safe.map(m=>moveAction.get(m)),exactAction,requestId,requestSha256,providerGeneration:description.provider_generation,...(failed?{failureDisposition:'completed-raw-safety-retained'}:{})};}
  });

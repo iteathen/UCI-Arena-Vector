@@ -6,10 +6,11 @@ import {openRootTablebaseProvider} from './tablebase-process.mjs';
 
 export function createTablebaseCoordinator({loadBinding=loadRootTablebaseBinding,openProvider=openRootTablebaseProvider,onStatus}={}){
  const options=[{name:'SyzygyRootProbe',type:'check',default:true,apply:'next-go'},{name:'RootTablebaseBinding',type:'string',default:'',apply:'startup'}].map(Object.freeze);
- let bindingPath='',attempted,provider,ticket,ticketKey,last,sequence=0,closed=false,closePromise,statusKey;
+ let bindingPath='',attempted,provider,ticket,ticketKey,last,sequence=0,closed=false,closePromise,statusKey,resolution;
  const report=status=>{const key=JSON.stringify(status);if(key!==statusKey){statusKey=key;onStatus?.({schema:'vector_root_knowledge_status_v1',provider:'root-tablebase',status});}};
  const status=description=>report({state:description.status,providerGeneration:description.provider_generation??null,dataset:description.status==='ready'?{cardinality:description.provider_identity?.dataset?.admitted_cardinality,fileCount:description.provider_identity?.dataset?.file_count}:null,internalGpuProbe:'unsupported'});
- const abandon=()=>{ticket?.abandon();ticket=undefined;ticketKey=undefined;};
+ const clearResolution=()=>{if(resolution){const old=resolution;resolution=undefined;old.active=false;old.unsubscribe?.();}};
+ const abandon=()=>{try{clearResolution();}finally{ticket?.abandon();ticket=undefined;ticketKey=undefined;}};
  const key=(context,searchmoves)=>JSON.stringify([context.rootEpoch,context.rootFence,context.input,searchmoves]);
  const eligible=context=>{
   if(context.terminal||!provider||provider.describe().status!=='ready')return false;
@@ -29,7 +30,8 @@ export function createTablebaseCoordinator({loadBinding=loadRootTablebaseBinding
   configure(next){if(provider&&next!==bindingPath)throw new Error('Admitted provider binding replacement requires process restart');bindingPath=next;attempted=undefined;},
   async ready(){if(closed)throw new Error('Root tablebase closed');if(provider||attempted===bindingPath)return;attempted=bindingPath;if(!bindingPath){report({state:'unavailable',reason:'managed-provider-binding-unconfigured',internalGpuProbe:'unsupported'});return;}try{const selection=await loadBinding({file:bindingPath});provider=await openProvider({...selection,onStatus:status});status(provider.describe());}catch(error){report({state:'unavailable',reason:'managed-provider-admission-failed',message:String(error.message).slice(0,256),internalGpuProbe:'unsupported'});}},
   onPosition(context,enabled){last=undefined;try{start(context,[],enabled);}catch(error){report({state:'unavailable',reason:'root-request-unavailable',message:String(error.message).slice(0,256)});}},
-  prepare({context,requestId,searchmoves,enabled}){let applicable=false;try{applicable=start(context,searchmoves,enabled);}catch(error){report({state:'unavailable',reason:'root-request-unavailable',message:String(error.message).slice(0,256)});}last={context,requestId};return {applicable,result:read(context)};},
+  prepare({context,requestId,searchmoves,enabled}){clearResolution();let applicable=false;try{applicable=start(context,searchmoves,enabled);}catch(error){report({state:'unavailable',reason:'root-request-unavailable',message:String(error.message).slice(0,256)});}last={context,requestId};return {applicable,result:read(context)};},
+  subscribeResolution({context,requestId},callback){clearResolution();if(typeof callback!=='function'||!last||last.requestId!==requestId||key(last.context,[])!==key(context,[]))throw new Error('Current root resolution subscription unavailable');const binding={active:true};resolution=binding;const changed=()=>{if(!binding.active||closed||!last||last.requestId!==requestId||key(last.context,[])!==key(context,[]))return;const result=read(context);if(result?.status==='resolved'){try{Promise.resolve(callback(result)).catch(()=>{});}catch{}}};const unsubscribe=ticket?.subscribe?.(changed);if(binding.active)binding.unsubscribe=unsubscribe;else unsubscribe?.();return()=>{if(resolution===binding)clearResolution();};},
   publication({context,requestId}){if(!last||last.requestId!==requestId||key(last.context,[])!==key(context,[]))return null;return read(context);},
   endGame(){abandon();last=undefined;},
   close(){if(!closePromise){closed=true;closePromise=(async()=>{abandon();last=undefined;const receipt=await provider?.close();return {schema:'vector_root_knowledge_teardown_v1',noProviderOpened:!provider,...(receipt?{provider:receipt.provider,process:receipt.process,stderr:{bytes:Buffer.byteLength(receipt.stderr??''),sha256:createHash('sha256').update(receipt.stderr??'').digest('hex')}}:{})};})();}return closePromise;}
