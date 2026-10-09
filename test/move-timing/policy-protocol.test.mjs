@@ -50,3 +50,12 @@ test('ponder waits for hit and qualified publication respects the explicit maxim
   const f=fixture(t);await f.configure();await f.controller.handle('position startpos');await f.controller.handle('go ponder wtime 180000 btime 180000 winc 3000 binc 3000 movetime 600');await f.advance(1000);assert.equal(f.requests.length,0);
   await f.controller.handle('ponderhit');await f.advance(0);assert.equal(f.requests.length,1);
 });
+test('next-go knowledge options cannot erase a ponder request timing authority',async t=>{
+  const f=fixture(t);await f.configure();await f.controller.handle('position startpos');await f.controller.handle('go ponder wtime 180000 btime 180000 winc 3000 binc 3000');
+  await f.controller.handle('setoption name OwnBook value true');await assert.doesNotReject(f.controller.handle('ponderhit'));await f.advance(499);assert.equal(f.requests.length,0);await f.advance(1);assert.equal(f.requests.length,1);assert.deepEqual(f.requests[0].options,{OwnBook:false});
+});
+test('latched policy survives a game while the next game readmits exact artifact bytes',async t=>{
+  const f=fixture(t);await f.configure();await f.controller.handle('position startpos');await f.controller.handle('go ponder wtime 180000 btime 180000 winc 3000 binc 3000');writeFileSync(f.file,f.text+' ');
+  await f.controller.handle('setoption name OwnBook value true');await f.controller.handle('isready');await f.controller.handle('ponderhit');await f.advance(500);assert.equal(f.requests.length,1);
+  await f.controller.handle('ucinewgame');await assert.rejects(f.controller.handle('isready'),/digest/);
+});

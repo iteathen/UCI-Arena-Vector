@@ -125,10 +125,10 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
   const schedule=token=>{
     if(token.requested)return;
     let delay;
-    if(policy&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
+    if(token.policy&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
       const command=token.command,remainingMs=sideToMove===0?command.wtime:command.btime;
       if(remainingMs===undefined)throw new Error('Current side remaining clock is required');
-      const decision=decidePolicyPublication(policy,{initialTimeMs:optionValues.TimingInitialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:optionValues['Move Overhead'],elapsedMs:now()-token.started,applicability:'search_derived',focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
+      const decision=decidePolicyPublication(token.policy,{initialTimeMs:token.timingInputs.initialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:token.timingInputs.transportReserveMs,elapsedMs:now()-token.started,applicability:'search_derived',focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
       diagnostic('policyAllocation',{decision});write(`info string vector_timing_policy ${JSON.stringify(decision)}`);delay=decision.publicationDeadlineFromGoMs;
     }else if(experiment&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
       const command=token.command,remainingMs=sideToMove===0?command.wtime:command.btime;
@@ -162,7 +162,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       if(option.type==='check'){if(!['true','false'].includes(value))throw new Error('Check option requires true or false');value=value==='true';}
       if(option.type==='spin'){if(!/^-?\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<option.min||Number(value)>option.max)throw new Error('Spin option integer outside declared range');value=Number(value);}
       const pending=configuration.then(async()=>{
-        try{if(!timingNames.has(option.name))await port.configure({name:option.name,value});optionValues[option.name]=value;configurationError=undefined;readyPromise=undefined;runtimeIdentity=undefined;policy=undefined;}
+        try{if(!timingNames.has(option.name))await port.configure({name:option.name,value});optionValues[option.name]=value;configurationError=undefined;readyPromise=undefined;runtimeIdentity=undefined;if((option.apply??'startup')!=='next-go')policy=undefined;}
         catch(error){configurationError=error;throw error;}
       });
       configuration=pending.catch(()=>{});
@@ -177,10 +177,10 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       if(!hasPosition)throw new Error('UCI go requires admitted position');clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
       const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,classified:false,timer:null};active=token;
       diagnostic('goReceived',{rootEpoch:token.rootEpoch,requestId:token.requestId,time:token.started});
-      try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze(Object.fromEntries(Object.entries(optionValues).filter(([name])=>!timingNames.has(name))));await admission;if(active===token&&!closed){const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;token.resolved=intent?.bypassPublicationWait===true;token.classified=true;diagnostic('publicationIntentClassified',{rootEpoch:token.rootEpoch,requestId:token.requestId,resolved:token.resolved,applicability:token.resolved?(intent?.applicability??'resolved_without_search_time'):'search_derived'});if(active===token&&!closed){subscribeResolution(token);if(token.stopPending||(token.resolved&&!command.ponder&&!command.infinite))publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
+      try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze(Object.fromEntries(Object.entries(optionValues).filter(([name])=>!timingNames.has(name))));token.timingInputs=Object.freeze({initialTimeMs:optionValues.TimingInitialTimeMs,transportReserveMs:optionValues['Move Overhead']});await admission;if(active===token&&!closed){token.policy=policy;const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;token.resolved=intent?.bypassPublicationWait===true;token.classified=true;diagnostic('publicationIntentClassified',{rootEpoch:token.rootEpoch,requestId:token.requestId,resolved:token.resolved,applicability:token.resolved?(intent?.applicability??'resolved_without_search_time'):'search_derived'});if(active===token&&!closed){subscribeResolution(token);if(token.stopPending||(token.resolved&&!command.ponder&&!command.infinite))publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){const token=active;delete token.command.ponder;token.started=now();if(!token.classified)return;try{if(token.resolved&&!token.command.infinite)publish(token);else schedule(token);}catch(error){if(active===token)clearActive();throw error;}}}
-    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;});retirement=admission;await admission;}
+    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;policy=undefined;});retirement=admission;await admission;}
     else if(command.kind==='quit')return close();
   };
   return Object.freeze({handle,close});
