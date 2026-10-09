@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createGameSearchPort} from '../../components/engine-runtime/game-search-port.mjs';
 import {STATE_WORDS} from '../../components/chess-domain/admission.mjs';
+import {createHash} from 'node:crypto';
 const fen='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 function fixture(){
  const calls=[],command={phase:0,result:1,kind:2,expectedArena:3,expectedFocusEpoch:4,expectedRootSlot:5,expectedRootGeneration:6,idBase:8,generationBase:12,responseRootSlot:16,responseRootGeneration:17,responseFocusEpoch:18,stateWords:20,admissionActionCount:21,actionWords:22,stateBase:32,kinds:{admit:1,cancel:3},phases:{uploading:1,pending:2,acknowledged:3},results:{accepted:0,pressure:2}};
@@ -49,4 +50,8 @@ test('closure journal retains bounded recent proof after seventy games with fini
 
 test('temporary immutable snapshot unavailability retries only read-only observation and fails closed at finite bound',async()=>{
  const f=fixture(),p=createGameSearchPort({modelRoot:'good',revision:'a'.repeat(40),prepare:f.prepare});await p.admitPosition({fen,moves:[],rootEpoch:1});f.setUnavailable(2);await p.requestPublication({rootEpoch:1,requestId:1});assert.equal(p.readPublication({rootEpoch:1,requestId:1}).action,796);f.setUnavailable(3);await assert.rejects(p.requestPublication({rootEpoch:1,requestId:2}),/snapshot.*unavailable/i);assert.equal(p.readPublication({rootEpoch:1,requestId:2}),null);assert.equal(f.calls.filter(c=>c==='ignite').length,1);await p.close();
+});
+
+test('retained closure chain independently recomputes from the declared predecessor anchor',async()=>{
+ const p=createGameSearchPort({modelRoot:'good',revision:'a'.repeat(40),prepare:async()=>fixture().backend});for(let i=0;i<10;i++){await p.ready();await p.admitPosition({fen,moves:[],rootEpoch:i+1});await p.endGame();}const r=await p.close();assert.match(r.closureJournal.retainedPredecessorSha256,/^[0-9a-f]{64}$/);assert.notEqual(r.closureJournal.retainedPredecessorSha256,'0'.repeat(64));let hash=r.closureJournal.retainedPredecessorSha256;for(const receipt of r.gameTeardowns)hash=createHash('sha256').update(hash).update(JSON.stringify(receipt)).digest('hex');assert.equal(hash,r.closureJournal.chainSha256);
 });

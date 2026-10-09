@@ -25,3 +25,7 @@ test('public realization ports match declared callable identity and package-deli
  const semantic={operationIds:{bootstrap:'owner.boot',command:'owner.cmd'},operations:[{id:'owner.boot',entryPoint:'actualBootstrap'},{id:'owner.cmd',entryPoint:'actualCommand'}],delivery:{id:'owner.terminal'}},physical={operationRequirements:[{id:'operation-4',function:'actualCommand'},{id:'operation-3',function:'actualBootstrap'}],deliveryRequirements:[{id:'delivery-0',packageDelivery:'owner.terminal'}]};
  assert.deepEqual(resolveExecutionPorts(semantic,physical),{operationIds:{bootstrap:'operation-3',command:'operation-4'},deliveryId:'delivery-0'});assert.throws(()=>resolveExecutionPorts(semantic,{...physical,operationRequirements:[...physical.operationRequirements,{id:'operation-5',function:'actualCommand'}]}),/unique/);
 });
+
+test('terminal public receipt preserves independently declared tail drain fact after unchanged row storage',()=>{
+ const T=core.protocol.terminal,c={...core,protocol:{...core.protocol,terminal:{...T,fields:{...T.fields,drainDisposition:1024},quiescence:{...T.quiescence,zeroFields:[...T.quiescence.zeroFields,1024]}}}},w=new Uint32Array(1025),cancel={id:[1,0,0,0],generation:[2,0,0,0]};w[24]=1;w[28]=2;const report=assertTerminalQuiescence(c,new Uint8Array(w.buffer),cancel);assert.equal(report.fields.drainDisposition,0);w[1024]=1;assert.throws(()=>assertTerminalQuiescence(c,new Uint8Array(w.buffer),cancel),/quiescence/);
+});

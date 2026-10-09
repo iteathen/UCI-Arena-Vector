@@ -25,7 +25,8 @@ export function assertTerminalQuiescence(core,bytes,cancel){
  for(const index of T.quiescence.zeroFields)if(w[index]!==0)throw new Error(`GPU terminal quiescence failed at word ${index}`);
  for(const [a,b]of T.quiescence.equalPairs)if(w[a]!==w[b])throw new Error(`GPU terminal lease imbalance at words ${a}/${b}`);
  for(const [key,base]of [['id',T.fields.acceptedCommandIdBase],['generation',T.fields.acceptedCommandGenerationBase]])if(!identity(cancel[key]).every((v,i)=>w[base+i]===v))throw new Error('GPU terminal accepted cancel identity mismatch');
- return Object.freeze({quiescent:true,fields:Object.fromEntries(Object.entries(T.fields).filter(([,i])=>i<24).map(([name,index])=>[name,w[index]])),acceptedCancel:{id:[...cancel.id],generation:[...cancel.generation]}});
+ const scalarFields=Object.entries(T.fields).filter(([name])=>!['acceptedCommandIdBase','acceptedCommandGenerationBase'].includes(name));for(const [,index]of scalarFields)if(!Number.isInteger(index)||index<0||index>=w.length)throw new Error('Declared terminal field exceeds actual delivery extent');
+ return Object.freeze({quiescent:true,fields:Object.fromEntries(scalarFields.map(([name,index])=>[name,w[index]])),acceptedCancel:{id:[...cancel.id],generation:[...cancel.generation]}});
 }
 export function resolveExecutionPorts(core,requirements){
  const operationIds=Object.fromEntries(Object.entries(core.operationIds).map(([role,id])=>{const declared=core.operations.find(o=>o.id===id),matches=requirements.operationRequirements.filter(o=>o.function===declared?.entryPoint);if(matches.length!==1)throw new Error('Canonical operation callable must have one unique realization');return[role,matches[0].id];}));
