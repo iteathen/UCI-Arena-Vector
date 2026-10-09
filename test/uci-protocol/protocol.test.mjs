@@ -164,3 +164,6 @@ test('an early or rounded timer callback cannot publish before the absolute dead
     await f.advance(1);assert.equal(f.requests.length,1);
   }finally{await c.close();}
 });
+test('resolution reasons cannot replace neutral applicability authority classes',async()=>{
+  const {createUciController}=await api();for(const intent of [{bypassPublicationWait:true,applicability:'objective_no_choice'},{bypassPublicationWait:false,applicability:'resolved_without_search_time'}]){const f=fixture();f.port.preparePublicationIntent=async()=>intent;const c=createUciController(f.options);try{await c.handle('position startpos');await assert.rejects(c.handle('go movetime 1000'),/applicability/);assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);}finally{await c.close();}}
+});
