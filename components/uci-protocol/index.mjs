@@ -56,7 +56,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     options.set(option.name.toLowerCase(),Object.freeze({...option}));
   }
   if(options.size&&typeof port.configure!=='function')throw new Error('Advertised UCI options require configuration admission');
-  let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,newGame=true,admission=Promise.resolve(),active=null,closed=false;
+  let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,newGame=true,admission=Promise.resolve(),retirement=Promise.resolve(),active=null,closed=false;
   let runtimeIdentity,readyPromise,configurationError,configuration=Promise.resolve();
   const diagnostic=(phase,facts={})=>{if(onDiagnostic)try{onDiagnostic({schema:'vector_uci_clock_phase_v1',phase,time:now(),rootEpoch,requestId,...facts});}catch{/* diagnostics cannot alter search/publication ownership */}};
   const ready=async()=>{
@@ -75,7 +75,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       const proof=result.legalProof;
       if(result.rootEpoch===rootEpoch&&result.requestId===token.requestId&&proof?.rootEpoch===rootEpoch&&proof.action===result.action&&proof.legal===true&&(result.action!==null||result.terminal===true)) {
         const text=result.action===null?'0000':actionToUci(result.action);
-        clearActive();diagnostic('emit',{rootEpoch:token.rootEpoch,requestId:token.requestId});write(`bestmove ${text}`);return;
+        clearActive();diagnostic('emit',{rootEpoch:token.rootEpoch,requestId:token.requestId,...(result.authority?{observation:{authority:result.authority,telemetry:result.telemetry,terminal:result.terminal}}:{})});write(`bestmove ${text}`);return;
       }
     }
     token.timer=setTimer(()=>poll(token),5);
@@ -100,7 +100,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       configuration=pending.catch(()=>{});
       await pending;
     }
-    else if(command.kind==='isready'){await ready();if(!closed){if(runtimeIdentity)write(`info string vector_identity ${runtimeIdentity}`);write('readyok');}}
+    else if(command.kind==='isready'){await retirement;await ready();if(!closed){if(runtimeIdentity)write(`info string vector_identity ${runtimeIdentity}`);write('readyok');}}
     else if(command.kind==='position') {
       clearActive();if(rootEpoch===0xffff_fffe)throw new Error('Root epoch exhausted');const epoch=++rootEpoch,establishGame=newGame;newGame=false;hasPosition=true;admittedEpoch=0;
       admission=admission.catch(()=>{}).then(()=>ready()).then(()=>{diagnostic('admissionStarted',{rootEpoch:epoch});return port.admitPosition({...command,rootEpoch:epoch,newGame:establishGame});}).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');diagnostic('admissionReady',{rootEpoch:epoch});if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
@@ -112,7 +112,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       await admission;if(active===token&&!closed){if(token.stopPending)publish(token);else schedule(token);}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){delete active.command.ponder;active.started=now();schedule(active);}}
-    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined);await admission;}
+    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;});retirement=admission;await admission;}
     else if(command.kind==='quit')return close();
   };
   return Object.freeze({handle,close});
