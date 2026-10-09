@@ -1,24 +1,37 @@
 # UCI Arena Vector Status
 
-**Active owner-directed continuation — 2026-10-08:** Complete the installed
-cuda-js engine, compatible services and functional installer, then start the
-Lichess bot. Execution is tracked in
-[the complete suite plan](docs/superpowers/plans/2026-10-08-complete-cuda-js-suite.md).
-The C++ engine deployment is cancelled. Model 73091 has separate independent
-reference and device-closed block32 parity evidence; Domain v1.1 and model input
-have physical qualification. Persistent cooperative graph search, operational
-UCI composition, release and installed acceptance remain in progress. This is
-not a completed product or a playing-strength claim.
+**Updated: 2026-10-09 — install component 0.1.2 source candidate.**
 
-**Current verified delivery state:** MCGS dev.3 is protected at `39a274ac`.
-Vector composes the original model, persistent GPU search, UCI publication,
-retained-root reuse and external root knowledge through public contracts. Real
-diagnostic games completed with no flags and joined zero-residue GPU closure;
-the latest one-opening calibration is excluded from population qualification.
-Bot 1.0.41 is merged and signed. Timing consumption, independent study analysis,
-bounded publication measurements and generic Installer bindings are implemented
-and portable-tested. The final frozen native study, signed complete payload,
-transactional installation and installed bot activation remain pending.
+Vector has a runnable provisional Windows cuda-js/MCGS engine. The original
+73091 model, physically qualified chess Domain/model inputs, persistent
+cooperative graph search, operational UCI publication, retained-root reuse and
+external root knowledge compose through public library contracts. Real
+diagnostic games and repeated-game tests have completed with legal results and
+joined zero-residue GPU closure on their recorded runtime/hardware tuples.
+These are bounded correctness/lifecycle observations, not playing-strength or
+population timing qualification.
+
+Current public library closure: cuda-js alpha.22 protected dc292465,
+cuda-js-tensor alpha.10 protected 759a1a07, CUDA-MCGS dev.3 protected 39a274ac.
+The 0.1.2 candidate adds an optional Installer-selected opening Book binding,
+with immutable identity pins, live refresh only between games, active-game
+generation preservation and explicit degraded absence. Its scope has independent
+source review and portable checks; fresh native, relocated-payload and signed
+release gates are pending. Signed 0.1.1 receipts remain unchanged historical
+evidence and cannot substitute for those new gates.
+
+The owner-directed goal remains the complete installed engine, compatible
+services and functional Installer, then installed Lichess Bot acceptance.
+Complete-suite transactional deployment and recovery remain in progress.
+Unconfigured production useful-block timing authority performs no discretionary
+time purchase; configured incompatible artifacts fail readiness. No custom
+duration study has been promoted to accepted learned timing strategy.
+
+Maintained engine source remains JavaScript and restricted Device-JS through
+public cuda-js, Tensor and MCGS contracts. The C++ engine deployment is cancelled;
+no C++ engine, private native binding or CPU search fallback is selected.
+See [the complete suite plan](docs/superpowers/plans/2026-10-08-complete-cuda-js-suite.md)
+and [Book binding source scope](docs/development/2026-10-09-installed-book-binding.md).
 
 The dated September record below is retained historical evidence. Its dependency
 tuple and missing frozen 54499 oracle are not the active delivery target.

@@ -12,8 +12,8 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const policy=`prior_games=64\ndraw_value=0.35\nconfidence_standard_errors=1\nminimum_games=32\nmaximum_lcb_gap=0.05\nquality_exponent=14\nmaximum_rarity_multiplier=4\nexit_intercept=-4.2\nexit_depth_weight=2\nexit_advantage_weight=2.4\nexit_disadvantage_weight=-3\nexit_weakness_weight=0.8\neval_deadband_cp=20\neval_scale_cp=180\ndepth_start_ply=8\ndepth_span_plies=22\n`;
 function fnv(bytes){let value=0xcbf29ce484222325n;for(const byte of bytes)value=BigInt.asUintN(64,(value^BigInt(byte))*0x100000001b3n);return value.toString(16).padStart(16,'0');}
 async function fixture(t,{stats=false,manifest=false}={}){
- const dir=await fs.mkdtemp(path.join(os.tmpdir(),'vector-book-'));
- t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const parent=await fs.realpath(os.tmpdir()),dir=await fs.mkdtemp(path.join(parent,'vector-book-')),initial=await fs.lstat(dir,{bigint:true});
+ t.after(async()=>{const current=await fs.lstat(dir,{bigint:true});assert.ok(current.isDirectory()&&!current.isSymbolicLink());for(const key of ['dev','ino','birthtimeNs'])assert.equal(current[key],initial[key]);assert.equal(await fs.realpath(dir),dir);assert.equal(path.dirname(dir),parent);assert.ok(path.basename(dir).startsWith('vector-book-'));await fs.rm(dir,{recursive:true});});
  const book=Buffer.alloc(32);for(const [i,move,weight]of [[0,0x02db,10],[1,0x031c,30]]){book.writeBigUInt64BE(key,i*16);book.writeUInt16BE(move,i*16+8);book.writeUInt16BE(weight,i*16+10);}
  const files={bookFile:path.join(dir,'strong_rare_v1.bin'),statsFile:path.join(dir,'strong_rare_v1.stats'),policyFile:path.join(dir,'strong_rare_v1.policy')};await fs.writeFile(files.bookFile,book);
  if(stats){const text=`# uci_arena_book_stats_v1 book_fnv1a64=${fnv(book)} rows=2\n463b96181691fc9c\t02db\t100\t55\t20\t25\n463b96181691fc9c\t031c\t120\t65\t25\t30\n`;await fs.writeFile(files.statsFile,text);await fs.writeFile(files.policyFile,policy);}
@@ -21,6 +21,39 @@ async function fixture(t,{stats=false,manifest=false}={}){
  return {dir,files,book};
 }
 const context=(legalActions=[d4,e4])=>({schema:'vector_root_knowledge_context_v1',rootEpoch:1,rootFence:[1,0,1,1],input:{originFen:START_POSITION,moves:[]},legalActions,terminal:false});
+
+test('immutable v2 identity mismatch is rejected before first snapshot activation',async t=>{
+ const {files}=await fixture(t,{stats:true,manifest:true});
+ await assert.rejects(admitBookSnapshot({...files,expectedManifestSha256:'0'.repeat(64)}),/BOOK_MANIFEST_IDENTITY/);
+});
+
+test('file-only immutable selection suppresses neighboring manifest and statistics and checks exact base pin',async t=>{
+ const {files,book,dir}=await fixture(t,{stats:true,manifest:true});
+ await fs.writeFile(path.join(dir,'snapshot.manifest.json'),'unrelated bad neighbor');
+ const selected={bookFile:files.bookFile,statsFile:'',policyFile:'',manifestFile:'',expectedBookSha256:sha(book)};
+ const snapshot=await admitBookSnapshot(selected);assert.equal(snapshot.status.capability,'polyglot_base');assert.equal(snapshot.status.validationMode,'legacy_file_set');assert.equal(snapshot.status.statisticalSelection,false);assert.equal(snapshot.status.strengthQualified,false);
+ await assert.rejects(admitBookSnapshot({...selected,expectedBookSha256:'0'.repeat(64)}),/BOOK_FILE_IDENTITY/);
+});
+
+test('bound live generations refresh only between games; immutable pin retains first admitted identity',async t=>{
+ const {createRootKnowledgeCoordinator}=await import('../../components/root-knowledge/coordinator.mjs');
+ const {BOOK_BINDING_SCHEMA}=await import('../../components/root-knowledge/book-binding.mjs');
+ for(const authorityMode of ['service_managed_live_channel','immutable_pinned_snapshot']){
+  const {dir,files}=await fixture(t,{stats:true,manifest:true}),manifestFile=path.join(dir,'snapshot.manifest.json'),firstBytes=await fs.readFile(manifestFile);
+  const bindingFile=path.join(dir,'binding.json'),document={schema:BOOK_BINDING_SCHEMA,schemaVersion:1,authorityMode,capability:'snapshot_v2',selection:{kind:'opening_book',path:dir,source:'saved_locator',storageMode:'in_place_reference'},files:{...files,manifestFile},pin:authorityMode==='immutable_pinned_snapshot'?{manifestSha256:sha(firstBytes)}:null};
+  await fs.writeFile(bindingFile,JSON.stringify(document));const provider=createBookProvider(),statuses=[],coordinator=createRootKnowledgeCoordinator({bookProvider:provider,environment:{},onStatus:row=>{if(row.provider==='opening-book')statuses.push(row);}});
+  for(const [name,value] of [['BookFile',files.bookFile],['BookStatsFile',files.statsFile],['BookPolicyFile',files.policyFile],['BookSnapshotBinding',bindingFile]])await coordinator.configure({name,value});
+  await coordinator.ready();await coordinator.beginGame();await coordinator.prepare({context:context(),requestId:1});
+  const first=statuses.at(-1).status.snapshot;assert.equal(first.identity,sha(firstBytes));
+  const next={...JSON.parse(firstBytes),snapshot_id:'integration-11111111111111111111'};await fs.writeFile(manifestFile,JSON.stringify(next));
+  await coordinator.ready();await coordinator.prepare({context:context(),requestId:2});assert.equal(statuses.at(-1).status.snapshot.identity,first.identity);
+  await assert.rejects(coordinator.configure({name:'BookSnapshotBinding',value:bindingFile}),/startup|game/i);
+  await assert.rejects(coordinator.configure({name:'BookFile',value:path.join(dir,'other.bin')}),/fixed.*game/i);
+  await coordinator.endGame();await coordinator.ready();await coordinator.beginGame();
+  const current=statuses.at(-1).status.snapshot;assert.equal(current.identity,authorityMode==='immutable_pinned_snapshot'?first.identity:sha(JSON.stringify(next)));
+  await coordinator.close();
+ }
+});
 test('base book resolves only GPU legal allowed moves and preserves current focus fence',async t=>{const {files}=await fixture(t);const snapshot=await admitBookSnapshot(files);assert.equal(snapshot.status.capability,'polyglot_base');assert.equal(snapshot.status.statisticalSelection,false);const game=createBookGame({snapshot,seed:123});const result=game.resolve({context:context(),searchmoves:[e4]});assert.equal(result.action,e4);assert.deepEqual(result.rootFence,[1,0,1,1]);assert.equal(result.authority,'book-resolved');assert.equal(result.telemetry.games,0);assert.equal(game.resolve({context:context([d4]),searchmoves:[e4]}).reason,'no_eligible_move');});
 test('manifest-backed full pair binds every activated artifact and refuses corruption',async t=>{const {files,dir}=await fixture(t,{stats:true,manifest:true});const snapshot=await admitBookSnapshot(files);assert.equal(snapshot.status.statisticalSelection,true);assert.equal(snapshot.status.identity,sha(await fs.readFile(path.join(dir,'snapshot.manifest.json'))));await fs.appendFile(files.policyFile,'#changed\n');await assert.rejects(admitBookSnapshot(files),/BOOK_ARTIFACT_DIGEST/);});
 test('partial sidecar is integrity failure and record duplicates are rejected',async t=>{const {files,book}=await fixture(t);await fs.writeFile(files.statsFile,'partial');await assert.rejects(admitBookSnapshot(files),/BOOK_SIDECAR_PAIR/);await fs.unlink(files.statsFile);book.copy(book,16,0,16);await fs.writeFile(files.bookFile,book);await assert.rejects(admitBookSnapshot(files),/BOOK_ORDER/);});
@@ -42,3 +75,8 @@ test('game seed can be initialized before a snapshot is available and later expl
 test('explicit empty sidecar pair selects base capability and never reads disabled artifacts',async t=>{const {files}=await fixture(t,{stats:true,manifest:true});await fs.writeFile(files.statsFile,'corrupt disabled stats');await fs.writeFile(files.policyFile,'corrupt disabled policy');const snapshot=await admitBookSnapshot({...files,statsFile:'',policyFile:''});assert.equal(snapshot.status.capability,'polyglot_base');assert.equal(createBookGame({snapshot,seed:42}).resolve({context:context(),searchmoves:[e4]}).action,e4);await assert.rejects(admitBookSnapshot({...files,statsFile:''}),/BOOK_SIDECAR_PAIR/);});
 test('disabled empty sidecars are not the same configuration as a directory path',async t=>{const {files}=await fixture(t),provider=createBookProvider();assert.equal((await provider.reload({...files,statsFile:'',policyFile:''})).active,true);const changed=await provider.reload({...files,statsFile:process.cwd(),policyFile:process.cwd()});assert.equal(changed.active,false);assert.equal(changed.retained,false);});
 test('snapshot adoption rejects unadmitted forged handles without changing game selection',async t=>{const {files}=await fixture(t),snapshot=await admitBookSnapshot(files),game=createBookGame({snapshot,seed:1});assert.throws(()=>game.adoptSnapshot({...snapshot}),/BOOK_GAME/);assert.equal(game.resolve({context:context(),searchmoves:[e4]}).action,e4);});
+test('Book pin admission rejects coercible objects without invoking their code',async t=>{
+ const {files}=await fixture(t,{stats:true,manifest:true});let calls=0;
+ const coercible={toString(){calls++;return '0'.repeat(64);}};
+ await assert.rejects(admitBookSnapshot({...files,expectedManifestSha256:coercible}),/BOOK_PIN/);assert.equal(calls,0);
+});

@@ -3,6 +3,7 @@ import { lstatSync, readFileSync,openSync,closeSync,fstatSync,readSync } from 'n
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {canonicalJson} from '../components/root-knowledge/tablebase.mjs';
+import {admitBookBindingDocument,BOOK_BINDING_SCHEMA} from '../components/root-knowledge/book-binding.mjs';
 
 const SHA = /^[0-9a-f]{64}$/u;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -55,8 +56,8 @@ export function renderInstalledLaunchProfile(context) {
       || !object(context.component) || context.component.id !== 'uci_arena.vector'
       || typeof context.component.version !== 'string' || typeof context.enabled !== 'boolean'
       || !object(context.bindings) || Object.keys(context.bindings).some(name=>name!=='root_tablebase_provider')
-      || !object(context.locators) || Object.keys(context.locators).some(name=>name!=='syzygy')
-      || !object(context.locator_details) || Object.keys(context.locator_details).some(name=>name!=='syzygy')) fail('invalid-install-context');
+      || !object(context.locators) || Object.keys(context.locators).some(name=>!['syzygy','opening_book'].includes(name))
+      || !object(context.locator_details) || Object.keys(context.locator_details).some(name=>!['syzygy','opening_book'].includes(name))) fail('invalid-install-context');
   const root = absolute(context.component.root);
   const workspace = absolute(context.workspace);
   noLinks(root, true);
@@ -120,6 +121,33 @@ export function renderInstalledLaunchProfile(context) {
     options.TimingPolicyFile=policy.filename;
   }
   const generated_documents=[],knowledge={...profile.knowledge};
+  options.OwnBook=false;
+  options.BookSnapshotBinding='';
+  knowledge.opening_book={status:'degraded',reason:'no-selected-locator'};
+  if(context.locators.opening_book){
+    const selected=absolute(context.locators.opening_book),detail=context.locator_details.opening_book;
+    if(!object(detail)||detail.kind!=='opening_book'||absolute(detail.path)!==selected||!['saved_locator','install_receipt'].includes(detail.source)||!['in_place_reference','managed_copy','external_path','installed_component'].includes(detail.storage_mode)||!['immutable_pinned_snapshot','service_managed_live_channel'].includes(detail.authority_mode)||(detail.authority_mode==='service_managed_live_channel'&&detail.storage_mode!=='in_place_reference'))fail('invalid-book-locator-authority');
+    try{
+      const info=lstatSync(selected);noLinks(selected,info.isDirectory());
+      let files,pin,capability;
+      if(info.isDirectory()){
+        const manifestFile=path.join(selected,'snapshot.manifest.json'),bytes=documentBytes(manifestFile),m=jsonBytes(bytes);
+        const roles={bookFile:'strong_rare_v1.bin',statsFile:'strong_rare_v1.stats',policyFile:'strong_rare_v1.policy'};
+        if(m.schema!=='uci_arena_book_snapshot_v2'||!Number.isSafeInteger(m.record_count)||m.record_count<1||m.record_count>2000000||!['integration','qualified'].includes(m.channel)||!new RegExp(`^${m.channel}-[0-9a-f]{20}$`).test(m.snapshot_id??'')||m.qualified!==(m.channel==='qualified')||!object(m.artifacts)||Object.values(roles).some(name=>!SHA.test(m.artifacts[name]??'')))fail('unsupported-book-snapshot');
+        files={...Object.fromEntries(Object.entries(roles).map(([key,name])=>[key,path.join(selected,name)])),manifestFile};
+        for(const file of Object.values(files))noLinks(file);
+        capability='snapshot_v2';pin=detail.authority_mode==='immutable_pinned_snapshot'?{manifestSha256:hash(bytes)}:null;
+      }else{
+        if(!info.isFile()||detail.authority_mode!=='immutable_pinned_snapshot'||!['.bin','.book'].includes(path.extname(selected).toLowerCase())||!info.size||info.size>32000000||info.size%16!==0)fail('unsupported-book-selection');
+        const fd=openSync(selected,'r'),h=createHash('sha256'),buffer=Buffer.alloc(65536);try{const opened=fstatSync(fd);if(opened.dev!==info.dev||opened.ino!==info.ino||opened.size!==info.size)fail('book-changed');let offset=0;while(offset<opened.size){const n=readSync(fd,buffer,0,Math.min(buffer.length,opened.size-offset),offset);if(!n)fail('book-changed');h.update(buffer.subarray(0,n));offset+=n;}const after=fstatSync(fd);if(after.size!==opened.size||after.mtimeMs!==opened.mtimeMs||after.ctimeMs!==opened.ctimeMs||noLinks(selected).ino!==opened.ino)fail('book-changed');}finally{closeSync(fd);}
+        files={bookFile:selected,statsFile:'',policyFile:'',manifestFile:''};pin={bookSha256:h.digest('hex')};capability='polyglot_base';
+      }
+      const binding=admitBookBindingDocument({schema:BOOK_BINDING_SCHEMA,schemaVersion:1,authorityMode:detail.authority_mode,capability,selection:{kind:'opening_book',path:selected,source:detail.source,storageMode:detail.storage_mode},files,pin});
+      generated_documents.push({path:'opening-book-binding.json',document:binding});
+      Object.assign(options,{OwnBook:true,BookFile:files.bookFile,BookStatsFile:files.statsFile,BookPolicyFile:files.policyFile,BookSnapshotBinding:path.join(workspace,'opening-book-binding.json')});
+      knowledge.opening_book={status:'configured-pending-engine-admission',source:detail.source,storage_mode:detail.storage_mode,authority_mode:detail.authority_mode,capability,path:selected};
+    }catch{knowledge.opening_book={status:'degraded',reason:'selected-book-unavailable-or-incompatible',source:detail.source,authority_mode:detail.authority_mode};}
+  }
   if(context.bindings.root_tablebase_provider&&context.locators.syzygy){
     const providerRoot=absolute(context.bindings.root_tablebase_provider),datasetRoot=absolute(context.locators.syzygy),detail=context.locator_details.syzygy;
     noLinks(providerRoot,true);noLinks(datasetRoot,true);

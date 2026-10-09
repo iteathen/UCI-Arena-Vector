@@ -74,3 +74,44 @@ and dynamic exit are explicit dispositions.
 This module's portable tests are not installation, population strength, live
 clock, or complete-game qualification. UCI/Manager integration remains separately
 qualified against the exact installed payload and selected provider artifacts.
+
+## Optional installed selection
+
+`BookSnapshotBinding` is a startup string UCI option. The Installer renderer
+selects the optional public `opening_book` locator, emits a workspace
+`vector_opening_book_binding_v1` document and sets the three explicit Book file
+options. No selected locator means `OwnBook=false` and degraded knowledge;
+missing/incompatible optional data cannot silently use unrelated defaults.
+The renderer reports configured data as pending engine admission.
+
+The closed binding has `schema`, `schemaVersion`, `authorityMode`, `capability`,
+`selection:{path,kind,source,storageMode}`, `files:{bookFile,statsFile,policyFile,
+manifestFile}`, and `pin`. Paths are absolute, each file role is explicit and the
+UTF-8 document is at most 65,536 bytes. V2 directories use the producer's exact
+`strong_rare_v1.bin/.stats/.policy` and `snapshot.manifest.json` names.
+A file-only `.bin`/`.book` import is base Polyglot capability with empty sidecar
+and manifest roles; it never discovers or claims neighboring v2 statistics.
+
+`immutable_pinned_snapshot` requires a manifest SHA-256 (v2 directory) or base
+file SHA-256 (file-only). `admitBookSnapshot` accepts the optional
+`expectedManifestSha256` and `expectedBookSha256` strings and checks them before
+snapshot activation. An explicit empty `manifestFile` is admitted only with the
+empty sidecar pair and suppresses adjacent manifest discovery. A successful
+immutable selection retains that admitted generation until explicit between-game
+startup binding reconfiguration, including across later readiness calls.
+
+`service_managed_live_channel` requires an in-place v2 directory and null pin.
+The coordinator refreshes it only during between-game readiness or initial
+pre-game admission. Each active game retains its admitted immutable in-memory
+generation; active-game binding/file changes reject. Removing a binding in `go`
+cannot trigger default file reads. `OwnBook` may gate an already admitted game
+snapshot without reloading it; a game that began disabled cannot newly admit a
+bound generation mid-game. Existing unbound standalone next-go reconfiguration
+still uses the owner-controlled refresh behavior described above.
+
+A failed live reload may retain the previous complete admitted snapshot under
+the existing provider's unchanged-configuration contract; public status records
+the failure and retained identity. Binding or first-admission failures disable
+selection explicitly. None of these dispositions confers timing or strength
+qualification. See the source qualification note in
+[installed Book binding](../../docs/development/2026-10-09-installed-book-binding.md).
