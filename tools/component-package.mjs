@@ -14,7 +14,6 @@ const DEFAULT_MODEL = Object.freeze({ model_id: 'compact_chessformer_gab_v1', di
   input_adapter_id: 'chess_v1_fen_to_dense_planes_v1', root: 'models/default' });
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
-const ROOT_DEPENDENCY={component_id:'syzygy.root-provider',required:false,binding:'optional-root-knowledge'};
 const ROOT_BINDINGS=[{name:'root_tablebase_provider',component_id:'syzygy.root-provider',source:'component_path',path:'runtime',required:false}];
 const ROOT_LOCATORS=[{name:'syzygy',kind:'syzygy',required:false}];
 function rootProviderSelected(root,closure){
@@ -196,7 +195,7 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
     entrypoints: { uci_engine: 'bin/node.exe', uci_launch_profile: 'contracts/uci-engine-launch-profile.json',
       installer_integration: 'dist/installer-integration.mjs' },
     discovery: [{ kind: 'uci_engine', locator: { source: 'entrypoint', entrypoint: 'uci_engine' } }],
-    capabilities: ['uci_engine', 'uci_engine_launch_profile_v1'], dependencies: ['node_runtime.private',...(rootProvider?[ROOT_DEPENDENCY]:[])],
+    capabilities: ['uci_engine', 'uci_engine_launch_profile_v1'], dependencies: ['node_runtime.private'],
     default_model: { ...DEFAULT_MODEL },
     workspace_name: 'uci-arena-vector',
     installer_integration: { schema: 'arena_provider_installer_integration_v1', schema_version: 1,
@@ -257,7 +256,7 @@ export function verifyAtomicComponent(root) {
       || manifest.workspace_name !== integration.workspace_name || integration.configure_when_disabled !== true
       || JSON.stringify(integration.arguments) !== JSON.stringify(['--context'])
       || !isDeepStrictEqual(integration.dependency_bindings,rootProvider?ROOT_BINDINGS:[]) || !isDeepStrictEqual(integration.locator_bindings,rootProvider?ROOT_LOCATORS:[])
-      || (rootProvider&&!manifest.dependencies.some(row=>isDeepStrictEqual(row,ROOT_DEPENDENCY)))) {
+      || !isDeepStrictEqual(manifest.dependencies,['node_runtime.private'])) {
     throw new Error('component installer integration differs');
   }
   validateClosure(root, closure, manifest.component_version);

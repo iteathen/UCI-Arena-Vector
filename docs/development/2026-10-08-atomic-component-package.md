@@ -32,6 +32,10 @@ An inventoried root-provider selection adds an optional declared `runtime/`
 component-path binding and Syzygy locator subscription. The renderer generates
 public configuration and binding documents in the mutable provider workspace;
 table files remain in their selected directory and must pass provider admission.
+The component manifest's `dependencies` contains required string identifiers
+only. The optional provider is declared solely through the existing installer
+binding with `required: false`; it does not broaden that manifest format or
+force the provider into the suite's required dependency set.
 
 A bundled `contracts/timing-policy.json` is admitted against the inventoried
 actual runtime identity before its file/digest options enter the managed launch
