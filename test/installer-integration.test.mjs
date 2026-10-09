@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,6 +8,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import {renderInstalledLaunchProfile} from '../tools/installer-integration.mjs';
 
 const renderer = fileURLToPath(new URL('../tools/installer-integration.mjs', import.meta.url));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -103,6 +106,18 @@ test('renderer resolves only an inventoried timing artifact and exact declared d
   f.setProfile(p=>{p.uci_options.TimingPolicyFile='contracts/timing-policy.json';p.uci_options.TimingPolicySha256=sha(text);p.uci_options.TimingInitialTimeMs=0;});
   const out=f.run();assert.equal(out.status,0,out.stderr);assert.equal(JSON.parse(out.stdout).configuration.uci_options.TimingPolicyFile,path.join(f.root,'contracts/timing-policy.json'));
   f.setProfile(p=>{p.uci_options.TimingPolicySha256='a'.repeat(64);});assert.notEqual(f.run().status,0);
+});
+
+test('an inventory-verified document cannot be replaced by different metadata before parsing',t=>{
+  const f=fixture(t);
+  // Inventory a valid profile, then change the file immediately after its
+  // original inventory read. Parsing a second read formerly admitted new options.
+  const valid=JSON.stringify({...f.profile,engine:{...f.profile.engine,arguments:['--experimental-ffi','dist/uci.mjs']}}),profilePath=path.join(f.root,'contracts/uci-engine-launch-profile.json');
+  writeFileSync(profilePath,valid);Object.assign(f.manifest.files.find(row=>row.path==='contracts/uci-engine-launch-profile.json'),{sha256:sha(valid),size_bytes:Buffer.byteLength(valid)});writeFileSync(path.join(f.root,'arena-component.json'),JSON.stringify(f.manifest));
+  const substituted={...JSON.parse(valid),uci_options:{Hash:128}};
+  const original=fs.readFileSync;let changed=false;
+  fs.readFileSync=function(file,...args){const bytes=original.call(this,file,...args);if(path.resolve(String(file))===profilePath&&!changed){changed=true;writeFileSync(profilePath,JSON.stringify(substituted));}return bytes;};syncBuiltinESMExports();
+  try{const result=renderInstalledLaunchProfile(f.context);assert.equal(result.configuration.uci_options.Hash,64);}finally{fs.readFileSync=original;syncBuiltinESMExports();}
 });
 
 test('the declared model root is resolved explicitly and never escapes the installed component', t => {

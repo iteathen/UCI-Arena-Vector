@@ -85,7 +85,12 @@ export function renderInstalledLaunchProfile(context) {
         || hash(readFileSync(filename)) !== row.sha256) fail('payload-identity-mismatch');
     return filename;
   }
-  const profile = jsonFile(verifiedFile(manifest.entrypoints.uci_launch_profile));
+  function verifiedDocument(name){
+    const filename=path.join(root,relative(name)),bytes=documentBytes(filename),row=files.get(name);
+    if(!row||bytes.length!==row.size_bytes||hash(bytes)!==row.sha256)fail('payload-identity-mismatch');
+    return {filename,bytes,value:jsonBytes(bytes)};
+  }
+  const profile = verifiedDocument(manifest.entrypoints.uci_launch_profile).value;
   if (profile.schema !== 'arena_uci_engine_launch_profile_v1' || profile.schema_version !== 1
       || !object(profile.component) || profile.component.id !== context.component.id
       || profile.component.version !== context.component.version || profile.component.root !== '.'
@@ -110,16 +115,16 @@ export function renderInstalledLaunchProfile(context) {
   }
   if(Object.hasOwn(options,'TimingPolicyFile')||Object.hasOwn(options,'TimingPolicySha256')){
     if(typeof options.TimingPolicyFile!=='string'||!SHA.test(options.TimingPolicySha256??''))fail('invalid-timing-binding');
-    const policyFile=verifiedFile(options.TimingPolicyFile);
-    if(hash(readFileSync(policyFile))!==options.TimingPolicySha256)fail('timing-policy-identity-mismatch');
-    options.TimingPolicyFile=policyFile;
+    const policy=verifiedDocument(options.TimingPolicyFile);
+    if(hash(policy.bytes)!==options.TimingPolicySha256)fail('timing-policy-identity-mismatch');
+    options.TimingPolicyFile=policy.filename;
   }
   const generated_documents=[],knowledge={...profile.knowledge};
   if(context.bindings.root_tablebase_provider&&context.locators.syzygy){
     const providerRoot=absolute(context.bindings.root_tablebase_provider),datasetRoot=absolute(context.locators.syzygy),detail=context.locator_details.syzygy;
     noLinks(providerRoot,true);noLinks(datasetRoot,true);
     if(!object(detail)||detail.kind!=='syzygy'||absolute(detail.path)!==datasetRoot||!['saved_locator','install_receipt'].includes(detail.source)||typeof detail.storage_mode!=='string')fail('invalid-dataset-locator-authority');
-    const selection=jsonFile(verifiedFile('contracts/root-tablebase-selection.json'));
+    const selection=verifiedDocument('contracts/root-tablebase-selection.json').value;
     if(selection.schema!=='vector_root_tablebase_selection_v1'||selection.componentId!=='syzygy.root-provider'||selection.version!=='2.1.0'||!SHA.test(selection.manifestSha256??'')||!SHA.test(selection.contractSha256??''))fail('invalid-root-provider-selection');
     const providerManifest=path.join(providerRoot,'package-manifest.json'),contractPath=path.join(providerRoot,'contracts/offline-root-knowledge-v2.json');
     const manifestBytes=documentBytes(providerManifest),contractBytes=documentBytes(contractPath);
