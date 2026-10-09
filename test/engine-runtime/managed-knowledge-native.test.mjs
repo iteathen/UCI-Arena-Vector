@@ -9,7 +9,7 @@ import {uciToAction} from '../../components/uci-protocol/index.mjs';
 import selection from '../../contracts/root-tablebase-selection.json' with {type:'json'};
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 
-test('actual public engine keeps managed provider across games and consumes exact root proof through final GPU output',{skip:process.env.VECTOR_MANAGED_KNOWLEDGE_NATIVE!=='1'},async()=>{
+test('actual public engine keeps managed provider across games and emits configured exact authority with cached GPU canonical legality',{skip:process.env.VECTOR_MANAGED_KNOWLEDGE_NATIVE!=='1'},async()=>{
  const bindingPath=process.env.VECTOR_TB_BINDING_OUTPUT,receiptPath=process.env.VECTOR_MANAGED_KNOWLEDGE_RECEIPT;
  assert(bindingPath&&receiptPath&&process.env.VECTOR_TB_PACKAGE_ROOT&&process.env.VECTOR_TB_CONFIG);
  const {bindingBytes,...metadata}=await captureNativeObservation({selection,providerRoot:process.env.VECTOR_TB_PACKAGE_ROOT,configPath:process.env.VECTOR_TB_CONFIG}),revision=metadata.sourceRevision;
@@ -17,7 +17,7 @@ test('actual public engine keeps managed provider across games and consumes exac
  await fs.writeFile(bindingPath,bindingBytes,{flag:'wx'});assert.equal(sha(await fs.readFile(bindingPath)),metadata.bindingBytesSha256);
  const statuses=[],probes=[];let actualProvider;
  // Observe the existing public provider/ticket port without changing ownership,
- // requests, callbacks, results or final GPU selection.
+ // requests, callbacks, exact authority or cached GPU canonical legality.
  const knowledge=createRootKnowledgeCoordinator({onStatus:e=>statuses.push(e),openTablebaseProvider:async options=>{
   actualProvider=await openRootTablebaseProvider(options);
   return Object.freeze({...actualProvider,probe(input){const ticket=actualProvider.probe(input);assert(probes.length<16,'Bounded native request journal');probes.push({request:ticket.request,requestSha256:ticket.requestSha256,providerGeneration:actualProvider.describe().provider_generation,rootContext:input.context});return ticket;}});
