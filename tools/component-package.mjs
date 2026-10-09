@@ -16,6 +16,7 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const ROOT_BINDINGS=[{name:'root_tablebase_provider',component_id:'syzygy.root-provider',source:'component_path',path:'runtime',required:false}];
 const ROOT_LOCATORS=[{name:'syzygy',kind:'syzygy',required:false}];
+const BOOK_LOCATOR={name:'opening_book',kind:'opening_book',required:false,accepted_sources:['saved_locator','install_receipt']};
 function rootProviderSelected(root,closure){
   const name='contracts/root-tablebase-selection.json';if(!closure.files.some(row=>row.path===name))return false;
   const bytes=readFileSync(path.join(root,name));if(bytes.length>16384)throw new Error('root provider selection extent');
@@ -202,7 +203,7 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
       entrypoint: 'installer_integration', invocation: { kind: 'dependency_runtime',
         runtime_component_id: 'node_runtime.private', runtime_entrypoint: 'node' },
       arguments: ['--context'], workspace_name: 'uci-arena-vector', workspace_placement: 'product_data',
-      configure_when_disabled: true, dependency_bindings: rootProvider?ROOT_BINDINGS:[], locator_bindings: rootProvider?ROOT_LOCATORS:[] },
+      configure_when_disabled: true, dependency_bindings: rootProvider?ROOT_BINDINGS:[], locator_bindings: [BOOK_LOCATOR,...(rootProvider?ROOT_LOCATORS:[])] },
     startup: {}, data_paths: [],
     files: inventory(root).filter(row => row.path !== 'arena-component.json') };
   if (evidenceRuntime) {
@@ -255,7 +256,7 @@ export function verifyAtomicComponent(root) {
       || integration.workspace_placement !== 'product_data' || integration.workspace_name !== 'uci-arena-vector'
       || manifest.workspace_name !== integration.workspace_name || integration.configure_when_disabled !== true
       || JSON.stringify(integration.arguments) !== JSON.stringify(['--context'])
-      || !isDeepStrictEqual(integration.dependency_bindings,rootProvider?ROOT_BINDINGS:[]) || !isDeepStrictEqual(integration.locator_bindings,rootProvider?ROOT_LOCATORS:[])
+      || !isDeepStrictEqual(integration.dependency_bindings,rootProvider?ROOT_BINDINGS:[]) || !isDeepStrictEqual(integration.locator_bindings,[BOOK_LOCATOR,...(rootProvider?ROOT_LOCATORS:[])])
       || !isDeepStrictEqual(manifest.dependencies,['node_runtime.private'])) {
     throw new Error('component installer integration differs');
   }

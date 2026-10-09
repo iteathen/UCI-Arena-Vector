@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,7 +12,8 @@ import { buildRuntimeContract } from '../components/evidence-runtime/contract.mj
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 function fixture(t) {
   const root = mkdtempSync(path.join(tmpdir(), 'vector-component-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const parent=fs.realpathSync(tmpdir()),incarnation=fs.lstatSync(root,{bigint:true});
+  t.after(()=>{const current=fs.lstatSync(root,{bigint:true});assert(current.isDirectory()&&!current.isSymbolicLink());assert.equal(fs.realpathSync(root),root);assert.equal(path.dirname(root),parent);assert(path.basename(root).startsWith('vector-component-'));for(const k of ['dev','ino','birthtimeNs'])assert.equal(current[k],incarnation[k]);rmSync(root,{recursive:true});});
   const files = { 'bin/node.exe': 'official-node-fixture', 'dist/uci.mjs': 'export {}',
     'dist/installer-integration.mjs': 'export {}',
     'models/default/parameters.f32.bin': 'model-fixture', 'libraries/cuda-js/package.json': '{"version":"0.1.0-alpha.22"}',
@@ -88,7 +90,7 @@ test('an inventoried external root selection adds only declared optional provide
   const options=fixture(t),name='contracts/root-tablebase-selection.json',bytes=JSON.stringify({schema:'vector_root_tablebase_selection_v1',componentId:'syzygy.root-provider',version:'2.1.0',manifestSha256:'a'.repeat(64),contractSha256:'b'.repeat(64)});
   writeFileSync(path.join(options.root,name),bytes);options.closure.files.push({path:name,sha256:sha(bytes)});
   const receiptPath=path.join(options.root,options.closure.qualification.receipt),receipt=JSON.parse(readFileSync(receiptPath));receipt.files.push({path:name,sha256:sha(bytes)});const receiptBytes=JSON.stringify(receipt);writeFileSync(receiptPath,receiptBytes);options.closure.qualification.receipt_sha256=sha(receiptBytes);options.closure.files.find(row=>row.path===options.closure.qualification.receipt).sha256=sha(receiptBytes);
-  const {manifest}=buildAtomicComponent(options);assert.deepEqual(manifest.installer_integration.dependency_bindings,[{name:'root_tablebase_provider',component_id:'syzygy.root-provider',source:'component_path',path:'runtime',required:false}]);assert.deepEqual(manifest.installer_integration.locator_bindings,[{name:'syzygy',kind:'syzygy',required:false}]);
+  const {manifest}=buildAtomicComponent(options);assert.deepEqual(manifest.installer_integration.dependency_bindings,[{name:'root_tablebase_provider',component_id:'syzygy.root-provider',source:'component_path',path:'runtime',required:false}]);assert.deepEqual(manifest.installer_integration.locator_bindings,[{name:'opening_book',kind:'opening_book',required:false,accepted_sources:['saved_locator','install_receipt']},{name:'syzygy',kind:'syzygy',required:false}]);
   assert.deepEqual(manifest.dependencies,['node_runtime.private'],'component dependencies are required string ids; optional provider belongs only in its declared binding');assert.equal(verifyAtomicComponent(options.root).component_version,options.version);
   manifest.dependencies.push({component_id:'syzygy.root-provider',required:false,binding:'optional-root-knowledge'});
   writeFileSync(path.join(options.root,'arena-component.json'),JSON.stringify(manifest));
@@ -183,4 +185,11 @@ test('qualification receipt must pass required gates against these exact runtime
     options.closure.files.find(row => row.path === options.closure.qualification.receipt).sha256 = sha(bytes);
     assert.throws(() => buildAtomicComponent(options), /qualification/);
   }
+});
+
+test('Book locator is optional independently of root tablebase component selection',t=>{
+ const options=fixture(t),out=buildAtomicComponent(options);
+ assert.deepEqual(out.manifest.dependencies,['node_runtime.private']);
+ assert.deepEqual(out.manifest.installer_integration.locator_bindings,[{name:'opening_book',kind:'opening_book',required:false,accepted_sources:['saved_locator','install_receipt']}]);
+ const manifestPath=path.join(options.root,'arena-component.json'),manifest=JSON.parse(readFileSync(manifestPath));manifest.installer_integration.locator_bindings[0].required=true;writeFileSync(manifestPath,JSON.stringify(manifest));assert.throws(()=>verifyAtomicComponent(options.root),/installer integration/i);
 });

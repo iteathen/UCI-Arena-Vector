@@ -16,7 +16,8 @@ function addInventoriedFile(f,name,bytes){mkdirSync(path.dirname(path.join(f.roo
 
 function fixture(t) {
   const temporary = mkdtempSync(path.join(tmpdir(), 'vector-install-renderer-'));
-  t.after(() => rmSync(temporary, { recursive: true, force: true }));
+  const parent=fs.realpathSync(tmpdir()),incarnation=fs.lstatSync(temporary,{bigint:true});
+  t.after(()=>{const current=fs.lstatSync(temporary,{bigint:true});assert(current.isDirectory()&&!current.isSymbolicLink());assert.equal(fs.realpathSync(temporary),temporary);assert.equal(path.dirname(temporary),parent);assert(path.basename(temporary).startsWith('vector-install-renderer-'));for(const k of ['dev','ino','birthtimeNs'])assert.equal(current[k],incarnation[k]);rmSync(temporary,{recursive:true});});
   const root = path.join(temporary, 'component');
   const workspace = path.join(temporary, 'provider-data');
   const profile = { schema: 'arena_uci_engine_launch_profile_v1', schema_version: 1,
@@ -72,9 +73,33 @@ test('installer renderer emits the absolute Manager launch profile without mutat
   assert.equal(output.configuration.engine.executable, path.join(f.root, 'bin/node.exe'));
   assert.equal(output.configuration.engine.working_directory, f.root);
   assert.deepEqual(output.configuration.engine.arguments, ['--experimental-ffi', path.join(f.root, 'dist/uci.mjs')]);
-  assert.deepEqual(output.configuration.uci_options, { Hash: 64 });
+  assert.deepEqual(output.configuration.uci_options, { Hash: 64, OwnBook:false, BookSnapshotBinding:'' });
   assert.equal(output.configuration.expected_runtime, null);
   assert.deepEqual(readFileSync(path.join(f.root, 'contracts/uci-engine-launch-profile.json')), before);
+});
+
+test('installed unselected Book is disabled rather than using an unrelated environment default',t=>{
+ const f=fixture(t),result=f.run();assert.equal(result.status,0,result.stderr);
+ const out=JSON.parse(result.stdout);assert.equal(out.configuration.uci_options.OwnBook,false);
+ assert.equal(out.configuration.knowledge.opening_book.reason,'no-selected-locator');
+});
+
+test('renderer binds explicit personal v2 Book roles and authority without qualifying data',t=>{
+ for(const authority_mode of ['immutable_pinned_snapshot','service_managed_live_channel']){
+  const f=fixture(t),directory=path.join(f.workspace,'selected-book');mkdirSync(directory);
+  for(const name of ['strong_rare_v1.bin','strong_rare_v1.stats','strong_rare_v1.policy'])writeFileSync(path.join(directory,name),'fixture');
+  const manifest={schema:'uci_arena_book_snapshot_v2',snapshot_id:'integration-0123456789abcdef0123',channel:'integration',qualified:false,record_count:1,artifacts:Object.fromEntries(['strong_rare_v1.bin','strong_rare_v1.stats','strong_rare_v1.policy'].map(name=>[name,sha('fixture')]))};
+  writeFileSync(path.join(directory,'snapshot.manifest.json'),JSON.stringify(manifest));
+  f.context.locators.opening_book=directory;f.context.locator_details.opening_book={kind:'opening_book',path:directory,source:'saved_locator',storage_mode:'in_place_reference',authority_mode};
+  const result=f.run();assert.equal(result.status,0,result.stderr);const out=JSON.parse(result.stdout);
+  assert.equal(out.configuration.uci_options.BookFile,path.join(directory,'strong_rare_v1.bin'));
+  assert.equal(out.configuration.uci_options.BookStatsFile,path.join(directory,'strong_rare_v1.stats'));
+  assert.equal(out.configuration.uci_options.BookPolicyFile,path.join(directory,'strong_rare_v1.policy'));
+  const binding=out.generated_documents.find(row=>row.path==='opening-book-binding.json').document;
+  assert.equal(binding.authorityMode,authority_mode);assert.equal(binding.capability,'snapshot_v2');
+  assert.equal(binding.pin?.manifestSha256??null,authority_mode==='immutable_pinned_snapshot'?sha(JSON.stringify(manifest)):null);
+  assert.equal(out.configuration.knowledge.opening_book.status,'configured-pending-engine-admission');
+ }
 });
 
 test('component identity mismatch fails before publishing a configuration', t => {
@@ -168,4 +193,24 @@ test('a junction in the program path cannot cross the verified component boundar
   rmSync(path.join(f.root, 'dist'), { recursive: true });
   symlinkSync(outside, path.join(f.root, 'dist'), process.platform === 'win32' ? 'junction' : 'dir');
   assert.notEqual(f.run().status, 0);
+});
+
+test('selected file-only Book binds exact immutable base bytes without inferring v2 neighbors',t=>{
+ const f=fixture(t),file=path.join(f.workspace,'selected.book'),bytes=Buffer.alloc(16,1);writeFileSync(file,bytes);writeFileSync(path.join(f.workspace,'snapshot.manifest.json'),'unrelated bad manifest');
+ f.context.locators.opening_book=file;f.context.locator_details.opening_book={kind:'opening_book',path:file,source:'saved_locator',storage_mode:'managed_copy',authority_mode:'immutable_pinned_snapshot'};
+ const result=f.run();assert.equal(result.status,0,result.stderr);const out=JSON.parse(result.stdout),binding=out.generated_documents[0].document;
+ assert.equal(out.configuration.uci_options.OwnBook,true);assert.equal(binding.capability,'polyglot_base');assert.deepEqual(binding.pin,{bookSha256:sha(bytes)});assert.deepEqual(binding.files,{bookFile:file,statsFile:'',policyFile:'',manifestFile:''});assert.equal(out.configuration.uci_options.BookStatsFile,'');assert.equal(out.configuration.uci_options.BookPolicyFile,'');
+});
+test('unavailable or incompatible optional Book remains degraded and never enables a default',t=>{
+ for(const form of ['missing','bad-file','live-file','missing-v2']){
+  const f=fixture(t),selected=path.join(f.workspace,form);if(form==='missing-v2')mkdirSync(selected);else if(form!=='missing')writeFileSync(selected,'bad');
+  f.context.locators.opening_book=selected;f.context.locator_details.opening_book={kind:'opening_book',path:selected,source:'saved_locator',storage_mode:'in_place_reference',authority_mode:form==='live-file'?'service_managed_live_channel':'immutable_pinned_snapshot'};
+  const result=f.run();assert.equal(result.status,0,result.stderr);const out=JSON.parse(result.stdout);assert.equal(out.configuration.uci_options.OwnBook,false);assert.equal(out.configuration.uci_options.BookSnapshotBinding,'');assert.equal(out.generated_documents.length,0);assert.equal(out.configuration.knowledge.opening_book.reason,'selected-book-unavailable-or-incompatible');
+ }
+});
+test('wrong Book locator authority fails closed before publishing consumer configuration',t=>{
+ for(const change of [{kind:'syzygy'},{path:path.resolve('different')},{source:'inferred'},{authority_mode:'live'},{storage_mode:'managed_copy',authority_mode:'service_managed_live_channel'}]){
+  const f=fixture(t),file=path.join(f.workspace,'selected.bin');writeFileSync(file,Buffer.alloc(16));f.context.locators.opening_book=file;f.context.locator_details.opening_book={kind:'opening_book',path:file,source:'saved_locator',storage_mode:'in_place_reference',authority_mode:'immutable_pinned_snapshot',...change};
+  const result=f.run();assert.notEqual(result.status,0);assert.equal(result.stdout,'');
+ }
 });
