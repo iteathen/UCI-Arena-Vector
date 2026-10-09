@@ -127,3 +127,33 @@ test('explicit diagnostic timing experiment schedules whole candidate opportunit
   await c.close();
 });
 test('admission clock observation retains only the returned current GPU owner facts',async()=>{const {createUciController}=await api(),f=fixture(),facts={authority:{arena:1,root:0,generation:1,epoch:3},telemetry:{rootEvaluatorAdmissions:{value:1,scope:'node-incarnation'}}},phases=[];f.port.admitPosition=async({rootEpoch})=>({rootEpoch,sideToMove:0,observation:facts});const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row)});await c.handle('position startpos');assert.deepEqual(phases.find(p=>p.phase==='admissionReady').observation,facts);await c.close();});
+
+test('late current-focus resolution cancels only remaining publication wait',async()=>{
+  const {createUciController}=await api(),f=fixture();let listener,subscription,unsubscribed=0;
+  f.port.subscribePublicationResolution=(identity,callback)=>{subscription=identity;listener=callback;return()=>unsubscribed++;};
+  const c=createUciController(f.options);try{
+    await c.handle('position startpos');await c.handle('go movetime 1000');assert.equal(typeof listener,'function');
+    await f.advance(100);listener({...subscription,requestId:subscription.requestId+1,resolved:true});assert.equal(f.requests.length,0);
+    listener({...subscription,resolved:true});await flush();assert.equal(f.requests.length,1);assert.equal(unsubscribed,1);
+    listener({...subscription,resolved:true});await f.advance(1000);assert.equal(f.requests.length,1);
+  }finally{await c.close();}
+});
+test('late resolution preserves ponder and infinite gates and replacement fences callbacks',async()=>{
+  const {createUciController}=await api();
+  for(const command of ['go ponder movetime 1000','go infinite']){
+    const f=fixture();let listener,identity;f.port.subscribePublicationResolution=(value,callback)=>{identity=value;listener=callback;return()=>{};};
+    const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle(command);assert.equal(typeof listener,'function');listener({...identity,resolved:true});await f.advance(2000);assert.equal(f.requests.length,0);await c.handle(command.includes('ponder')?'ponderhit':'stop');assert.equal(f.requests.length,1);await c.handle('position startpos moves e2e4');listener({...identity,resolved:true});assert.equal(f.requests.length,1);}finally{await c.close();}
+  }
+});
+test('resolution already completed at subscription publishes once and retires returned handle',async()=>{
+  const {createUciController}=await api(),f=fixture();let removed=0;f.port.subscribePublicationResolution=(identity,listener)=>{listener({...identity,resolved:true});return()=>removed++;};
+  const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle('go movetime 1000');await flush();assert.equal(f.requests.length,1);assert.equal(removed,1);await f.advance(1000);assert.equal(f.requests.length,1);}finally{await c.close();}
+});
+test('failed subscription retirement still closes backend and cannot report clean teardown',async()=>{
+  const {createUciController}=await api(),f=fixture();let closed=0;f.port.subscribePublicationResolution=()=>()=>{throw new Error('subscription close failed');};f.port.close=async()=>{closed++;return{graceful:true};};
+  const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go movetime 1000');await assert.rejects(c.close(),/subscription retirement/);assert.equal(closed,1);assert.equal(f.timers.size,0);await assert.rejects(c.close(),/subscription retirement/);assert.equal(closed,1);
+});
+test('newgame releases resolution subscription and ignores its later callback',async()=>{
+  const {createUciController}=await api(),f=fixture();let removed=0,listener,identity;f.port.subscribePublicationResolution=(value,callback)=>{identity=value;listener=callback;return()=>removed++;};
+  const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle('go movetime 1000');await c.handle('ucinewgame');assert.equal(removed,1);listener({...identity,resolved:true});await f.advance(1000);assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);}finally{await c.close();}
+});

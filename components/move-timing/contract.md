@@ -96,3 +96,11 @@ Production decisions emit a bounded `vector_timing_policy` record with exact
 policy, focus, clock, reserve, applicability and publication reason. Explicit
 movetime-only commands retain their ordinary protocol meaning. Diagnostic
 experiment and production policy launches are mutually exclusive.
+
+An optional neutral `subscribePublicationResolution({rootEpoch,requestId},
+listener)` port returns one owned unsubscribe handle. Its exact current-focus
+`resolved:true` event cancels only the remaining allocated publication wait.
+Ponder and infinite commands retain their external publication gates. Replayed
+completion, stale callbacks, replacement, new game and shutdown are fenced;
+subscription release failures still allow backend closure and fail the aggregate
+teardown. The timing layer neither selects the resolved action nor changes search.
