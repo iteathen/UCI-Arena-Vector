@@ -52,7 +52,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
   if(typeof write!=='function')throw new Error('UCI output writer is required');
   const options=new Map();
   for(const option of port.options??[]) {
-    if(!option||typeof option.name!=='string'||!option.name||/[\x00-\x1f\x7f]/.test(option.name)||option.type!=='string'||typeof option.default!=='string'||/[\x00-\x1f\x7f]/.test(option.default)||options.has(option.name.toLowerCase()))throw new Error('Invalid advertised UCI option registry');
+    if(!option||typeof option.name!=='string'||!option.name||/[\x00-\x1f\x7f]/.test(option.name)||!['string','check','spin'].includes(option.type)||!['startup','next-go'].includes(option.apply??'startup')||(option.type==='string'&&(typeof option.default!=='string'||/[\x00-\x1f\x7f]/.test(option.default)))||(option.type==='check'&&typeof option.default!=='boolean')||(option.type==='spin'&&(![option.default,option.min,option.max].every(Number.isSafeInteger)||option.min>option.max||option.default<option.min||option.default>option.max))||options.has(option.name.toLowerCase()))throw new Error('Invalid advertised UCI option registry');
     options.set(option.name.toLowerCase(),Object.freeze({...option}));
   }
   if(options.size&&typeof port.configure!=='function')throw new Error('Advertised UCI options require configuration admission');
@@ -65,6 +65,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     if(!readyPromise)readyPromise=Promise.resolve().then(()=>port.ready()).then(identity=>{if(identity!==undefined){if(identity?.schema!=='vector_engine_runtime_identity_v1')throw new Error('Backend public runtime identity schema mismatch');const encoded=JSON.stringify(identity);if(encoded.length>16384)throw new Error('Backend public runtime identity exceeds bounded extent');runtimeIdentity=encoded;}});
     return readyPromise;
   };
+  const optionValues=Object.fromEntries([...options.values()].map(o=>[o.name,o.default]));
   const clearActive=()=>{if(active?.timer)clearTimer(active.timer);active=null;};
   const publicationFailure=(token,error)=>{if(closed||active!==token)return;clearActive();write('info string error '+String(error?.message??error).replace(/[\x00-\x1f\x7f]/g,' ').slice(0,512));};
   const pendingPublications=new Set();
@@ -80,7 +81,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     }
     token.timer=setTimer(()=>poll(token),5);
   };
-  const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;diagnostic('publicationRequested',{rootEpoch:token.rootEpoch,requestId:token.requestId});let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[]});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>{diagnostic('observerDelivered',{rootEpoch:token.rootEpoch,requestId:token.requestId});poll(token);}).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
+  const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;diagnostic('publicationRequested',{rootEpoch:token.rootEpoch,requestId:token.requestId});let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],...(options.size?{options:token.options}:{})});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>{diagnostic('observerDelivered',{rootEpoch:token.rootEpoch,requestId:token.requestId});poll(token);}).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
   const schedule=token=>{const delay=publicationDelay(token.command,sideToMove);if(delay!==null)token.timer=setTimer(()=>publish(token),Math.max(0,delay-(now()-token.started)));};
   let closePromise;
   const close=()=>{if(!closePromise){closed=true;clearActive();closePromise=Promise.resolve().then(async()=>{await configuration;if(readyPromise)await readyPromise.catch(()=>{});await admission.catch(()=>{});await Promise.allSettled([...pendingPublications]);return port.close();});}return closePromise;};
@@ -88,13 +89,16 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     if(closed)return;
     const command=parseUciCommand(line);
     diagnostic('commandReceived',{command:command.kind});
-    if(command.kind==='uci'){write('id name UCI Arena Vector');write('id author iteathen');for(const option of options.values())write(`option name ${option.name} type string default ${option.default||'<empty>'}`);write('uciok');}
+    if(command.kind==='uci'){write('id name UCI Arena Vector');write('id author iteathen');for(const option of options.values())write(`option name ${option.name} type ${option.type} default ${option.type==='string'?(option.default||'<empty>'):String(option.default)}${option.type==='spin'?` min ${option.min} max ${option.max}`:''}`);write('uciok');}
     else if(command.kind==='setoption'){
       const option=options.get(command.name.toLowerCase());
       if(!option)throw new Error('UCI option is not advertised');
-      if(hasPosition)throw new Error('UCI configuration cannot change an admitted game');
+      if(hasPosition&&(option.apply??'startup')!=='next-go')throw new Error('UCI configuration cannot change an admitted game');
+      let value=command.value;
+      if(option.type==='check'){if(!['true','false'].includes(value))throw new Error('Check option requires true or false');value=value==='true';}
+      if(option.type==='spin'){if(!/^-?\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<option.min||Number(value)>option.max)throw new Error('Spin option integer outside declared range');value=Number(value);}
       const pending=configuration.then(async()=>{
-        try{await port.configure({name:option.name,value:command.value});configurationError=undefined;readyPromise=undefined;runtimeIdentity=undefined;}
+        try{await port.configure({name:option.name,value});optionValues[option.name]=value;configurationError=undefined;if((option.apply??'startup')==='startup'){readyPromise=undefined;runtimeIdentity=undefined;}}
         catch(error){configurationError=error;throw error;}
       });
       configuration=pending.catch(()=>{});
@@ -109,7 +113,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       if(!hasPosition)throw new Error('UCI go requires admitted position');publicationDelay(command,sideToMove);clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
       const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,timer:null};active=token;
       diagnostic('goReceived',{rootEpoch:token.rootEpoch,requestId:token.requestId});
-      await admission;if(active===token&&!closed){if(token.stopPending)publish(token);else schedule(token);}
+      await configuration;if(configurationError)throw configurationError;token.options=Object.freeze({...optionValues});await admission;if(active===token&&!closed){if(token.stopPending)publish(token);else schedule(token);}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){delete active.command.ponder;active.started=now();schedule(active);}}
     else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;});retirement=admission;await admission;}
