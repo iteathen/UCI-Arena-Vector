@@ -1,6 +1,7 @@
 // Synthetic metadata fixtures ONLY. These are not native qualification receipts,
 // usable engines, licensed models or publishable release candidates.
 import assert from 'node:assert/strict';import {test} from 'node:test';
+import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,existsSync,symlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';import path from 'node:path';import {execFileSync} from 'node:child_process';import {createHash} from 'node:crypto';import {gunzipSync,gzipSync} from 'node:zlib';
 import {buildAtomicComponent} from '../tools/component-package.mjs';
@@ -41,6 +42,28 @@ test('changed source, receipt identity, archive bytes and non-main signer fail w
 test('an output alias into the source checkout cannot falsify clean-tree authority',t=>{
  const q=fixture(t),alias=path.join(q.base,'source-alias');symlinkSync(q.repo,alias,process.platform==='win32'?'junction':'dir');
  assert.throws(()=>stageVectorRelease({...q.options,outputDirectory:path.join(alias,'provider')}),/source|symlink|junction/);assert(!existsSync(path.join(q.repo,'provider')));
+});
+test('cleanup rejects an own verification path replaced by a junction before deletion',t=>{
+ const q=fixture(t),victim=path.join(q.base,'unowned'),retained=path.join(q.base,'retained-work');mkdirSync(victim);writeFileSync(path.join(victim,'keep.txt'),'unowned data');
+ const originalMkdtemp=fs.mkdtempSync,originalRename=fs.renameSync;let work;
+ fs.mkdtempSync=(prefix,...args)=>{const result=originalMkdtemp(prefix,...args);if(path.basename(prefix)==='vector-release-verify-')work=result;return result;};
+ fs.renameSync=(from,to,...args)=>{const result=originalRename(from,to,...args);if(to===q.options.outputDirectory){originalRename(work,retained);symlinkSync(victim,work,process.platform==='win32'?'junction':'dir');}return result;};syncBuiltinESMExports();
+ try{assert.throws(()=>stageVectorRelease(q.options),/temporary|containment|owned/i);assert.equal(readFileSync(path.join(victim,'keep.txt'),'utf8'),'unowned data');assert(existsSync(retained));}
+ finally{fs.mkdtempSync=originalMkdtemp;fs.renameSync=originalRename;syncBuiltinESMExports();if(work&&existsSync(work))fs.unlinkSync(work);}
+});
+test('cleanup rejects a different ordinary directory at the original temporary path',t=>{
+ const q=fixture(t),retained=path.join(q.base,'retained-work');const originalMkdtemp=fs.mkdtempSync,originalRename=fs.renameSync;let work;
+ fs.mkdtempSync=(prefix,...args)=>{const result=originalMkdtemp(prefix,...args);if(path.basename(prefix)==='vector-release-verify-')work=result;return result;};
+ fs.renameSync=(from,to,...args)=>{const result=originalRename(from,to,...args);if(to===q.options.outputDirectory){originalRename(work,retained);mkdirSync(work);writeFileSync(path.join(work,'keep.txt'),'replacement data');}return result;};syncBuiltinESMExports();
+ try{assert.throws(()=>stageVectorRelease(q.options),/temporary|containment|owned/i);assert.equal(readFileSync(path.join(work,'keep.txt'),'utf8'),'replacement data');assert(existsSync(retained));}
+ finally{fs.mkdtempSync=originalMkdtemp;fs.renameSync=originalRename;syncBuiltinESMExports();if(work&&existsSync(work)){const resolved=fs.realpathSync(work);assert.equal(path.dirname(resolved),fs.realpathSync(tmpdir()));assert(path.basename(resolved).startsWith('vector-release-verify-'));rmSync(resolved,{recursive:true,force:true});}}
+});
+test('failed staging cleanup rejects a replaced stage path and preserves unowned files',t=>{
+ const q=fixture(t),victim=path.join(q.base,'unowned'),retained=path.join(q.base,'retained-stage');mkdirSync(victim);writeFileSync(path.join(victim,'keep.txt'),'unowned data');
+ const originalWrite=fs.writeFileSync,originalRename=fs.renameSync;let stage;
+ fs.writeFileSync=(filename,...args)=>{if(path.basename(path.dirname(filename)).startsWith('.vector-provider-stage-')){stage=path.dirname(filename);originalRename(stage,retained);symlinkSync(victim,stage,process.platform==='win32'?'junction':'dir');throw Error('controlled staging failure');}return originalWrite(filename,...args);};syncBuiltinESMExports();
+ try{assert.throws(()=>stageVectorRelease(q.options),/temporary|containment|owned/i);assert.equal(readFileSync(path.join(victim,'keep.txt'),'utf8'),'unowned data');assert(existsSync(retained));assert(!existsSync(q.options.outputDirectory));}
+ finally{fs.writeFileSync=originalWrite;syncBuiltinESMExports();if(stage&&existsSync(stage))fs.unlinkSync(stage);}
 });
 function rebuilt(q,mutate){const receipt=JSON.parse(q.files['contracts/runtime-qualification.json']);mutate(receipt,q.closure,q.files);q.files['contracts/runtime-qualification.json']=json(receipt);writeFileSync(path.join(q.root,'contracts/runtime-qualification.json'),q.files['contracts/runtime-qualification.json']);q.closure.qualification.receipt_sha256=sha(q.files['contracts/runtime-qualification.json']);q.closure.files.find(x=>x.path==='contracts/runtime-qualification.json').sha256=q.closure.qualification.receipt_sha256;return buildAtomicComponent({root:q.root,closure:q.closure,version:'0.1.0',sourceDateEpoch:1791489600});}
 test('all five native owner gates stay mandatory; explicit fixture input cannot become a release',t=>{

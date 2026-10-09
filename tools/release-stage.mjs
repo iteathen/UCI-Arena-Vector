@@ -30,6 +30,18 @@ function outputPath(value,repositoryRoot){
  const actual=path.resolve(realpathSync(existing),path.relative(existing,output)),repo=realpathSync(repositoryRoot),fold=s=>process.platform==='win32'?s.toLowerCase():s;
  if(fold(actual)===fold(repo)||fold(actual).startsWith(fold(repo+path.sep)))throw Error('release output must be outside source');return actual;
 }
+function ownedTemporaryDirectory(parent,prefix){
+ const ownedParent=realpathSync(parent),directory=path.resolve(mkdtempSync(path.join(ownedParent,prefix))),info=lstatSync(directory,{bigint:true});
+ const fold=value=>process.platform==='win32'?value.toLowerCase():value;
+ if(!info.isDirectory()||info.isSymbolicLink()||fold(realpathSync(directory))!==fold(directory)||fold(path.dirname(directory))!==fold(ownedParent)||!path.basename(directory).startsWith(prefix))throw Error('temporary directory containment differs');
+ return {directory,remove(){
+  // Verify the final resolved target stays in its original owned parent and is
+  // the same directory incarnation before any recursive Windows deletion.
+  const current=lstatSync(directory,{bigint:true}),resolved=realpathSync(directory);
+  if(!current.isDirectory()||current.isSymbolicLink()||current.dev!==info.dev||current.ino!==info.ino||fold(resolved)!==fold(directory)||fold(realpathSync(ownedParent))!==fold(ownedParent)||fold(path.dirname(resolved))!==fold(ownedParent)||!path.basename(resolved).startsWith(prefix))throw Error('owned temporary directory changed; cleanup refused');
+  rmSync(resolved,{recursive:true,force:true});
+ }};
+}
 function sourceOffer(value){
  if(typeof value!=='string'||value.length>2048||/[\u0000-\u001f]/u.test(value))return false;
  try{const url=new URL(value);return url.protocol==='https:'&&url.hostname.length>0&&!url.username&&!url.password;}catch{return false;}
@@ -92,7 +104,7 @@ export function stageVectorRelease(options){
  const visibility=validateRepository(repositoryMetadata),intake=validateDraftIntake(intakeMetadata,options),source=sourceIdentity(path.resolve(repositoryRoot));if(source.commit!==expectedCommit)throw Error('checked-out source commit differs from intake');
  const repo=path.resolve(repositoryRoot),output=outputPath(outputDirectory,repo);
  const archive=fileBytes(archivePath,MAX_ARCHIVE);if(path.basename(archivePath)!==intake.asset_name||sha(archive)!==expectedArchiveSha256||archive.length!==intake.asset_size_bytes)throw Error('intake archive bytes differ');
- const work=mkdtempSync(path.join(tmpdir(),'vector-release-verify-'));let stage;
+ const workOwner=ownedTemporaryDirectory(tmpdir(),'vector-release-verify-'),work=workOwner.directory;let stageOwner;
  try{
   extractProducerTar(archive,work);
   const manifest=verifyAtomicComponent(work),closure=JSON.parse(fileBytes(path.join(work,'contracts/runtime-closure.json')));
@@ -100,11 +112,11 @@ export function stageVectorRelease(options){
   const receiptBytes=fileBytes(path.join(work,relative(closure.qualification.receipt))),receipt=JSON.parse(receiptBytes);if(sha(receiptBytes)!==expectedReceiptSha256||receipt.fixture===true||receipt.includes_fixture===true||receipt.qualified===false||receipt.tests.some(t=>t.fixture===true||t.includes_fixture===true||t.qualified===false))throw Error('release qualification receipt is substituted or includes fixture evidence');
   const licenses=releaseLicenses(work,closure),sbom={spdxVersion:'SPDX-2.3',dataLicense:'CC0-1.0',SPDXID:'SPDXRef-DOCUMENT',name:`uci_arena.vector-${version}`,documentNamespace:`https://uci-arena.example/sbom/uci_arena.vector/${version}/${source.commit}`,creationInfo:{creators:['Tool: Vector release-stage-v1'],created:new Date(Number(execFileSync('git',['-C',repo,'show','-s','--format=%ct','HEAD'],{encoding:'utf8',windowsHide:true}).trim())*1000).toISOString()},packages:licenses.inventory.materials.map(x=>({SPDXID:`SPDXRef-${x.id}`,name:x.id,versionInfo:x.subject.version??(x.id==='vector'?version:x.subject.checkpoint_sha256),filesAnalyzed:false,licenseConcluded:'NOASSERTION',copyrightText:'NOASSERTION',licenseDeclared:x.license_expression,downloadLocation:x.source_offer})),relationships:licenses.inventory.materials.map(x=>({spdxElementId:'SPDXRef-DOCUMENT',relationshipType:'DESCRIBES',relatedSpdxElement:`SPDXRef-${x.id}`}))};
   const result={schema:'arena_provider_release_result_v1',component_id:'uci_arena.vector',component_version:version,target_triple:'windows-x86_64',artifact_name:intake.asset_name,artifact_sha256:expectedArchiveSha256,artifact_size_bytes:archive.length,component_manifest_sha256:sha(fileBytes(path.join(work,'arena-component.json'))),source_repository:REPOSITORY,source_commit:source.commit,source_tree_sha256:source.tree,clean_tree:true,release_authority:'provider_component_only',suite_installer_authority:'iteathen/uci-arena-installer',workflow_identity:workflowIdentity,toolchain_identity:{release_node:process.version,release_platform:process.platform,release_architecture:process.arch,payload_node:closure.node_version,qualification_origin:'existing-exact-runtime-owner-receipt; not issued by release staging'},dependency_lock_identities:{runtime_closure_sha256:sha(fileBytes(path.join(work,'contracts/runtime-closure.json'))),libraries:closure.libraries.map(x=>({name:x.name,version:x.version,commit:x.commit})),model:{checkpoint_sha256:closure.model.checkpoint_sha256,parameters_sha256:closure.model.parameters_sha256}},build_flags:['unchanged-qualified-atomic-archive','no dependency install or runtime rebuild','all existing qualification and inventory gates retained'],sbom_sha256:sha(json(sbom)),licenses_sha256:licenses.sha256,test_receipt_sha256:expectedReceiptSha256,tests:receipt.tests,validation_evidence:{repository_visibility:visibility,intake,qualification_file:closure.qualification.receipt,qualification_issued_here:false,licenses:licenses.identity,sbom}};
-  mkdirSync(path.dirname(output),{recursive:true});stage=mkdtempSync(path.join(path.dirname(output),'.vector-provider-stage-'));mkdirSync(path.join(stage,'metadata'));
+  mkdirSync(path.dirname(output),{recursive:true});stageOwner=ownedTemporaryDirectory(path.dirname(output),'.vector-provider-stage-');const stage=stageOwner.directory;mkdirSync(path.join(stage,'metadata'));
   writeFileSync(path.join(stage,result.artifact_name),archive,{flag:'wx'});const resultName=result.artifact_name.replace(/\.tar\.gz$/u,'.provider-result.json');writeFileSync(path.join(stage,resultName),json(result),{flag:'wx'});writeFileSync(path.join(stage,'metadata/provider-statement.json'),json(buildProviderStatement(result)),{flag:'wx'});
   // One rename exposes the complete archive/result/statement set; input is untouched.
-  renameSync(stage,output);stage=undefined;return {artifactPath:path.join(output,result.artifact_name),resultPath:path.join(output,resultName),bundlePath:path.join(output,result.artifact_name+'.sigstore.json'),statementPath:path.join(output,'metadata/provider-statement.json'),result};
- }finally{rmSync(work,{recursive:true,force:true});if(stage)rmSync(stage,{recursive:true,force:true});}
+  renameSync(stage,output);stageOwner=undefined;return {artifactPath:path.join(output,result.artifact_name),resultPath:path.join(output,resultName),bundlePath:path.join(output,result.artifact_name+'.sigstore.json'),statementPath:path.join(output,'metadata/provider-statement.json'),result};
+ }finally{try{workOwner.remove();}finally{if(stageOwner)stageOwner.remove();}}
 }
 function args(argv){const result={};for(let i=0;i<argv.length;i+=2){if(!argv[i]?.startsWith('--')||argv[i+1]===undefined||Object.hasOwn(result,argv[i].slice(2)))throw Error('invalid or duplicate release argument');result[argv[i].slice(2)]=argv[i+1];}return result;}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){

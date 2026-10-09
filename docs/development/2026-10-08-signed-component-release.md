@@ -97,6 +97,16 @@ mock cryptography port, and rejected malformed shape. This establishes contract
 compatibility only. Actual OIDC/signature verification remains undispatched.
 No release, merge, workflow dispatch, installation or model publication occurs.
 
+Follow-up cleanup review: both recursive temporary removals now check the
+resolved absolute target against the original canonical parent, generated name,
+and exact directory incarnation before deletion. Junctions, moved/replaced
+directories and changed parent resolution fail closed and retain the disputed
+path. A successful atomic output rename relinquishes staging cleanup ownership.
+Two substitution falsifiers observed RED before the repair, then GREEN; a third
+case covers failed staging cleanup. All27 release/packaging tests pass on
+Node26.7 and26.11, including preserved unowned files. These remain portable
+metadata/containment tests, not actual signing or engine qualification.
+
 ## Release prerequisites
 
 The final hardware-qualified complete payload/receipt does not exist at this
