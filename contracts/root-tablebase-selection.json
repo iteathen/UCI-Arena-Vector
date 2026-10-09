@@ -1,0 +1,7 @@
+{
+  "schema": "vector_root_tablebase_selection_v1",
+  "componentId": "syzygy.root-provider",
+  "version": "2.1.0",
+  "manifestSha256": "a9ffc6a03a98fe5c0337510a5404734f9839958d39305ede5971dab847d39944",
+  "contractSha256": "0c3863989e3fd596e4216f029b8ad691a04dd499daf563828a819b0bc72be83a"
+}

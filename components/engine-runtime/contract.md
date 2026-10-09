@@ -55,3 +55,29 @@ The advertised Book options are the original OwnBook, BookFile, BookStatsFile, B
 The operational public library pin now selects protected CUDA-MCGS `39a274ac4101c901f022ee3dfa8de741aa955f60` / `0.0.0-dev.3`. Its installed public closure is byte-equal to all 85 prior final-25981 package files, including 51 runtime `.mjs`/package metadata files. The consumer-selected runtime closure digest `850c662323e09a6dd9e8e900a87cdb93f82ecb52183a74e894624fd2c99ab98f` hashes the sorted canonical path/byte-length/content-digest manifest; it is a consumer selection fact, not an alleged library-issued schema identity or an archive digest relabeled for different bytes. Runtime admission still records actual compiled source/package identities. Historical tarball receipts remain separate.
 
 Optional public observer timing separates `submitExternal`, child `wait`, bounded `deliver` and child `close` wall time. Poll count is reported only when the public wait result actually publishes it, otherwise `not-published`. These neutral facts do not imply CUDA kernel-only duration, a timing reserve, p99 or qualified remaining-clock allocation.
+
+An exact prior origin plus identical packed action prefix and one additional
+action selects public Session readyAdvance with the current authority fence.
+Only its declared advanceNotReady acknowledgment with unchanged authority may
+fall back to general GPU replay. Other rejects remain errors. Repeated identical
+position commands still use explicit admission; host input equality does not
+authorize an undocumented reuse shortcut.
+
+Nonterminal full canonical legal sets of size one produce objective_no_choice
+intent, without Book/TB selection or deliberate search allocation. This remains
+a fenced singleton passed to the final GPU observer. A WDL-safe singleton from a
+larger full set is only a constraint. Selected Book resolution, exact root TB
+resolution and objective no-choice are explicit distinct public resolution
+authorities. Completed raw safety cannot disappear when later knowledge is
+unavailable, and late constrained/exact facts must retain the same root fence.
+
+RootTablebaseBinding is a process-lifetime startup option; SyzygyRootProbe is a
+default-true next-go option. The immutable public selection names the separate
+provider component/version/inventory/contract. A managed binding supplies only
+its absolute component root and exact cold configuration locator/digest; it
+cannot override executable or argv. Warming is not dataset readiness. Actual
+provider ingress and cancellation remain available while cold file hashing runs.
+One admitted provider stays prewarmed across games; new game abandons root tickets
+without reloading files. Final engine closure retains the bounded external
+provider process/worker receipt separately from GPU teardown. Internal GPU
+tablebase probing remains unsupported under this connector8 root-only profile.
