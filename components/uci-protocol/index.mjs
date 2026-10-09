@@ -47,7 +47,7 @@ export function publicationDelay(command, sideToMove) {
   return null;
 }
 
-export function createUciController({port,write,now=()=>performance.now(),setTimer=setTimeout,clearTimer=clearTimeout}) {
+export function createUciController({port,write,now=()=>performance.now(),setTimer=setTimeout,clearTimer=clearTimeout,onDiagnostic}) {
   for (const method of ['ready','admitPosition','requestPublication','readPublication','close']) if(typeof port?.[method]!=='function') throw new Error(`GameSearchPort requires ${method}`);
   if(typeof write!=='function')throw new Error('UCI output writer is required');
   const options=new Map();
@@ -58,6 +58,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
   if(options.size&&typeof port.configure!=='function')throw new Error('Advertised UCI options require configuration admission');
   let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,newGame=true,admission=Promise.resolve(),active=null,closed=false;
   let runtimeIdentity,readyPromise,configurationError,configuration=Promise.resolve();
+  const diagnostic=(phase,facts={})=>{if(onDiagnostic)try{onDiagnostic({schema:'vector_uci_clock_phase_v1',phase,time:now(),rootEpoch,requestId,...facts});}catch{/* diagnostics cannot alter search/publication ownership */}};
   const ready=async()=>{
     await configuration;
     if(configurationError)throw configurationError;
@@ -74,18 +75,19 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       const proof=result.legalProof;
       if(result.rootEpoch===rootEpoch&&result.requestId===token.requestId&&proof?.rootEpoch===rootEpoch&&proof.action===result.action&&proof.legal===true&&(result.action!==null||result.terminal===true)) {
         const text=result.action===null?'0000':actionToUci(result.action);
-        clearActive();write(`bestmove ${text}`);return;
+        clearActive();diagnostic('emit',{rootEpoch:token.rootEpoch,requestId:token.requestId});write(`bestmove ${text}`);return;
       }
     }
     token.timer=setTimer(()=>poll(token),5);
   };
-  const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[]});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>poll(token)).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
+  const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;diagnostic('publicationRequested',{rootEpoch:token.rootEpoch,requestId:token.requestId});let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[]});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>{diagnostic('observerDelivered',{rootEpoch:token.rootEpoch,requestId:token.requestId});poll(token);}).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
   const schedule=token=>{const delay=publicationDelay(token.command,sideToMove);if(delay!==null)token.timer=setTimer(()=>publish(token),Math.max(0,delay-(now()-token.started)));};
   let closePromise;
   const close=()=>{if(!closePromise){closed=true;clearActive();closePromise=Promise.resolve().then(async()=>{await configuration;if(readyPromise)await readyPromise.catch(()=>{});await admission.catch(()=>{});await Promise.allSettled([...pendingPublications]);return port.close();});}return closePromise;};
   const handle=async line=>{
     if(closed)return;
     const command=parseUciCommand(line);
+    diagnostic('commandReceived',{command:command.kind});
     if(command.kind==='uci'){write('id name UCI Arena Vector');write('id author iteathen');for(const option of options.values())write(`option name ${option.name} type string default ${option.default||'<empty>'}`);write('uciok');}
     else if(command.kind==='setoption'){
       const option=options.get(command.name.toLowerCase());
@@ -101,11 +103,12 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     else if(command.kind==='isready'){await ready();if(!closed){if(runtimeIdentity)write(`info string vector_identity ${runtimeIdentity}`);write('readyok');}}
     else if(command.kind==='position') {
       clearActive();if(rootEpoch===0xffff_fffe)throw new Error('Root epoch exhausted');const epoch=++rootEpoch,establishGame=newGame;newGame=false;hasPosition=true;admittedEpoch=0;
-      admission=admission.catch(()=>{}).then(()=>ready()).then(()=>port.admitPosition({...command,rootEpoch:epoch,newGame:establishGame})).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
+      admission=admission.catch(()=>{}).then(()=>ready()).then(()=>{diagnostic('admissionStarted',{rootEpoch:epoch});return port.admitPosition({...command,rootEpoch:epoch,newGame:establishGame});}).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');diagnostic('admissionReady',{rootEpoch:epoch});if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
       await admission;
     } else if(command.kind==='go') {
       if(!hasPosition)throw new Error('UCI go requires admitted position');publicationDelay(command,sideToMove);clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
       const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,timer:null};active=token;
+      diagnostic('goReceived',{rootEpoch:token.rootEpoch,requestId:token.requestId});
       await admission;if(active===token&&!closed){if(token.stopPending)publish(token);else schedule(token);}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){delete active.command.ponder;active.started=now();schedule(active);}}

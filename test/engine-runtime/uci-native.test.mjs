@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const require=createRequire(new URL('../../components/chess-domain/package.json',import.meta.url)),{Chess}=require('chess.js');
+const root=fileURLToPath(new URL('../../',import.meta.url));
+class NativeUci {
+ constructor(){this.lines=[];this.all=[];this.stderr='';this.waiter=null;this.child=spawn(process.execPath,['--experimental-ffi','dist/uci.mjs'],{cwd:root,env:{...process.env,VECTOR_CANDIDATE_SOURCE_REVISION:process.env.VECTOR_UCI_SOURCE_REVISION,VECTOR_CANDIDATE_COMPILER_CACHE:process.env.VECTOR_UCI_COMPILER_CACHE},stdio:['pipe','pipe','pipe'],windowsHide:true});this.closed=new Promise(resolve=>this.child.once('close',(code,signal)=>{this.exit={code,signal};resolve(this.exit);this.wake();}));let buffer='';this.child.stdout.on('data',bytes=>{buffer+=bytes.toString();if(buffer.length>65536)throw new Error('Native UCI line extent');for(let i;(i=buffer.indexOf('\n'))>=0;){const line=buffer.slice(0,i).replace(/\r$/,'');buffer=buffer.slice(i+1);this.lines.push(line);this.all.push(line);}this.wake();});this.child.stderr.on('data',b=>{this.stderr=(this.stderr+b).slice(-65536);});this.child.once('error',error=>{this.error=error;this.wake();});}
+ wake(){this.waiter?.();}
+ send(line){this.child.stdin.write(line+'\n');}
+ async until(predicate,timeout=30000){const deadline=performance.now()+timeout,seen=[];for(;;){while(this.lines.length){const line=this.lines.shift();seen.push(line);if(line.startsWith('info string error '))throw new Error(line);if(predicate(line))return seen;}if(this.error)throw this.error;if(this.exit)throw new Error('Native UCI exited before response');const remaining=deadline-performance.now();if(remaining<=0)throw new Error('Native UCI response timeout');await new Promise(resolve=>{const t=setTimeout(()=>{this.waiter=null;resolve();},remaining);this.waiter=()=>{clearTimeout(t);this.waiter=null;resolve();};});}}
+ async ready(){this.send('uci');await this.until(l=>l==='uciok');this.send('setoption name ModelRoot value '+process.env.VECTOR_UCI_MODEL_ROOT);this.send('isready');const lines=await this.until(l=>l==='readyok',300000);return JSON.parse(lines.find(l=>l.startsWith('info string vector_identity ')).slice('info string vector_identity '.length));}
+ async move(position,movetime){this.send(position);const t=performance.now();this.send('go movetime '+movetime);const lines=await this.until(l=>l.startsWith('bestmove '),movetime+30000);return {move:lines.at(-1).split(' ')[1],elapsedMilliseconds:performance.now()-t,movetime};}
+ async close(){this.send('quit');let t;const exit=await Promise.race([this.closed,new Promise((_,reject)=>{t=setTimeout(()=>reject(new Error('Native UCI failed joined process closure')),30000);})]).finally(()=>clearTimeout(t));assert.deepEqual(exit,{code:0,signal:null});const lines=this.all.filter(l=>l.startsWith('info string vector_teardown '));assert.equal(lines.length,1);return JSON.parse(lines[0].slice('info string vector_teardown '.length));}
+}
+test('actual UCI returns GPU legal moves, retains game across go/position and emits joined teardown',{skip:process.env.VECTOR_UCI_NATIVE!=='1'},async()=>{
+ assert.equal(process.version,'v26.11.1');assert(process.env.VECTOR_UCI_MODEL_ROOT&&process.env.VECTOR_UCI_COMPILER_CACHE&&/^[0-9a-f]{40}$/.test(process.env.VECTOR_UCI_SOURCE_REVISION??''));
+ const uci=new NativeUci(),record={schema:'vector_uci_native_diagnostic_v1',status:'pending',node:process.version,sourceRevision:process.env.VECTOR_UCI_SOURCE_REVISION,referee:'chess.js@1.4.0',measurements:[],timingPolicyQualified:false};
+ try{record.identity=await uci.ready();const ref=new Chess(),first=await uci.move('position startpos',2000);assert(ref.moves({verbose:true}).some(m=>m.from+m.to+(m.promotion??'')===first.move));ref.move({from:first.move.slice(0,2),to:first.move.slice(2,4)});record.measurements.push(first);const second=await uci.move('position startpos moves '+first.move,1000);assert(ref.moves({verbose:true}).some(m=>m.from+m.to+(m.promotion??'')===second.move));record.measurements.push(second);record.status='pass';}
+ catch(error){record.status='fail';record.failure={message:error.message,stack:error.stack};throw error;}
+ finally{try{record.teardown=await uci.close();assert.equal(record.teardown.joined,true);assert.equal(record.teardown.semantic.quiescent,true);assert.equal(record.teardown.cleanup.runtime.driver.resourceCounts.live,0);assert.equal(record.teardown.cleanup.runtime.driver.resourceCounts.orphaned,0);}catch(error){record.status='fail';record.closeFailure=error.message;throw error;}finally{record.lines=uci.all;record.stderr=uci.stderr;if(process.env.VECTOR_UCI_NATIVE_RECEIPT)fs.writeFileSync(process.env.VECTOR_UCI_NATIVE_RECEIPT,JSON.stringify(record,null,2)+'\n',{flag:'wx'});}}
+});
