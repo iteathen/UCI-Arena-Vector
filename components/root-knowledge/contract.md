@@ -26,10 +26,19 @@ consumer strength qualification or permission to install an unsigned artifact.
 the previous complete snapshot and reports the failure; a changed configuration
 retires that selection before admission. Entry admission accounts for the active
 snapshot, the single pinned game's snapshot, and the candidate under the original
-128 MiB transactional budget. `newGame(options)` returns one immutable selection
-handle. Its idempotent `close()` releases that game reference. The product calls
+128 MiB transactional budget. `newGame(options)` returns one pinned selection
+handle when a snapshot is active; `beginGame(options)` also initializes the game
+seed and latch while the provider is unavailable. Its idempotent `close()` releases
+that game reference. The product calls
 reload at startup, explicit configuration changes, and before each new game;
-ordinary moves do not reload files. A reload cannot change an existing game.
+ordinary moves do not reload files. An ordinary reload cannot change an existing
+game. After an explicit option reload, the product calls `refreshGame({maxPly})`
+before the next go. This adopts only the newly admitted snapshot, preserves the
+per-game random sequence and exit latch, and disables selection if a changed
+configuration failed. New-game initialization alone resets seed/latch. Snapshot
+handles must originate from this admission owner; forged copies cannot activate.
+An explicit empty statistics/policy pair selects only the base capability and
+does not read inactive sidecars. One empty sidecar alone is an integrity failure.
 
 `game.resolve({context, searchmoves, evaluationCp, tablebaseEligible})` consumes
 `vector_root_knowledge_context_v1`: external origin FEN and complete packed moves,
