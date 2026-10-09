@@ -9,6 +9,6 @@
   "dependencies": {
     "cuda-js": "https://codeload.github.com/iteathen/CUDA-JS/tar.gz/dc2924657bb900cdce3fba4c9def62934419db03",
     "cuda-js-tensor": "https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/759a1a07b8ca9a5934673aeb20864e52ad800b6e",
-    "cuda-mcgs": "file:../../../vector-engine-public-candidates-20261008/cuda-mcgs-cold-preinitialize-2fd0dbd-frozen-20261008.tgz"
+    "cuda-mcgs": "file:../../../vector-engine-public-candidates-20261008/cuda-mcgs-dev3-f3ae095-frozen-20261008.tgz"
   }
 }
