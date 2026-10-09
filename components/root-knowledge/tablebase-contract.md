@@ -6,6 +6,15 @@ This candidate consumes the independently packaged `syzygy.root-provider` public
 
 Sequence-zero raw safety requires complete allowed rows, exact rule-50 WDL class mapping and the full maximal-class subset. It never becomes exact move or history proof. Sequence-one exact refinement requires the complete allowed rows, declared reversible-minimax boundary metric, finite integer distances, outcome-first distance ranking and canonical input-order tie resolution. A claim-only action cannot become a legal move or `0000`. Later refinement or transport failure retains the already accepted immutable raw safety for the same root with a failure disposition; it cannot silently broaden to unrestricted publication or promote later exact proof. Consumer abandonment/root change explicitly retires that authority.
 
+The coordinator reuses an existing same-scope ticket before checking whether the
+provider can accept new work. Scope includes the admitted binding, full root fence,
+external history, complete legal set, terminal/claim policy and searchmoves, with
+root probing still enabled. A newer frontend request may read that ticket's
+completed raw safety and original request digest/generation after provider failure.
+This does not declare the provider ready or launch new work. Changed scope, disabled
+probing and game retirement abandon the ticket; provider binding replacement still
+requires process restart.
+
 Describe readiness binds the actual package identity and advertised root-only profile. Cancellation abandons local authority immediately. Final close requires both provider `closed/drained/failed:false` and actual exit-zero/EOF without forced termination; neither alone proves ownership closure. Cold failure retains actual exit and bounded stderr as first cause. The process persists across games when integrated; each game only retires its bounded request tickets.
 
 The actual source candidate `0829f6741417b4fc6de687a2986cab740b2be9ef` consumed public provider v2-05 manifest `4836c59f5c2f0f2f4ac2be0b6016dc951586d7d482b8b18b17dc00435444189f` on Node26.11.1 with the exact admitted KQvK dataset. One GPU-root mate proof passed request/fence binding, external exact proof, final GPU restricted observation and independent GPU/provider closures. Receipt SHA256 `d8cdbff1a5d03b0572a1712f8fbe0c5f66d61434f9d821db8128ea55c28182fe` is retained as a narrowly scoped native observation. Review validation refinements require a new exact source replay. This is not full-six-piece ranking, internal GPU tablebases, signed installation or live timing qualification.
