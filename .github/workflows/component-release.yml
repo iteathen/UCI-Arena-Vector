@@ -98,8 +98,14 @@ jobs:
             Set-Content -LiteralPath (Join-Path $taskRoot 'repository.json') -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Repository metadata inspection failed' }
           $tag = "qualification/vector/v$env:COMPONENT_VERSION/$env:GITHUB_SHA"
-          $encodedTag = [uri]::EscapeDataString($tag)
-          gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$encodedTag" --jq '{id,tag_name,target_commitish,draft,assets:[.assets[]|{id,name,size,digest}]}' |
+          $draftJson = gh release view $tag --repo $env:GITHUB_REPOSITORY --json apiUrl,isDraft,tagName,targetCommitish
+          if ($LASTEXITCODE -ne 0) { throw 'Authenticated draft inspection failed' }
+          $draft = $draftJson | ConvertFrom-Json
+          $releaseId = [regex]::Match([string]$draft.apiUrl, '^https://api.github.com/repos/iteathen/UCI-Arena-Vector/releases/([1-9][0-9]{0,15})$')
+          if ($draft.isDraft -isnot [bool] -or $draft.isDraft -ne $true -or
+              $draft.tagName -cne $tag -or $draft.targetCommitish -cne $env:GITHUB_SHA -or
+              -not $releaseId.Success) { throw 'Draft owner/source/release ID rejected' }
+          gh api "repos/$env:GITHUB_REPOSITORY/releases/$($releaseId.Groups[1].Value)" --jq '{id,tag_name,target_commitish,draft,assets:[.assets[]|{id,name,size,digest}]}' |
             Set-Content -LiteralPath (Join-Path $taskRoot 'intake.json') -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Draft intake inspection failed' }
           node tools/release-stage.mjs inspect-intake `
