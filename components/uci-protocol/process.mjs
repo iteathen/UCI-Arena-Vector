@@ -1,9 +1,9 @@
 import {createInterface} from 'node:readline';
 import {createUciController} from './index.mjs';
 
-export function runUciProcess({input,output,port,onDiagnostic}){
+export function runUciProcess({input,output,port,onDiagnostic,experimentalTiming}){
   if(typeof input?.on!=='function'||typeof output?.write!=='function')throw new Error('UCI transport requires input/output streams');
-  const write=line=>output.write(line+'\n'),controller=createUciController({port,write,onDiagnostic}),lines=createInterface({input,terminal:false,crlfDelay:Infinity}),pending=new Set();
+  const write=line=>output.write(line+'\n'),controller=createUciController({port,write,onDiagnostic,experimentalTiming}),lines=createInterface({input,terminal:false,crlfDelay:Infinity}),pending=new Set();
   let closing=false,transportFailure,resolve,reject;
   const done=new Promise((yes,no)=>{resolve=yes;reject=no;});
   const diagnostic=error=>write('info string error '+String(error?.message??error).replace(/[\x00-\x1f\x7f]/g,' ').slice(0,512));

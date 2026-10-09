@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {createHash} from 'node:crypto';
 async function api() { try { return await import('../../components/uci-protocol/index.mjs'); } catch (error) { if (error.code === 'ERR_MODULE_NOT_FOUND') assert.fail('UCI protocol implementation is missing'); throw error; } }
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 function fixture() {
@@ -38,4 +39,23 @@ test('advertised check and spin options admit typed values and reject malformed 
 test('next-go configuration admits during a game and becomes an immutable option snapshot only for the next go',async()=>{const {createUciController}=await api();const f=fixture(),values=[];f.port.options=[{name:'OwnBook',type:'check',default:true,apply:'next-go'}];f.port.configure=async v=>values.push(v);const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go infinite');await c.handle('setoption name OwnBook value false');assert.deepEqual(values,[{name:'OwnBook',value:false}]);await c.handle('stop');assert.deepEqual(f.requests[0].options,{OwnBook:true});await c.handle('go infinite');await c.handle('stop');assert.deepEqual(f.requests[1].options,{OwnBook:false});await c.close();});
 test('resolved root knowledge bypasses publication wait while preserving GPU final selection and request fence',async()=>{const {createUciController}=await api(),f=fixture();let prepared;f.port.preparePublicationIntent=async input=>{prepared=input;return {bypassPublicationWait:true};};const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go movetime 1000');assert.equal(prepared.rootEpoch,1);assert.equal(f.requests.length,1);assert.equal(f.requests[0].requestId,prepared.requestId);assert.equal(f.timers.size,1);const r=f.requests[0];f.snapshots.set(r.requestId,{...r,action:1804,legalProof:{rootEpoch:r.rootEpoch,action:1804,legal:true},terminal:false});await f.advance(5);assert.deepEqual(f.output,['bestmove e2e4']);await c.close();});
 test('isready after a next-go provider option preloads that config without resetting an active go',async()=>{const {createUciController}=await api(),f=fixture();let reads=0;f.port.options=[{name:'OwnBook',type:'check',default:true,apply:'next-go'}];f.port.ready=async()=>{reads++;};f.port.configure=async()=>{};const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go infinite');await c.handle('setoption name OwnBook value false');await c.handle('isready');assert.equal(reads,2);await c.handle('stop');assert.deepEqual(f.requests[0].options,{OwnBook:true});await c.close();});
+
+test('resolved legal knowledge bypasses remaining-clock policy admission',async()=>{
+  const {createUciController}=await api(),f=fixture();f.port.preparePublicationIntent=async()=>({bypassPublicationWait:true});
+  const c=createUciController(f.options);await c.handle('position startpos');await c.handle('go wtime 1000 btime 1000');
+  assert.equal(f.requests.length,1);await c.close();
+});
+test('explicit diagnostic timing experiment schedules whole candidate opportunities against actual clock',async()=>{
+  const {createUciController}=await api(),f=fixture(),phases=[];
+  const sha=text=>createHash('sha256').update(text).digest('hex');
+  const identity={schema:'vector_engine_runtime_identity_v1',node:'v26.11.1',vectorRevision:'a'.repeat(40)};
+  f.port.ready=async()=>identity;
+  const text=JSON.stringify({schema:'vector_timing_experiment_v1',diagnostic:true,campaign_id:'clock180+3',runtime_identity_sha256:sha(JSON.stringify(identity)),rules_profile:'orthodoxy-live-claims-v1',strategy:{kind:'target_blocks_v1',target_blocks:2},candidate_blocks_ms:[500,500],local_publication_reserve_ms:100,supported_inputs:{initial_time_ms:180000,increment_ms:3000},qualification:{timing:false,strength:false,useful_blocks:false,publication:false}});
+  const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row),experimentalTiming:{text,sha256:sha(text),initialTimeMs:180000,transportReserveMs:50}});
+  await c.handle('position startpos');await c.handle('go wtime 900 btime 900 winc 3000 binc 3000');
+  await f.advance(499);assert.equal(f.requests.length,0);await f.advance(1);assert.equal(f.requests.length,1);
+  const decision=phases.find(p=>p.phase==='experimentalAllocation').decision;
+  assert.deepEqual(decision.purchasedBlocksMs,[500]);assert.equal(decision.diagnostic,true);assert.equal(decision.usefulBlockAuthority,false);
+  await c.close();
+});
 test('admission clock observation retains only the returned current GPU owner facts',async()=>{const {createUciController}=await api(),f=fixture(),facts={authority:{arena:1,root:0,generation:1,epoch:3},telemetry:{rootEvaluatorAdmissions:{value:1,scope:'node-incarnation'}}},phases=[];f.port.admitPosition=async({rootEpoch})=>({rootEpoch,sideToMove:0,observation:facts});const c=createUciController({...f.options,onDiagnostic:row=>phases.push(row)});await c.handle('position startpos');assert.deepEqual(phases.find(p=>p.phase==='admissionReady').observation,facts);await c.close();});

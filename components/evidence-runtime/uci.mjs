@@ -5,6 +5,7 @@ import {validateOwnerTeardown} from './teardown.mjs';
 export class UciSession {
   constructor(launch,options={},requirements={}) {
     if(requirements.requireOwnerTeardown!==undefined&&typeof requirements.requireOwnerTeardown!=='boolean')throw new Error('invalid owner teardown requirement');
+    if((requirements.expectedUciName!==undefined||requirements.referenceInstrumentSha256!==undefined)&&(typeof requirements.expectedUciName!=='string'||!requirements.expectedUciName||requirements.expectedUciName.length>256||/[\x00-\x1f\x7f]/.test(requirements.expectedUciName)||!/^[a-f0-9]{64}$/.test(requirements.referenceInstrumentSha256??'')||requirements.requireOwnerTeardown))throw new Error('reference requires exact independent instrument identity');
     this.requirements={...requirements};this.ownerReports=[];
     this.closed=false;this.options=options;this.lines=[];this.buffer='';this.bytes=0;this.waiter=null;this.failure=null;
     this.process=spawn(launch.executable,launch.args,{cwd:launch.cwd,env:{...process.env},stdio:['pipe','pipe','pipe'],windowsHide:true});
@@ -58,6 +59,10 @@ export class UciSession {
       this.send(`setoption name ${name} value ${value}`);
     }
     this.send('ucinewgame');this.send('isready');const ready=await this.until(line=>line==='readyok',300000);
+    if(this.requirements.expectedUciName!==undefined){
+      const names=lines.filter(line=>line.startsWith('id name '));if(names.length!==1||names[0]!==`id name ${this.requirements.expectedUciName}`)throw new Error('independent reference UCI identity mismatch');
+      this.identity=Object.freeze({schema:'uci_reference_runtime_identity_v1',id_name:this.requirements.expectedUciName,instrument_sha256:this.requirements.referenceInstrumentSha256,options:Object.freeze({...this.options})});return this.identity;
+    }
     const identities=ready.filter(line=>line.startsWith('info string vector_identity '));
     if(identities.length!==1)throw new Error('UCI runtime identity is missing or ambiguous');
     const identity=JSON.parse(identities[0].slice('info string vector_identity '.length));

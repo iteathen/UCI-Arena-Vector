@@ -1,4 +1,6 @@
 import { admitPosition, actionToUci } from '../chess-domain/admission.mjs';
+import {createHash} from 'node:crypto';
+import {admitTimingExperiment,decideExperimentalPublication} from '../move-timing/experiment.mjs';
 
 export const START_POSITION = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export function uciToAction(move) {
@@ -47,9 +49,11 @@ export function publicationDelay(command, sideToMove) {
   return null;
 }
 
-export function createUciController({port,write,now=()=>performance.now(),setTimer=setTimeout,clearTimer=clearTimeout,onDiagnostic}) {
+export function createUciController({port,write,now=()=>performance.now(),setTimer=setTimeout,clearTimer=clearTimeout,onDiagnostic,experimentalTiming}) {
   for (const method of ['ready','admitPosition','requestPublication','readPublication','close']) if(typeof port?.[method]!=='function') throw new Error(`GameSearchPort requires ${method}`);
   if(typeof write!=='function')throw new Error('UCI output writer is required');
+  const experimentRequest=experimentalTiming===undefined?null:Object.freeze(structuredClone(experimentalTiming));
+  if(experimentRequest&&(!Object.keys(experimentRequest).every(k=>['text','sha256','initialTimeMs','transportReserveMs'].includes(k))||Object.keys(experimentRequest).length!==4))throw new Error('Invalid explicit timing experiment context');
   const options=new Map();
   for(const option of port.options??[]) {
     if(!option||typeof option.name!=='string'||!option.name||/[\x00-\x1f\x7f]/.test(option.name)||!['string','check','spin'].includes(option.type)||!['startup','next-go'].includes(option.apply??'startup')||(option.type==='string'&&(typeof option.default!=='string'||/[\x00-\x1f\x7f]/.test(option.default)))||(option.type==='check'&&typeof option.default!=='boolean')||(option.type==='spin'&&(![option.default,option.min,option.max].every(Number.isSafeInteger)||option.min>option.max||option.default<option.min||option.default>option.max))||options.has(option.name.toLowerCase()))throw new Error('Invalid advertised UCI option registry');
@@ -57,12 +61,12 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
   }
   if(options.size&&typeof port.configure!=='function')throw new Error('Advertised UCI options require configuration admission');
   let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,newGame=true,admission=Promise.resolve(),retirement=Promise.resolve(),active=null,closed=false;
-  let runtimeIdentity,readyPromise,configurationError,configuration=Promise.resolve();
+  let runtimeIdentity,readyPromise,configurationError,experiment,configuration=Promise.resolve();
   const diagnostic=(phase,facts={})=>{if(onDiagnostic)try{onDiagnostic({schema:'vector_uci_clock_phase_v1',phase,time:now(),rootEpoch,requestId,...facts});}catch{/* diagnostics cannot alter search/publication ownership */}};
   const ready=async()=>{
     await configuration;
     if(configurationError)throw configurationError;
-    if(!readyPromise)readyPromise=Promise.resolve().then(()=>port.ready()).then(identity=>{if(identity!==undefined){if(identity?.schema!=='vector_engine_runtime_identity_v1')throw new Error('Backend public runtime identity schema mismatch');const encoded=JSON.stringify(identity);if(encoded.length>16384)throw new Error('Backend public runtime identity exceeds bounded extent');runtimeIdentity=encoded;}});
+    if(!readyPromise)readyPromise=Promise.resolve().then(()=>port.ready()).then(identity=>{if(identity!==undefined){if(identity?.schema!=='vector_engine_runtime_identity_v1')throw new Error('Backend public runtime identity schema mismatch');const encoded=JSON.stringify(identity);if(encoded.length>16384)throw new Error('Backend public runtime identity exceeds bounded extent');runtimeIdentity=encoded;}if(experimentRequest){if(!runtimeIdentity)throw new Error('Timing experiment requires actual runtime identity');experiment=admitTimingExperiment(experimentRequest.text,{sha256:experimentRequest.sha256,runtimeIdentitySha256:createHash('sha256').update(runtimeIdentity).digest('hex')});if(experimentRequest.initialTimeMs!==experiment.supported_inputs.initial_time_ms)throw new Error('Timing experiment initial control mismatch');}});
     return readyPromise;
   };
   const optionValues=Object.fromEntries([...options.values()].map(o=>[o.name,o.default]));
@@ -82,7 +86,16 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     token.timer=setTimer(()=>poll(token),5);
   };
   const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;diagnostic('publicationRequested',{rootEpoch:token.rootEpoch,requestId:token.requestId});let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],...(options.size?{options:token.options}:{})});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>{diagnostic('observerDelivered',{rootEpoch:token.rootEpoch,requestId:token.requestId});poll(token);}).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
-  const schedule=token=>{const delay=publicationDelay(token.command,sideToMove);if(delay!==null)token.timer=setTimer(()=>publish(token),Math.max(0,delay-(now()-token.started)));};
+  const schedule=token=>{
+    let delay;
+    if(experiment&&!token.command.infinite&&!token.command.ponder&&(token.command.wtime!==undefined||token.command.btime!==undefined)){
+      const command=token.command,remainingMs=sideToMove===0?command.wtime:command.btime;
+      if(remainingMs===undefined)throw new Error('Current side remaining clock is required');
+      const decision=decideExperimentalPublication(experiment,{initialTimeMs:experimentRequest.initialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:experimentRequest.transportReserveMs,elapsedMs:now()-token.started,applicability:'search_derived',focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
+      diagnostic('experimentalAllocation',{decision});write(`info string vector_timing_experiment ${JSON.stringify(decision)}`);delay=decision.publicationDeadlineFromGoMs;
+    }else delay=publicationDelay(token.command,sideToMove);
+    if(delay!==null)token.timer=setTimer(()=>publish(token),Math.max(0,delay-(now()-token.started)));
+  };
   let closePromise;
   const close=()=>{if(!closePromise){closed=true;clearActive();closePromise=Promise.resolve().then(async()=>{await configuration;if(readyPromise)await readyPromise.catch(()=>{});await admission.catch(()=>{});await Promise.allSettled([...pendingPublications]);return port.close();});}return closePromise;};
   const handle=async line=>{
@@ -110,10 +123,10 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       admission=admission.catch(()=>{}).then(()=>ready()).then(()=>{diagnostic('admissionStarted',{rootEpoch:epoch});return port.admitPosition({...command,rootEpoch:epoch,newGame:establishGame});}).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');diagnostic('admissionReady',{rootEpoch:epoch,...(result.observation?{observation:result.observation}:{})});if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
       await admission;
     } else if(command.kind==='go') {
-      if(!hasPosition)throw new Error('UCI go requires admitted position');publicationDelay(command,sideToMove);clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
+      if(!hasPosition)throw new Error('UCI go requires admitted position');clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
       const token={rootEpoch,requestId:++requestId,command,started:now(),requested:false,timer:null};active=token;
       diagnostic('goReceived',{rootEpoch:token.rootEpoch,requestId:token.requestId});
-      await configuration;if(configurationError)throw configurationError;token.options=Object.freeze({...optionValues});await admission;if(active===token&&!closed){const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;if(active===token&&!closed){if(token.stopPending||intent?.bypassPublicationWait)publish(token);else schedule(token);}}
+      try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze({...optionValues});await admission;if(active===token&&!closed){const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;if(active===token&&!closed){if(token.stopPending||intent?.bypassPublicationWait)publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){delete active.command.ponder;active.started=now();schedule(active);}}
     else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;});retirement=admission;await admission;}

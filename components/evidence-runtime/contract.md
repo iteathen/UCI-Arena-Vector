@@ -104,3 +104,26 @@ game observation on its own.
 Fixture-tagged records are rejected at every retained receipt, not only at the
 aggregate. Cancel identity words span the full u32 range; only the whole reserved
 zero or exhausted 128-bit identity is rejected. Counter bounds remain separate.
+
+# Separate clock experiment implementation
+
+`clock-experiment.mjs` exposes bounded `playClockExperimentGame(config, target,
+reference)`. This is a separate diagnostic implementation, not an advertised v2
+workload or policy publisher. It accepts a separately admitted UCI reference
+instrument, preserving its exact protocol name and immutable instrument digest.
+The ordinary target still requires its own Vector readiness and joined teardown.
+The reference is a benchmark outside the engine and owns no fallback or active
+Vector search responsibility. Its launch inventory and settings must be checked
+by the campaign owner before starting the subprocess.
+
+The explicit `orthodoxy-live-claims-v1` referee does not automatically adjudicate
+optional threefold/fifty-move claims. It retains full replay repetition keys with
+effective legal EP, adjudicates automatic fivefold/seventy-five-move rules, and
+preserves checkmate precedence. Original v2's adjudicated-claims default remains
+unchanged. Target and reference receive every accepted own/opponent/terminal
+position. All clocks charge actual elapsed command time before increment; flag,
+illegal move, timeout and bounds cannot become a completed game or artificial
+draw. Per-move clocks, raw bounded UCI observations, final FEN and PGN remain
+available. This component never implements the experimental allocation formula
+or imports move-timing/search internals. No useful-block, strength or publication
+qualification follows from these diagnostic games.
