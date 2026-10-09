@@ -46,6 +46,10 @@ jobs:
           npm ci --prefix components/engine-runtime --ignore-scripts --no-audit --no-fund
           npm ci --prefix components/root-knowledge --ignore-scripts --no-audit --no-fund
           npm ci --prefix components/evidence-runtime --ignore-scripts --no-audit --no-fund
+      - name: Admit the frozen model verifier's protected Tensor package
+        run: >-
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund
+          https://codeload.github.com/iteathen/CUDA-JS-Tensor/tar.gz/0da2c70a0a10df908a33e842aa4ba3dbd7605c48
       - name: Verify portable contracts and retain native evidence boundary
         run: node --experimental-ffi --test "**/*.test.mjs"
       - name: Verify repository policy
