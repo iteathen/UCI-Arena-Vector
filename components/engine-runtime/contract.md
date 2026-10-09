@@ -81,3 +81,14 @@ One admitted provider stays prewarmed across games; new game abandons root ticke
 without reloading files. Final engine closure retains the bounded external
 provider process/worker receipt separately from GPU teardown. Internal GPU
 tablebase probing remains unsupported under this connector8 root-only profile.
+
+Failed preparation carries `vector_backend_preparation_failure_v1` with
+`state:not-opened|retired|unknown|cleanup-failed` and actual owner cleanup receipts.
+Cold validation may declare not-opened before any runtime factory is invoked.
+A factory rejection without an ownership report is unknown. Retired means every
+known session/runtime closed in order with actual graceful zero-resource facts;
+returned or thrown cleanup failure stays failed. Failed compiler session close
+retains the runtime rather than retrying or closing beneath unresolved ownership.
+The port retains proved cold retirements in its bounded journal. Unknown/failed
+ownership quarantines future preparation and prevents a successful EOF/close
+claim; it never becomes noRuntimeOpened merely because no backend was assigned.

@@ -7,6 +7,7 @@ import {buildLatticeKnightFp32TensorProgram} from './model-program-source.mjs';
 import {MODEL_IDENTITY,MODEL_LIBRARY_IDENTITY} from './model-artifacts.mjs';
 import {createTensorEvaluatorConnector,createTensorEvaluatorRuntimeContribution} from 'cuda-mcgs/evaluator/cuda-js-tensor';
 import {buildChessPolicyHooks} from './policy-hooks.mjs';
+import {withCompilerLifetime,compilerCleanupReceipt,preparationFailure} from './preparation-ownership.mjs';
 export function buildAdmittedModelProgram(){
   if(CUDA_JS_TENSOR_COMPATIBILITY.package.version!=='0.1.0-alpha.10'||CUDA_JS_COMPATIBILITY.package.version!=='0.1.0-alpha.22'||CUDA_JS_TENSOR_COMPATIBILITY.cudaJs.protectedMainRevision!=='dc2924657bb900cdce3fba4c9def62934419db03')throw new Error('Operational model public cohort mismatch');
   const source=fs.readFileSync(new URL('./model-program-source.mjs',import.meta.url));
@@ -26,24 +27,24 @@ export function createAdmittedEvaluatorContribution(deviceProgram){
   return Object.freeze({connector,runtime,policy:hooks,deviceImports:Object.freeze([runtime.device.createDeviceImport()])});
 }
 export async function compileAdmittedModelProgram({cacheDirectory}={}){
-  if(process.version!=='v26.11.1')throw new Error('Operational compiler admission requires exact Node26.11.1');
-  if(typeof cacheDirectory!=='string'||!cacheDirectory||!fs.statSync(cacheDirectory).isDirectory())throw new Error('An admitted public compiler cache directory is required');
-  const built=buildAdmittedModelProgram(),started=performance.now(),cleanup={};
-  const runtime=await openCudaRuntime({compiler:{cacheDirectory:path.resolve(cacheDirectory),cacheMode:'read-only'}});let session,deviceProgram,failure;
-  try{
-    session=await TensorSession.open(runtime);
-    deviceProgram=await compileTensorDeviceProgram(session,built.plan,{itemCapacity:2,itemInputs:['features'],participation:'block32'});
+  let built;
+  try{if(process.version!=='v26.11.1')throw new Error('Operational compiler admission requires exact Node26.11.1');
+    if(typeof cacheDirectory!=='string'||!cacheDirectory||!fs.statSync(cacheDirectory).isDirectory())throw new Error('An admitted public compiler cache directory is required');
+    built=buildAdmittedModelProgram();
+  }catch(error){throw preparationFailure(error,'not-opened');}
+  const started=performance.now();
+  const {value:deviceProgram,cleanup}=await withCompilerLifetime({openRuntime:()=>openCudaRuntime({compiler:{cacheDirectory:path.resolve(cacheDirectory),cacheMode:'read-only'}}),work:async(runtime,ownSession)=>{
+    const session=await TensorSession.open(runtime);ownSession(session);
+    const deviceProgram=await compileTensorDeviceProgram(session,built.plan,{itemCapacity:2,itemInputs:['features'],participation:'block32'});
     const library=deviceProgram.library;
     if(library.sha256!==MODEL_LIBRARY_IDENTITY.librarySha256||library.artifact.sha256!==MODEL_LIBRARY_IDENTITY.artifactSha256||library.artifact.byteLength!==MODEL_LIBRARY_IDENTITY.byteLength||deviceProgram.totalWorkspaceBytes!==MODEL_IDENTITY.workspaceBytes)throw new Error('Compiled public original model identity mismatch');
     deviceProgram.requireParticipation({block:{x:32,y:1,z:1},uniformItemIndex:true,uniformCall:true});
-  }catch(error){failure=error;}
-  try{
-    if(session){cleanup.session=await session.close();if(!cleanup.session.graceful)throw new Error('Model compiler session cleanup unproved; runtime retained');}
-    cleanup.runtime=await runtime.close();if(!cleanup.runtime.graceful||cleanup.runtime.driver.resourceCounts.live!==0||cleanup.runtime.driver.resourceCounts.orphaned!==0)throw new Error('Model compiler runtime cleanup unproved');
-  }catch(error){throw new AggregateError([...(failure?[failure]:[]),error],'Public model compiler admission cleanup failed');}
-  if(failure)throw failure;
+    return deviceProgram;
+  }});
   const elapsedMilliseconds=performance.now()-started;
+  try{
   const record={schema:'vector_model_compiler_admission_v1',node:process.version,cohort:built.cohort,itemCapacity:2,semanticNodeCount:2216,callableIdentity:deviceProgram.compatibilityIdentity,librarySha256:deviceProgram.library.sha256,artifactSha256:deviceProgram.library.artifact.sha256,workspaceBytes:deviceProgram.totalWorkspaceBytes,elapsedMilliseconds,cleanup,activeExecutionRuntimeBorrowed:false,gpuInferenceClaimed:false};
   if(process.env.VECTOR_MODEL_ADMISSION_RECEIPT)fs.writeFileSync(process.env.VECTOR_MODEL_ADMISSION_RECEIPT,JSON.stringify(record,null,2)+'\n',{flag:'wx'});
   return Object.freeze({deviceProgram,cleanup,elapsedMilliseconds,record});
+  }catch(error){throw preparationFailure(error,'retired',[compilerCleanupReceipt(cleanup)]);}
 }
