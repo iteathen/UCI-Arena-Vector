@@ -10,16 +10,19 @@ owner_direction:
   naming: cuda-js
 execution_plan: docs/superpowers/plans/2026-10-08-complete-cuda-js-suite.md
 current_focus:
-  name: persistent cooperative GPU graph search and operational UCI composition
+  name: frozen clock qualification and complete installed delivery
   state: >
     Model 73091 passes independent ONNX full/partial FP32 comparison and guarded
-    block32 execution on Tensor10/cuda-js22. Both libraries and Bot40 managed
+    block32 execution on Tensor10/cuda-js22. Both libraries and Bot41 managed
     launch are protected. Book0.4.8 neutral snapshot compatibility is protected.
-    Complete search/session, service evidence v2, signing, installer and installed
-    acceptance remain pending. No complete engine or playing-strength claim.
+    Persistent search/session, neutral Evidence v2, production timing consumer,
+    independent clock-study producer and generic Installer bindings are integrated.
+    Bot41 has a verified signed candidate. Final source-bound native clock study,
+    full engine/provider delivery and installed acceptance remain pending.
+    No complete installed engine or playing-strength claim.
   next_action: >
-    Integrate qualified resident MCGS public capability and Vector UCI/Policy,
-    qualify long games and clock deadlines, then assemble signed exact payloads
+    Freeze and merge the reviewed operational source, qualify publication reserve
+    and independent many-game clock benefit, then assemble signed exact payloads
     and install through the existing public Installer transaction.
 current_cohort:
   node: 26.11.1
@@ -29,7 +32,9 @@ current_cohort:
   tensor:
     version: 0.1.0-alpha.10
     revision: 759a1a07b8ca9a5934673aeb20864e52ad800b6e
-  mcgs: resident candidate not yet frozen
+  mcgs:
+    version: 0.0.0-dev.3
+    revision: 39a274ac4101c901f022ee3dfa8de741aa955f60
   model_checkpoint_sha256: 39be73ad994a7615dfc5ba7d1988a3ed1c7596b363ec4c8100692f8f2374f026
   model_observation_sha256: e933c4641bbcdd741fdf286320dbaf5fb38a8ed56059f18aac434e905b4cc975
 installation:

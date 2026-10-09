@@ -10,6 +10,16 @@ have physical qualification. Persistent cooperative graph search, operational
 UCI composition, release and installed acceptance remain in progress. This is
 not a completed product or a playing-strength claim.
 
+**Current verified delivery state:** MCGS dev.3 is protected at `39a274ac`.
+Vector composes the original model, persistent GPU search, UCI publication,
+retained-root reuse and external root knowledge through public contracts. Real
+diagnostic games completed with no flags and joined zero-residue GPU closure;
+the latest one-opening calibration is excluded from population qualification.
+Bot 1.0.41 is merged and signed. Timing consumption, independent study analysis,
+bounded publication measurements and generic Installer bindings are implemented
+and portable-tested. The final frozen native study, signed complete payload,
+transactional installation and installed bot activation remain pending.
+
 The dated September record below is retained historical evidence. Its dependency
 tuple and missing frozen 54499 oracle are not the active delivery target.
 
