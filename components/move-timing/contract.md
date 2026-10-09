@@ -43,7 +43,9 @@ reports zero discretionary purchases. No hard envelope can remove unavoidable
 latency that already occurred. A resolved current-focus move bypasses allocation.
 Unsupported increments and authoritative moves-to-go fail closed in this first
 profile; they are not silently substituted. A normal remaining-clock launch
-without explicit experimental admission continues to require a qualified policy.
+requires a qualified policy to purchase discretionary search time; without one,
+it immediately publishes the compatible completed move under the unsupported-
+evidence, no-purchase disposition described below.
 
 Decisions preserve applicability, clock inputs, both reserve authorities, safe
 envelope, candidate purchases, reason and experiment identity separately. The

@@ -32,7 +32,10 @@ test('actual public engine keeps managed provider across games and emits configu
   await port.ready();await port.admitPosition({fen:'7k/8/5KQ1/8/8/8/8/8 w - - 0 1',moves:[],rootEpoch:3});
   record.rootContext=port.readRootKnowledgeContext();record.providerReadiness=actualProvider.describe();assert.equal(record.providerReadiness.status,'ready');assert.equal(record.providerReadiness.provider_identity.configuration_sha256,metadata.configuration.canonicalSha256);
   const action=uciToAction('g6g7');record.intent=await port.preparePublicationIntent({rootEpoch:3,requestId:3,searchmoves:[action]});
-  started=performance.now();for(;;){await port.requestPublication({rootEpoch:3,requestId:3,searchmoves:[action]});record.publication=port.readPublication({rootEpoch:3,requestId:3});if(record.publication.knowledge?.authority==='tablebase-exact-root')break;if(performance.now()-started>5000)throw new Error('Managed exact root proof unavailable');await delay(10);}
+  // A tighter scope may initially have no compatible completed sample. Only
+  // this qualification harness waits for the independently completed result;
+  // the production publication request/read remains synchronous and bounded.
+  started=performance.now();for(;;){const request=port.requestPublication({rootEpoch:3,requestId:3,searchmoves:[action]});assert.equal(typeof request?.then,'undefined');record.publication=port.readPublication({rootEpoch:3,requestId:3});if(record.publication?.knowledge?.authority==='tablebase-exact-root')break;if(performance.now()-started>5000)throw new Error('Managed exact root proof unavailable');await delay(10);}
   assert.equal(record.publication.action,action);assert.equal(record.publication.knowledge.providerGeneration,generation);assert.equal(record.publication.legalProof.legal,true);
   const selected=probes.find(p=>p.requestSha256===record.publication.knowledge.requestSha256);assert(selected,'Final publication must bind an actually issued public request');assert.equal(selected.providerGeneration,generation);assert.equal(selected.request.root_fence,record.rootContext.rootFence.map(w=>w.toString(16).padStart(8,'0')).join(''));assert.deepEqual(selected.request.searchmoves,['g6g7']);record.selectedRequest=selected;record.selectedAction=action;record.status='pass';
  }catch(error){record.status='fail';record.failure=error.message;throw error;}
