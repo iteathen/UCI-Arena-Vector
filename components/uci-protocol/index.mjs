@@ -98,7 +98,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       if(option.type==='check'){if(!['true','false'].includes(value))throw new Error('Check option requires true or false');value=value==='true';}
       if(option.type==='spin'){if(!/^-?\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<option.min||Number(value)>option.max)throw new Error('Spin option integer outside declared range');value=Number(value);}
       const pending=configuration.then(async()=>{
-        try{await port.configure({name:option.name,value});optionValues[option.name]=value;configurationError=undefined;if((option.apply??'startup')==='startup'){readyPromise=undefined;runtimeIdentity=undefined;}}
+        try{await port.configure({name:option.name,value});optionValues[option.name]=value;configurationError=undefined;readyPromise=undefined;runtimeIdentity=undefined;}
         catch(error){configurationError=error;throw error;}
       });
       configuration=pending.catch(()=>{});
