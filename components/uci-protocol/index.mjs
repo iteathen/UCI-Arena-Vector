@@ -136,7 +136,16 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       const decision=decideExperimentalPublication(experiment,{initialTimeMs:experimentRequest.initialTimeMs,remainingMs,incrementMs:(sideToMove===0?command.winc:command.binc)??0,movesToGo:command.movestogo??null,explicitLimitMs:command.movetime??null,transportReserveMs:experimentRequest.transportReserveMs,elapsedMs:now()-token.started,applicability:'search_derived',focusIdentity:{rootEpoch:token.rootEpoch,requestId:token.requestId}});
       diagnostic('experimentalAllocation',{decision});write(`info string vector_timing_experiment ${JSON.stringify(decision)}`);delay=decision.publicationDeadlineFromGoMs;
     }else delay=publicationDelay(token.command,sideToMove);
-    if(delay!==null)token.timer=setTimer(()=>publish(token),Math.max(0,delay-(now()-token.started)));
+    if(delay!==null){
+      const due=token.started+delay;
+      const expire=()=>{
+        if(closed||active!==token||token.requested||token.rootEpoch!==rootEpoch)return;
+        const remaining=due-now();
+        if(remaining>0)token.timer=setTimer(expire,Math.min(2147483647,remaining));
+        else publish(token);
+      };
+      token.timer=setTimer(expire,Math.min(2147483647,Math.max(0,due-now())));
+    }
   };
   let closePromise;
   const close=()=>{if(!closePromise){closed=true;clearActive();closePromise=Promise.resolve().then(async()=>{await configuration;if(readyPromise)await readyPromise.catch(()=>{});await admission.catch(()=>{});await Promise.allSettled([...pendingPublications]);const receipt=await port.close();if(subscriptionFailures.length)throw new AggregateError(subscriptionFailures,'Publication subscription retirement failed after backend closure');return receipt;});}return closePromise;};

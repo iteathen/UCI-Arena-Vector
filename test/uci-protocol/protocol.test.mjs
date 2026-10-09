@@ -157,3 +157,10 @@ test('newgame releases resolution subscription and ignores its later callback',a
   const {createUciController}=await api(),f=fixture();let removed=0,listener,identity;f.port.subscribePublicationResolution=(value,callback)=>{identity=value;listener=callback;return()=>removed++;};
   const c=createUciController(f.options);try{await c.handle('position startpos');await c.handle('go movetime 1000');await c.handle('ucinewgame');assert.equal(removed,1);listener({...identity,resolved:true});await f.advance(1000);assert.equal(f.requests.length,0);assert.equal(f.timers.size,0);}finally{await c.close();}
 });
+test('an early or rounded timer callback cannot publish before the absolute deadline',async()=>{
+  const {createUciController}=await api(),f=fixture(),c=createUciController(f.options);try{
+    await c.handle('position startpos');await c.handle('go movetime 100');await f.advance(99);
+    const timer=[...f.timers][0];f.timers.delete(timer);timer.fn();await flush();assert.equal(f.requests.length,0);assert.equal(f.timers.size,1);
+    await f.advance(1);assert.equal(f.requests.length,1);
+  }finally{await c.close();}
+});
