@@ -27,3 +27,15 @@ Six package contract tests pass on Node 26.7.0 and 26.11.1. These tests use a
 small synthetic payload and establish packaging behavior only. They do not
 establish that the actual engine or installed suite is qualified. Actual release
 construction remains pending the composed GPU runtime acceptance gates.
+
+An inventoried root-provider selection adds an optional declared `runtime/`
+component-path binding and Syzygy locator subscription. The renderer generates
+public configuration and binding documents in the mutable provider workspace;
+table files remain in their selected directory and must pass provider admission.
+
+A bundled `contracts/timing-policy.json` is admitted against the inventoried
+actual runtime identity before its file/digest options enter the managed launch
+profile. Initial time defaults to unknown zero. A caller that knows the game's
+initial control supplies it explicitly; the package does not infer initial time
+from a remaining clock. Packaging fixtures remain interface tests and cannot
+authorize signing or activation.

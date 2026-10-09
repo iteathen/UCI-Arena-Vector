@@ -9,6 +9,7 @@ import { test } from 'node:test';
 
 const renderer = fileURLToPath(new URL('../tools/installer-integration.mjs', import.meta.url));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+function addInventoriedFile(f,name,bytes){mkdirSync(path.dirname(path.join(f.root,name)),{recursive:true});writeFileSync(path.join(f.root,name),bytes);f.manifest.files.push({path:name,size_bytes:Buffer.byteLength(bytes),sha256:sha(bytes)});writeFileSync(path.join(f.root,'arena-component.json'),JSON.stringify(f.manifest));}
 
 function fixture(t) {
   const temporary = mkdtempSync(path.join(tmpdir(), 'vector-install-renderer-'));
@@ -80,6 +81,28 @@ test('component identity mismatch fails before publishing a configuration', t =>
   const result = f.run();
   assert.notEqual(result.status, 0);
   assert.equal(result.stdout, '');
+});
+
+test('renderer binds the receipt-provided root provider and selected dataset through generated public documents',t=>{
+  const f=fixture(t),provider=path.join(f.workspace,'external-provider'),dataset=path.join(f.workspace,'selected-data');mkdirSync(provider);mkdirSync(dataset);
+  const contract=JSON.stringify({schema:'uci_arena_root_knowledge_contract_v2',version:'2.1.0'}),manifest=JSON.stringify({schema:'uci_arena_root_provider_package_v1',files:[{path:'contracts/offline-root-knowledge-v2.json',sha256:sha(contract),bytes:Buffer.byteLength(contract)}]});
+  mkdirSync(path.join(provider,'contracts'));writeFileSync(path.join(provider,'contracts/offline-root-knowledge-v2.json'),contract);writeFileSync(path.join(provider,'package-manifest.json'),manifest);
+  const selection={schema:'vector_root_tablebase_selection_v1',componentId:'syzygy.root-provider',version:'2.1.0',manifestSha256:sha(manifest),contractSha256:sha(contract)};
+  addInventoriedFile(f,'contracts/root-tablebase-selection.json',JSON.stringify(selection));
+  writeFileSync(path.join(dataset,'syzygy_manifest_v1.json'),JSON.stringify({schema:'uci_arena_syzygy_manifest_v1',files:[{name:'KQvK.rtbw'},{name:'KQvK.rtbz'}]}));
+  f.context.bindings.root_tablebase_provider=provider;f.context.locators.syzygy=dataset;f.context.locator_details.syzygy={kind:'syzygy',path:dataset,source:'saved_locator',storage_mode:'external_path'};
+  const result=f.run();assert.equal(result.status,0,result.stderr);const out=JSON.parse(result.stdout);assert.equal(out.generated_documents.length,2);
+  const cold=out.generated_documents.find(row=>row.path==='root-provider-config.json').document,binding=out.generated_documents.find(row=>row.path==='root-provider-binding.json').document;
+  assert.equal(cold.dataset_root,dataset);assert.deepEqual(cold.selected_files,['KQvK.rtbw','KQvK.rtbz']);assert.equal(binding.schema,'vector_root_tablebase_binding_v2');assert.equal(binding.componentRoot,provider);assert.equal(binding.configuration.path,path.join(f.workspace,'root-provider-config.json'));assert.equal(out.configuration.uci_options.RootTablebaseBinding,path.join(f.workspace,'root-provider-binding.json'));
+  assert.equal(out.configuration.knowledge.syzygy.status,'configured-pending-provider-admission');
+  writeFileSync(path.join(provider,'package-manifest.json'),manifest+' ');assert.notEqual(f.run().status,0);
+});
+
+test('renderer resolves only an inventoried timing artifact and exact declared digest',t=>{
+  const f=fixture(t),text=JSON.stringify({schema:'vector_timing_policy_v1',interface_fixture:true});addInventoriedFile(f,'contracts/timing-policy.json',text);
+  f.setProfile(p=>{p.uci_options.TimingPolicyFile='contracts/timing-policy.json';p.uci_options.TimingPolicySha256=sha(text);p.uci_options.TimingInitialTimeMs=0;});
+  const out=f.run();assert.equal(out.status,0,out.stderr);assert.equal(JSON.parse(out.stdout).configuration.uci_options.TimingPolicyFile,path.join(f.root,'contracts/timing-policy.json'));
+  f.setProfile(p=>{p.uci_options.TimingPolicySha256='a'.repeat(64);});assert.notEqual(f.run().status,0);
 });
 
 test('the declared model root is resolved explicitly and never escapes the installed component', t => {

@@ -36,3 +36,18 @@ raw safety/exact proof without waiting on a pending refinement. These facts neve
 change GPU search attention. Final closure includes actual separate provider
 drain/process observations. Native consumer/game qualification remains a distinct
 gate from source tests and historical KQ-only provider receipts.
+## Installer-generated configuration binding
+
+`vector_root_tablebase_binding_v2` is additive to the exact-byte v1 binding. Its
+configuration is `{path,canonicalSha256}`: the SHA256 covers public canonical
+JSON values. The public provider reports the same canonical configuration
+identity. This avoids making Installer's JSON formatting a provider contract.
+Changing configuration values still fails admission before process launch.
+
+Vector's Installer renderer consumes a declared optional component-path binding
+to the external provider's public `runtime/` subtree and a typed selected Syzygy
+directory. It reads the dataset's bounded public manifest once, generates the
+closed provider configuration and binding as two workspace documents, and
+records configuration as pending provider admission. It neither copies table
+files nor claims the dataset is ready. The provider owns cold hashing, readiness,
+root probes and cancellation. Installer retains document placement and rollback.

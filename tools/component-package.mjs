@@ -4,6 +4,7 @@ import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { isDeepStrictEqual } from 'node:util';
 import { buildRuntimeContract } from '../components/evidence-runtime/contract.mjs';
+import {admitTimingPolicy} from '../components/move-timing/policy.mjs';
 
 const GENERATED = new Set(['arena-component.json', 'contracts/uci-engine-launch-profile.json', 'contracts/runtime-closure.json']);
 const SHA = /^[0-9a-f]{64}$/u;
@@ -13,6 +14,23 @@ const DEFAULT_MODEL = Object.freeze({ model_id: 'compact_chessformer_gab_v1', di
   input_adapter_id: 'chess_v1_fen_to_dense_planes_v1', root: 'models/default' });
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+const ROOT_DEPENDENCY={component_id:'syzygy.root-provider',required:false,binding:'optional-root-knowledge'};
+const ROOT_BINDINGS=[{name:'root_tablebase_provider',component_id:'syzygy.root-provider',source:'component_path',path:'runtime',required:false}];
+const ROOT_LOCATORS=[{name:'syzygy',kind:'syzygy',required:false}];
+function rootProviderSelected(root,closure){
+  const name='contracts/root-tablebase-selection.json';if(!closure.files.some(row=>row.path===name))return false;
+  const bytes=readFileSync(path.join(root,name));if(bytes.length>16384)throw new Error('root provider selection extent');
+  const v=JSON.parse(bytes);if(!v||Object.keys(v).sort().join(',')!=='componentId,contractSha256,manifestSha256,schema,version'||v.schema!=='vector_root_tablebase_selection_v1'||v.componentId!=='syzygy.root-provider'||v.version!=='2.1.0'||!SHA.test(v.manifestSha256??'')||!SHA.test(v.contractSha256??''))throw new Error('root provider selection invalid');return true;
+}
+function bundledTiming(root,closure){
+  const name='contracts/timing-policy.json';if(!closure.files.some(row=>row.path===name))return null;
+  if(!closure.files.some(row=>row.path==='contracts/runtime-identity.json'))throw new Error('Timing policy lacks inventoried runtime identity');
+  const identityBytes=readFileSync(path.join(root,'contracts/runtime-identity.json')),policyBytes=readFileSync(path.join(root,name));
+  if(identityBytes.length>16384||policyBytes.length>16384)throw new Error('Timing compatibility document extent');
+  const identity=JSON.parse(identityBytes);if(identity.schema!=='vector_engine_runtime_identity_v1'||identity.vectorRevision!==closure.vector_commit||identity.nodeVersion!==closure.node_version)throw new Error('Timing runtime compatibility differs');
+  const sha256=hash(policyBytes),policy=admitTimingPolicy(new TextDecoder('utf-8',{fatal:true}).decode(policyBytes),{sha256,runtimeIdentitySha256:hash(JSON.stringify(identity))});
+  return {options:{TimingPolicyFile:name,TimingPolicySha256:sha256,TimingInitialTimeMs:0},evidence:{status:'producer-qualified-for-declared-control',sha256,control:policy.control,study_sha256:policy.qualification.study_sha256}};
+}
 
 function relativePath(value) {
   if (typeof value !== 'string' || !value || value.includes('\\') || value.includes(':')
@@ -162,12 +180,14 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
   if (!Number.isSafeInteger(sourceDateEpoch) || sourceDateEpoch < 0) throw new Error('invalid source date epoch');
   validateClosure(root, closure, version);
   const evidenceRuntime = validateOptionalEvidenceRuntime(root, closure, version);
+  const rootProvider = rootProviderSelected(root,closure);
+  const timing = bundledTiming(root,closure);
   const profile = { schema: 'arena_uci_engine_launch_profile_v1', schema_version: 1,
     component: { id: 'uci_arena.vector', version, root: '.' },
     engine: { adapter: 'standard_uci_v1', executable: 'bin/node.exe',
       arguments: ['--experimental-ffi', 'dist/uci.mjs'], working_directory: '.' },
-    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root }, expected_runtime: null,
-    evidence: {}, knowledge: {}, diagnostics: [] };
+    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root,...(timing?.options??{}) }, expected_runtime: null,
+    evidence: timing?{timing_policy:timing.evidence}:{}, knowledge: {}, diagnostics: [] };
   mkdirSync(path.join(root, 'contracts'), { recursive: true });
   writeFileSync(path.join(root, 'contracts/uci-engine-launch-profile.json'), json(profile));
   writeFileSync(path.join(root, 'contracts/runtime-closure.json'), json(closure));
@@ -176,14 +196,14 @@ export function buildAtomicComponent({ root, closure, version, sourceDateEpoch }
     entrypoints: { uci_engine: 'bin/node.exe', uci_launch_profile: 'contracts/uci-engine-launch-profile.json',
       installer_integration: 'dist/installer-integration.mjs' },
     discovery: [{ kind: 'uci_engine', locator: { source: 'entrypoint', entrypoint: 'uci_engine' } }],
-    capabilities: ['uci_engine', 'uci_engine_launch_profile_v1'], dependencies: ['node_runtime.private'],
+    capabilities: ['uci_engine', 'uci_engine_launch_profile_v1'], dependencies: ['node_runtime.private',...(rootProvider?[ROOT_DEPENDENCY]:[])],
     default_model: { ...DEFAULT_MODEL },
     workspace_name: 'uci-arena-vector',
     installer_integration: { schema: 'arena_provider_installer_integration_v1', schema_version: 1,
       entrypoint: 'installer_integration', invocation: { kind: 'dependency_runtime',
         runtime_component_id: 'node_runtime.private', runtime_entrypoint: 'node' },
       arguments: ['--context'], workspace_name: 'uci-arena-vector', workspace_placement: 'product_data',
-      configure_when_disabled: true, dependency_bindings: [], locator_bindings: [] },
+      configure_when_disabled: true, dependency_bindings: rootProvider?ROOT_BINDINGS:[], locator_bindings: rootProvider?ROOT_LOCATORS:[] },
     startup: {}, data_paths: [],
     files: inventory(root).filter(row => row.path !== 'arena-component.json') };
   if (evidenceRuntime) {
@@ -227,6 +247,8 @@ export function verifyAtomicComponent(root) {
       || manifest.entrypoints?.installer_integration !== 'dist/installer-integration.mjs'
       || !manifest.capabilities?.includes('uci_engine_launch_profile_v1')) throw new Error('component launch identity differs');
   const integration = manifest.installer_integration;
+  const closure = JSON.parse(readFileSync(path.join(root, 'contracts/runtime-closure.json'), 'utf8'));
+  const rootProvider = rootProviderSelected(root,closure);
   if (integration?.schema !== 'arena_provider_installer_integration_v1' || integration.schema_version !== 1
       || integration.entrypoint !== 'installer_integration' || integration.invocation?.kind !== 'dependency_runtime'
       || integration.invocation.runtime_component_id !== 'node_runtime.private'
@@ -234,10 +256,10 @@ export function verifyAtomicComponent(root) {
       || integration.workspace_placement !== 'product_data' || integration.workspace_name !== 'uci-arena-vector'
       || manifest.workspace_name !== integration.workspace_name || integration.configure_when_disabled !== true
       || JSON.stringify(integration.arguments) !== JSON.stringify(['--context'])
-      || JSON.stringify(integration.dependency_bindings) !== '[]' || JSON.stringify(integration.locator_bindings) !== '[]') {
+      || !isDeepStrictEqual(integration.dependency_bindings,rootProvider?ROOT_BINDINGS:[]) || !isDeepStrictEqual(integration.locator_bindings,rootProvider?ROOT_LOCATORS:[])
+      || (rootProvider&&!manifest.dependencies.some(row=>isDeepStrictEqual(row,ROOT_DEPENDENCY)))) {
     throw new Error('component installer integration differs');
   }
-  const closure = JSON.parse(readFileSync(path.join(root, 'contracts/runtime-closure.json'), 'utf8'));
   validateClosure(root, closure, manifest.component_version);
   const evidenceRuntime = validateOptionalEvidenceRuntime(root, closure, manifest.component_version);
   if (evidenceRuntime !== Boolean(manifest.capabilities?.includes('evidence_runtime_contract_v2')) ||
@@ -246,6 +268,8 @@ export function verifyAtomicComponent(root) {
     throw new Error('component Evidence runtime contract routing differs');
   }
   const profile = JSON.parse(readFileSync(path.join(root, manifest.entrypoints.uci_launch_profile), 'utf8'));
+  const timing=bundledTiming(root,closure);
+  if(timing?!Object.entries(timing.options).every(([key,value])=>profile.uci_options?.[key]===value)||!isDeepStrictEqual(profile.evidence?.timing_policy,timing.evidence):['TimingPolicyFile','TimingPolicySha256','TimingInitialTimeMs'].some(key=>Object.hasOwn(profile.uci_options??{},key)))throw new Error('Timing launch binding differs from selected policy');
   if (Object.entries(DEFAULT_MODEL).some(([name, value]) => manifest.default_model?.[name] !== value)
       || profile.uci_options?.ModelRoot !== DEFAULT_MODEL.root) throw new Error('component model launch identity differs');
   if (profile.component?.id !== manifest.component_id || profile.component?.version !== manifest.component_version

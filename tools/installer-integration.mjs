@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync,openSync,closeSync,fstatSync,readSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {canonicalJson} from '../components/root-knowledge/tablebase.mjs';
 
 const SHA = /^[0-9a-f]{64}$/u;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -36,21 +37,26 @@ function noLinks(filename, directory = false) {
   return info;
 }
 
-function jsonFile(filename) {
-  const info = noLinks(filename);
-  if (info.size > 1024 * 1024) fail('document-too-large');
-  const result = JSON.parse(readFileSync(filename, 'utf8'));
+function documentBytes(filename) {
+  const info=noLinks(filename),same=(a,b)=>a.dev===b.dev&&a.ino===b.ino&&a.size===b.size&&a.mtimeMs===b.mtimeMs&&a.ctimeMs===b.ctimeMs;
+  if(info.size<2||info.size>1024*1024)fail('document-too-large');
+  const fd=openSync(filename,'r');
+  try{const opened=fstatSync(fd);if(!same(info,opened))fail('document-changed');const bytes=Buffer.alloc(opened.size);let offset=0;while(offset<bytes.length){const n=readSync(fd,bytes,offset,bytes.length-offset,offset);if(!n)fail('document-ended-early');offset+=n;}if(!same(opened,fstatSync(fd))||!same(opened,noLinks(filename)))fail('document-changed');return bytes;}finally{closeSync(fd);}
+}
+function jsonBytes(bytes){
+  const result = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
   if (!object(result)) fail('invalid-document');
   return result;
 }
+const jsonFile=filename=>jsonBytes(documentBytes(filename));
 
 export function renderInstalledLaunchProfile(context) {
   if (!object(context) || context.schema !== 'arena_provider_install_context_v1' || context.schema_version !== 1
       || !object(context.component) || context.component.id !== 'uci_arena.vector'
       || typeof context.component.version !== 'string' || typeof context.enabled !== 'boolean'
-      || !object(context.bindings) || Object.keys(context.bindings).length
-      || !object(context.locators) || Object.keys(context.locators).length
-      || !object(context.locator_details) || Object.keys(context.locator_details).length) fail('invalid-install-context');
+      || !object(context.bindings) || Object.keys(context.bindings).some(name=>name!=='root_tablebase_provider')
+      || !object(context.locators) || Object.keys(context.locators).some(name=>name!=='syzygy')
+      || !object(context.locator_details) || Object.keys(context.locator_details).some(name=>name!=='syzygy')) fail('invalid-install-context');
   const root = absolute(context.component.root);
   const workspace = absolute(context.workspace);
   noLinks(root, true);
@@ -102,12 +108,41 @@ export function renderInstalledLaunchProfile(context) {
     options.ModelRoot = path.join(root, relative(manifest.default_model.root));
     noLinks(options.ModelRoot, true);
   }
+  if(Object.hasOwn(options,'TimingPolicyFile')||Object.hasOwn(options,'TimingPolicySha256')){
+    if(typeof options.TimingPolicyFile!=='string'||!SHA.test(options.TimingPolicySha256??''))fail('invalid-timing-binding');
+    const policyFile=verifiedFile(options.TimingPolicyFile);
+    if(hash(readFileSync(policyFile))!==options.TimingPolicySha256)fail('timing-policy-identity-mismatch');
+    options.TimingPolicyFile=policyFile;
+  }
+  const generated_documents=[],knowledge={...profile.knowledge};
+  if(context.bindings.root_tablebase_provider&&context.locators.syzygy){
+    const providerRoot=absolute(context.bindings.root_tablebase_provider),datasetRoot=absolute(context.locators.syzygy),detail=context.locator_details.syzygy;
+    noLinks(providerRoot,true);noLinks(datasetRoot,true);
+    if(!object(detail)||detail.kind!=='syzygy'||absolute(detail.path)!==datasetRoot||!['saved_locator','install_receipt'].includes(detail.source)||typeof detail.storage_mode!=='string')fail('invalid-dataset-locator-authority');
+    const selection=jsonFile(verifiedFile('contracts/root-tablebase-selection.json'));
+    if(selection.schema!=='vector_root_tablebase_selection_v1'||selection.componentId!=='syzygy.root-provider'||selection.version!=='2.1.0'||!SHA.test(selection.manifestSha256??'')||!SHA.test(selection.contractSha256??''))fail('invalid-root-provider-selection');
+    const providerManifest=path.join(providerRoot,'package-manifest.json'),contractPath=path.join(providerRoot,'contracts/offline-root-knowledge-v2.json');
+    const manifestBytes=documentBytes(providerManifest),contractBytes=documentBytes(contractPath);
+    if(hash(manifestBytes)!==selection.manifestSha256||hash(contractBytes)!==selection.contractSha256)fail('root-provider-identity-mismatch');
+    const manifest=jsonBytes(manifestBytes),contract=jsonBytes(contractBytes);
+    if(manifest.schema!=='uci_arena_root_provider_package_v1'||!Array.isArray(manifest.files)||!manifest.files.some(row=>row.path==='contracts/offline-root-knowledge-v2.json'&&row.sha256===selection.contractSha256)||contract.schema!=='uci_arena_root_knowledge_contract_v2'||contract.version!==selection.version)fail('root-provider-contract-mismatch');
+    const datasetManifest=path.join(datasetRoot,'syzygy_manifest_v1.json'),datasetBytes=documentBytes(datasetManifest),dataset=jsonBytes(datasetBytes);
+    if(dataset.schema!=='uci_arena_syzygy_manifest_v1'||!Array.isArray(dataset.files)||!dataset.files.length||dataset.files.length>2048)fail('invalid-dataset-selection');
+    const names=dataset.files.map(row=>row.name),folded=new Set();
+    for(const name of names){if(typeof name!=='string'||!/^K[QRBNP]*vK[QRBNP]*\.(rtbw|rtbz)$/.test(name)||name.split('.')[0].length-1<3||name.split('.')[0].length-1>6||folded.has(name.toLowerCase()))fail('invalid-dataset-member');folded.add(name.toLowerCase());}
+    const configuration={schema:'uci_arena_syzygy_root_configuration_v1',dataset_root:datasetRoot,manifest_sha256:hash(datasetBytes),selected_files:names.sort()};
+    if(Buffer.byteLength(JSON.stringify(configuration))>65536)fail('dataset-configuration-capacity');
+    const binding={schema:'vector_root_tablebase_binding_v2',selectionSha256:hash(canonicalJson(selection)),componentRoot:providerRoot,configuration:{path:path.join(workspace,'root-provider-config.json'),canonicalSha256:hash(canonicalJson(configuration))}};
+    generated_documents.push({path:'root-provider-config.json',document:configuration},{path:'root-provider-binding.json',document:binding});
+    options.RootTablebaseBinding=path.join(workspace,'root-provider-binding.json');
+    knowledge.syzygy={status:'configured-pending-provider-admission',source:detail.source,path:datasetRoot,component:selection.componentId,version:selection.version};
+  }
   const executable = verifiedFile(profile.engine.executable);
   const program = verifiedFile(args.at(-1));
   return { schema: 'arena_provider_install_result_v1', schema_version: 1,
-    configuration: { ...profile, component: { ...profile.component, root }, enabled: context.enabled, uci_options: options,
+    configuration: { ...profile, component: { ...profile.component, root }, enabled: context.enabled, uci_options: options,knowledge,
       engine: { ...profile.engine, executable, arguments: [...args.slice(0, -1), program], working_directory: root } },
-    generated_documents: [] };
+    generated_documents };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

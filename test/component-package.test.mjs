@@ -84,6 +84,26 @@ test('one atomic payload inventories the whole runtime and has reproducible byte
   assert.equal(verifyAtomicComponent(options.root).component_version, '0.1.0');
 });
 
+test('an inventoried external root selection adds only declared optional provider and dataset bindings',t=>{
+  const options=fixture(t),name='contracts/root-tablebase-selection.json',bytes=JSON.stringify({schema:'vector_root_tablebase_selection_v1',componentId:'syzygy.root-provider',version:'2.1.0',manifestSha256:'a'.repeat(64),contractSha256:'b'.repeat(64)});
+  writeFileSync(path.join(options.root,name),bytes);options.closure.files.push({path:name,sha256:sha(bytes)});
+  const receiptPath=path.join(options.root,options.closure.qualification.receipt),receipt=JSON.parse(readFileSync(receiptPath));receipt.files.push({path:name,sha256:sha(bytes)});const receiptBytes=JSON.stringify(receipt);writeFileSync(receiptPath,receiptBytes);options.closure.qualification.receipt_sha256=sha(receiptBytes);options.closure.files.find(row=>row.path===options.closure.qualification.receipt).sha256=sha(receiptBytes);
+  const {manifest}=buildAtomicComponent(options);assert.deepEqual(manifest.installer_integration.dependency_bindings,[{name:'root_tablebase_provider',component_id:'syzygy.root-provider',source:'component_path',path:'runtime',required:false}]);assert.deepEqual(manifest.installer_integration.locator_bindings,[{name:'syzygy',kind:'syzygy',required:false}]);
+  assert(manifest.dependencies.some(row=>row.component_id==='syzygy.root-provider'&&row.required===false));assert.equal(verifyAtomicComponent(options.root).component_version,options.version);
+});
+
+test('bundled timing declarations require exact runtime compatibility before launch projection',t=>{
+  const options=fixture(t),identity={schema:'vector_engine_runtime_identity_v1',vectorRevision:options.closure.vector_commit,nodeVersion:'26.11.1'};
+  // Logical declarations only, with the enclosing synthetic package fixture.
+  // This test does not create native evidence or a signed candidate.
+  const policy={schema:'vector_timing_policy_v1',producer:'vector-evidence-runtime/clock-allocation-v1',runtime_identity_sha256:sha(JSON.stringify(identity)),control:{initial_time_ms:180000,increment_ms:3000},strategy:{kind:'target_blocks_v1',target_blocks:1},useful_blocks_ms:[500],local_publication_reserve_ms:100,unsupported_fallback:'publish-current',qualification:{status:'qualified',study_sha256:'a'.repeat(64),discovery_sha256:'b'.repeat(64),held_out_sha256:'c'.repeat(64),reserve_sha256:'d'.repeat(64),allocation:true,useful_blocks:true,clock_safety:true,discovery:{opening_units:8,mean_score_gain:.25,directional_p:1/256},held_out:{opening_units:8,mean_score_gain:.25,directional_p:1/256}}};
+  for(const [name,bytes]of Object.entries({'contracts/runtime-identity.json':JSON.stringify(identity),'contracts/timing-policy.json':JSON.stringify(policy)})){writeFileSync(path.join(options.root,name),bytes);options.closure.files.push({path:name,sha256:sha(bytes)});}
+  const receiptPath=path.join(options.root,options.closure.qualification.receipt),receipt=JSON.parse(readFileSync(receiptPath));receipt.files=options.closure.files.filter(row=>row.path!==options.closure.qualification.receipt).map(row=>({...row}));const bytes=JSON.stringify(receipt);writeFileSync(receiptPath,bytes);options.closure.qualification.receipt_sha256=sha(bytes);options.closure.files.find(row=>row.path===options.closure.qualification.receipt).sha256=sha(bytes);
+  const built=buildAtomicComponent(options);assert.equal(built.profile.uci_options.TimingPolicyFile,'contracts/timing-policy.json');assert.equal(built.profile.uci_options.TimingPolicySha256,sha(JSON.stringify(policy)));assert.equal(built.profile.uci_options.TimingInitialTimeMs,0);
+  const profilePath='contracts/uci-engine-launch-profile.json',profile=JSON.parse(readFileSync(path.join(options.root,profilePath)));profile.uci_options.TimingPolicySha256='e'.repeat(64);const changed=JSON.stringify(profile);writeFileSync(path.join(options.root,profilePath),changed);const manifest=JSON.parse(readFileSync(path.join(options.root,'arena-component.json')));Object.assign(manifest.files.find(row=>row.path===profilePath),{sha256:sha(changed),size_bytes:Buffer.byteLength(changed)});writeFileSync(path.join(options.root,'arena-component.json'),JSON.stringify(manifest));
+  assert.throws(()=>verifyAtomicComponent(options.root));
+});
+
 test('managed discovery can resolve the script launch through preserved provider configuration', t => {
   const options = fixture(t);
   const { manifest } = buildAtomicComponent(options);
