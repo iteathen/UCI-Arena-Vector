@@ -76,10 +76,10 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       options.set(key,Object.freeze(option));timingNames.add(option.name);
     }
   }
-  let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,newGame=true,admission=Promise.resolve(),retirement=Promise.resolve(),active=null,closed=false;
+  let rootEpoch=0,requestId=0,sideToMove=0,admittedEpoch=0,hasPosition=false,gameActive=false,admission=Promise.resolve(),retirement=Promise.resolve(),active=null,closed=false;
   let runtimeIdentity,readyPromise,configurationError,experiment,policy,configuration=Promise.resolve();
   const diagnostic=(phase,facts={})=>{if(onDiagnostic)try{onDiagnostic({schema:'vector_uci_clock_phase_v1',phase,time:now(),rootEpoch,requestId,...facts});}catch{/* diagnostics cannot alter search/publication ownership */}};
-  const ready=async()=>{
+  const ready=async({admitPolicy=false}={})=>{
     await configuration;
     if(configurationError)throw configurationError;
     if(!readyPromise)readyPromise=Promise.resolve().then(()=>port.ready()).then(identity=>{if(identity!==undefined){if(identity?.schema!=='vector_engine_runtime_identity_v1')throw new Error('Backend public runtime identity schema mismatch');const encoded=JSON.stringify(identity);if(encoded.length>16384)throw new Error('Backend public runtime identity exceeds bounded extent');runtimeIdentity=encoded;}if(experimentRequest){if(!runtimeIdentity)throw new Error('Timing experiment requires actual runtime identity');experiment=admitTimingExperiment(experimentRequest.text,{sha256:experimentRequest.sha256,runtimeIdentitySha256:createHash('sha256').update(runtimeIdentity).digest('hex')});if(experimentRequest.initialTimeMs!==experiment.supported_inputs.initial_time_ms)throw new Error('Timing experiment initial control mismatch');}});
@@ -87,28 +87,41 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     if(timingPolicySupport&&!policy){
       const file=optionValues.TimingPolicyFile,sha256=optionValues.TimingPolicySha256;
       if(Boolean(file)!==Boolean(sha256))throw new Error('Timing policy requires both artifact and SHA256');
-      if(file){if(!runtimeIdentity)throw new Error('Timing policy requires actual runtime identity');policy=admitTimingPolicy(readTimingArtifact(file),{sha256,runtimeIdentitySha256:createHash('sha256').update(runtimeIdentity).digest('hex')});}
+      if(file){if(!admitPolicy)throw new Error('Timing profile requires isready between games before position admission');if(!runtimeIdentity)throw new Error('Timing policy requires actual runtime identity');policy=admitTimingPolicy(readTimingArtifact(file),{sha256,runtimeIdentitySha256:createHash('sha256').update(runtimeIdentity).digest('hex')});}
     }
   };
   const optionValues=Object.fromEntries([...options.values()].map(o=>[o.name,o.default]));
   const subscriptionFailures=[];
   const unsubscribe=token=>{const remove=token?.unsubscribe;token&&(token.unsubscribe=undefined);if(remove)try{remove();}catch(error){subscriptionFailures.push(error);}};
   const clearActive=()=>{const previous=active;active=null;if(previous?.timer)clearTimer(previous.timer);unsubscribe(previous);};
-  const publicationFailure=(token,error)=>{if(closed||active!==token)return;clearActive();write('info string error '+String(error?.message??error).replace(/[\x00-\x1f\x7f]/g,' ').slice(0,512));};
-  const pendingPublications=new Set();
-  const poll = token => {
+  const publicationFailure=(token,error)=>{if(closed||active!==token)return;clearActive();write('info string error '+String(error?.message??error).replace(/[\x00-\x1f\x7f]/g,' ').slice(0,512));write('bestmove 0000');};
+  const readCompleted = token => {
     if(closed||active!==token||token.rootEpoch!==rootEpoch)return;
     let result;try{result=port.readPublication({rootEpoch:token.rootEpoch,requestId:token.requestId});}catch(error){publicationFailure(token,error);return;}
     if(result) {
       const proof=result.legalProof;
-      if(result.rootEpoch===rootEpoch&&result.requestId===token.requestId&&proof?.rootEpoch===rootEpoch&&proof.action===result.action&&proof.legal===true&&(result.action!==null||result.terminal===true)) {
-        const text=result.action===null?'0000':actionToUci(result.action);
+      if(result.rootEpoch===rootEpoch&&result.requestId===token.requestId&&proof?.rootEpoch===rootEpoch&&proof.action===result.action&&proof.legal===true&&(result.action!==null||result.terminal===true)&&(!token.command.searchmoves?.length||token.command.searchmoves.includes(result.action))) {
+        let text;try{text=result.action===null?'0000':actionToUci(result.action);}catch(error){publicationFailure(token,error);return;}
         clearActive();diagnostic('emit',{rootEpoch:token.rootEpoch,requestId:token.requestId,...(result.authority?{observation:{authority:result.authority,telemetry:result.telemetry,timing:result.timing,terminal:result.terminal}}:{})});write(`bestmove ${text}`);return;
       }
     }
-    token.timer=setTimer(()=>poll(token),5);
+    publicationFailure(token,new Error('Missing or invalid completed current-focus publication authority'));
   };
-  const publish=token=>{if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}token.requested=true;unsubscribe(token);diagnostic('publicationRequested',{rootEpoch:token.rootEpoch,requestId:token.requestId});let result;try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],...(options.size?{options:token.options}:{})});}catch(error){publicationFailure(token,error);return;}const pending=Promise.resolve(result).then(()=>{diagnostic('observerDelivered',{rootEpoch:token.rootEpoch,requestId:token.requestId});poll(token);}).catch(error=>publicationFailure(token,error));pendingPublications.add(pending);pending.then(()=>pendingPublications.delete(pending),()=>pendingPublications.delete(pending));};
+  const publish=token=>{
+    if(active!==token||closed||token.requested||token.rootEpoch!==rootEpoch)return;
+    if(admittedEpoch!==token.rootEpoch){token.stopPending=true;return;}
+    token.requested=true;unsubscribe(token);diagnostic('publicationRequested',{rootEpoch:token.rootEpoch,requestId:token.requestId});
+    let result;
+    try{result=port.requestPublication({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],...(options.size?{options:token.options}:{})});}
+    catch(error){publicationFailure(token,error);return;}
+    if(result&&typeof result.then==='function'){
+      // The port owns shutdown of its work. Never join it before port.close().
+      Promise.resolve(result).catch(()=>{});
+      publicationFailure(token,new Error('Publication request requires a synchronous completed-memory result'));return;
+    }
+    if(result?.ready===false){publicationFailure(token,new Error('No completed compatible publication is ready: '+String(result.reason??'unavailable')));return;}
+    diagnostic('completedPublicationRead',{rootEpoch:token.rootEpoch,requestId:token.requestId});readCompleted(token);
+  };
   const subscribeResolution=token=>{
     if(typeof port.subscribePublicationResolution!=='function'||token.resolved||token.requested)return;
     const remove=port.subscribePublicationResolution({rootEpoch:token.rootEpoch,requestId:token.requestId},event=>{
@@ -148,7 +161,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     }
   };
   let closePromise;
-  const close=()=>{if(!closePromise){closed=true;clearActive();closePromise=Promise.resolve().then(async()=>{await configuration;if(readyPromise)await readyPromise.catch(()=>{});await admission.catch(()=>{});await Promise.allSettled([...pendingPublications]);const receipt=await port.close();if(subscriptionFailures.length)throw new AggregateError(subscriptionFailures,'Publication subscription retirement failed after backend closure');return receipt;});}return closePromise;};
+  const close=()=>{if(!closePromise){closed=true;clearActive();closePromise=Promise.resolve().then(async()=>{await configuration;if(readyPromise)await readyPromise.catch(()=>{});await admission.catch(()=>{});const receipt=await port.close();if(subscriptionFailures.length)throw new AggregateError(subscriptionFailures,'Publication subscription retirement failed after backend closure');return receipt;});}return closePromise;};
   const handle=async line=>{
     if(closed)return;
     const command=parseUciCommand(line);
@@ -157,7 +170,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
     else if(command.kind==='setoption'){
       const option=options.get(command.name.toLowerCase());
       if(!option)throw new Error('UCI option is not advertised');
-      if(hasPosition&&(option.apply??'startup')!=='next-go')throw new Error('UCI configuration cannot change an admitted game');
+      if((hasPosition||gameActive)&&(option.apply??'startup')!=='next-go')throw new Error('UCI configuration cannot change an admitted game');
       let value=command.value;
       if(option.type==='check'){if(!['true','false'].includes(value))throw new Error('Check option requires true or false');value=value==='true';}
       if(option.type==='spin'){if(!/^-?\d+$/.test(value)||!Number.isSafeInteger(Number(value))||Number(value)<option.min||Number(value)>option.max)throw new Error('Spin option integer outside declared range');value=Number(value);}
@@ -168,10 +181,10 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       configuration=pending.catch(()=>{});
       await pending;
     }
-    else if(command.kind==='isready'){await retirement;await ready();if(!closed){if(runtimeIdentity)write(`info string vector_identity ${runtimeIdentity}`);write('readyok');}}
+    else if(command.kind==='isready'){await retirement;await ready({admitPolicy:!hasPosition&&!gameActive});if(!closed){if(runtimeIdentity)write(`info string vector_identity ${runtimeIdentity}`);write('readyok');}}
     else if(command.kind==='position') {
-      clearActive();if(rootEpoch===0xffff_fffe)throw new Error('Root epoch exhausted');const epoch=++rootEpoch,establishGame=newGame;newGame=false;hasPosition=true;admittedEpoch=0;
-      admission=admission.catch(()=>{}).then(()=>ready()).then(()=>{diagnostic('admissionStarted',{rootEpoch:epoch});return port.admitPosition({...command,rootEpoch:epoch,newGame:establishGame});}).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');diagnostic('admissionReady',{rootEpoch:epoch,...(result.observation?{observation:result.observation}:{})});if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
+      clearActive();if(rootEpoch===0xffff_fffe)throw new Error('Root epoch exhausted');const epoch=++rootEpoch;hasPosition=true;admittedEpoch=0;
+      admission=admission.catch(()=>{}).then(()=>ready()).then(()=>{diagnostic('admissionStarted',{rootEpoch:epoch});return port.admitPosition({...command,rootEpoch:epoch,newGame:!gameActive});}).then(result=>{if(result?.rootEpoch!==epoch||![0,1].includes(result.sideToMove))throw new Error('GPU position admission authority mismatch');gameActive=true;diagnostic('admissionReady',{rootEpoch:epoch,...(result.observation?{observation:result.observation}:{})});if(epoch===rootEpoch){sideToMove=result.sideToMove;admittedEpoch=epoch;}}).catch(error=>{if(epoch===rootEpoch){hasPosition=false;clearActive();}throw error;});
       await admission;
     } else if(command.kind==='go') {
       if(!hasPosition)throw new Error('UCI go requires admitted position');clearActive();if(requestId===0xffff_fffe)throw new Error('Publication request exhausted');
@@ -180,7 +193,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       try{await configuration;if(configurationError)throw configurationError;token.options=Object.freeze(Object.fromEntries(Object.entries(optionValues).filter(([name])=>!timingNames.has(name))));token.timingInputs=Object.freeze({initialTimeMs:optionValues.TimingInitialTimeMs,transportReserveMs:optionValues['Move Overhead']});await admission;if(active===token&&!closed){token.policy=policy;const intent=typeof port.preparePublicationIntent==='function'?await port.preparePublicationIntent({rootEpoch:token.rootEpoch,requestId:token.requestId,searchmoves:token.command.searchmoves??[],options:token.options}):null;token.resolved=intent?.bypassPublicationWait===true;token.applicability=intent?.applicability??(token.resolved?'resolved_without_search_time':'search_derived');if(!['search_derived','constrained_search','advisory_search','resolved_without_search_time'].includes(token.applicability)||token.resolved!==(token.applicability==='resolved_without_search_time'))throw new Error('Publication applicability authority mismatch');token.classified=true;diagnostic('publicationIntentClassified',{rootEpoch:token.rootEpoch,requestId:token.requestId,resolved:token.resolved,applicability:token.applicability});if(active===token&&!closed){subscribeResolution(token);if(token.stopPending||(token.resolved&&!command.ponder&&!command.infinite))publish(token);else schedule(token);}}}catch(error){if(active===token)clearActive();throw error;}
     } else if(command.kind==='stop'){if(active){if(active.timer)clearTimer(active.timer);publish(active);}}
     else if(command.kind==='ponderhit'){if(active?.command.ponder){const token=active;delete token.command.ponder;token.started=now();if(!token.classified)return;try{if(token.resolved&&!token.command.infinite)publish(token);else schedule(token);}catch(error){if(active===token)clearActive();throw error;}}}
-    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;newGame=true;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{readyPromise=undefined;runtimeIdentity=undefined;policy=undefined;});retirement=admission;await admission;}
+    else if(command.kind==='ucinewgame'){clearActive();hasPosition=false;admittedEpoch=0;admission=admission.catch(()=>{}).then(()=>typeof port.endGame==='function'?port.endGame():undefined).then(()=>{gameActive=false;readyPromise=undefined;runtimeIdentity=undefined;policy=undefined;});retirement=admission;await admission;}
     else if(command.kind==='quit')return close();
   };
   return Object.freeze({handle,close});
