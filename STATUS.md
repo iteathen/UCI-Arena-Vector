@@ -22,6 +22,11 @@ The archived mate sequence was defended. Other controls,
 playing strength and arbitrarily short admission latency remain unqualified.
 Older source/payload/campaign evidence remains historical and is never relabeled.
 
+Component 0.1.4 is a profile/packaging source candidate for original-clock binding
+before consumer readiness. It preserves the signed 0.1.3 runtime, identity and
+policy and records new release source separately. No 0.1.4 release or new GPU
+qualification is claimed. See [the bounded contract](docs/development/2026-10-11-profile-clock-binding.md).
+
 The owner-directed goal remains the complete installed engine, compatible
 services and functional Installer, then installed Lichess Bot acceptance.
 Complete-suite transactional deployment and recovery remain in progress.

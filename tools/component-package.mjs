@@ -5,8 +5,10 @@ import { gzipSync } from 'node:zlib';
 import { isDeepStrictEqual } from 'node:util';
 import { buildRuntimeContract } from '../components/evidence-runtime/contract.mjs';
 import {admitTimingPolicy} from '../components/move-timing/policy.mjs';
+import {admitClockOptionBindings} from './clock-option-bindings.mjs';
+import {validateProfileOnlyRuntime,admitPriorRuntimeAdmission,assertMaintainedRuntimeSource,profileOnlyReleaseMetadata,PRIOR_013} from './profile-only-release.mjs';
 
-export const VECTOR_COMPONENT_VERSION='0.1.3';
+export const VECTOR_COMPONENT_VERSION='0.1.4';
 
 const GENERATED = new Set(['arena-component.json', 'contracts/uci-engine-launch-profile.json', 'contracts/runtime-closure.json']);
 const SHA = /^[0-9a-f]{64}$/u;
@@ -89,6 +91,8 @@ function validateClosure(root, closure, version) {
   if (actual.length !== expected.size || actual.some(row => expected.get(row.path) !== row.sha256)) {
     throw new Error('runtime closure inventory or file identity differs');
   }
+  const qualificationFiles=version==='0.1.4'?validateProfileOnlyRuntime(root,closure):expected;
+  if(version!=='0.1.4'&&Object.hasOwn(closure,'profile_only_release'))throw new Error('profile-only release version differs');
   for (const required of ['bin/node.exe', 'dist/uci.mjs', 'dist/installer-integration.mjs']) {
     if (!expected.has(required)) throw new Error(`runtime closure omits ${required}`);
   }
@@ -113,17 +117,41 @@ function validateClosure(root, closure, version) {
       || receipt.vector_commit !== closure.vector_commit || !Array.isArray(receipt.tests)
       || receipt.tests.some(test => test.status !== 'pass')
       || ['gpu-search', 'legal-game', 'clock-safety', 'lifecycle', 'tactical-safety'].some(name => !receipt.tests.some(test => test.name === name))
-      || !Array.isArray(receipt.files) || receipt.files.length !== expected.size - 1) {
+      || !Array.isArray(receipt.files) || receipt.files.length !== qualificationFiles.size - 1) {
     throw new Error('qualification does not pass the required exact-runtime gates');
   }
   const receiptNames = new Set();
   for (const row of receipt.files) {
-    if (row.path === receiptPath || receiptNames.has(row.path) || expected.get(row.path) !== row.sha256) {
+    if (row.path === receiptPath || receiptNames.has(row.path) || qualificationFiles.get(row.path) !== row.sha256) {
       throw new Error('qualification runtime file identity differs');
     }
     receiptNames.add(row.path);
   }
   return actual;
+}
+
+/** Read-only plan from the exact officially admitted 0.1.3 atomic input.
+ * The caller copies that whole input and applies only these metadata bytes. */
+export function deriveProfileOnlyOverlay({priorRoot,admissionBytes,priorInputs,repositoryRoot,releaseCommit}){
+  assertMaintainedRuntimeSource({repositoryRoot,releaseCommit});
+  admitPriorRuntimeAdmission({recordBytes:admissionBytes,inputs:priorInputs});
+  priorRoot=regularRoot(priorRoot);
+  const manifestBytes=readFileSync(path.join(priorRoot,'arena-component.json')),
+    closureBytes=readFileSync(path.join(priorRoot,'contracts/runtime-closure.json'));
+  if(hash(manifestBytes)!==PRIOR_013.manifestSha256||hash(closureBytes)!==PRIOR_013.closureSha256)throw Error('profile-only original metadata differs');
+  verifyAtomicComponent(priorRoot);
+  const closure=JSON.parse(closureBytes);
+  closure.component_version='0.1.4';closure.profile_only_release=profileOnlyReleaseMetadata(releaseCommit);
+  const metadataFiles=[
+    {path:'contracts/prior-runtime-manifest.json',bytes:manifestBytes},
+    {path:'contracts/prior-runtime-closure.json',bytes:closureBytes},
+    {path:'contracts/prior-runtime-admission.json',bytes:Buffer.from(admissionBytes)},
+    {path:'contracts/evidence-runtime-contract.json',bytes:json(buildRuntimeContract({componentVersion:'0.1.4',targetTriple:'windows-x86_64'}))}
+  ];
+  const rows=new Map(closure.files.map(row=>[row.path,row]));
+  for(const row of metadataFiles)rows.set(row.path,{path:row.path,sha256:hash(row.bytes)});
+  closure.files=[...rows.values()];
+  return {closure,metadataFiles};
 }
 
 function tarHeader(relative, size, epoch) {
@@ -177,6 +205,21 @@ function validateOptionalEvidenceRuntime(root, closure, version) {
   return true;
 }
 
+function launchProfile(version,timing){
+  const profile = { schema: 'arena_uci_engine_launch_profile_v1', schema_version: 1,
+    component: { id: 'uci_arena.vector', version, root: '.' },
+    engine: { adapter: 'standard_uci_v1', executable: 'bin/node.exe',
+      arguments: ['--experimental-ffi', 'dist/uci.mjs'], working_directory: '.' },
+    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root, RequireTimingPolicy: true,...(timing?.options??{}) }, expected_runtime: null,
+    evidence: timing?{timing_policy:timing.evidence}:{}, knowledge: {}, diagnostics: [] };
+  if(version==='0.1.4'){
+    if(!timing)throw new Error('profile-only release requires original timing policy');
+    profile.clock_option_bindings=admitClockOptionBindings({schema:'arena_uci_clock_option_bindings_v1',schema_version:1,
+      bindings:{TimingInitialTimeMs:'initial_ms'}},profile.uci_options);
+  }
+  return profile;
+}
+
 export function buildAtomicComponent({ root, closure, version=VECTOR_COMPONENT_VERSION, sourceDateEpoch }) {
   root = regularRoot(root);
   if (!Number.isSafeInteger(sourceDateEpoch) || sourceDateEpoch < 0) throw new Error('invalid source date epoch');
@@ -184,12 +227,7 @@ export function buildAtomicComponent({ root, closure, version=VECTOR_COMPONENT_V
   const evidenceRuntime = validateOptionalEvidenceRuntime(root, closure, version);
   const rootProvider = rootProviderSelected(root,closure);
   const timing = bundledTiming(root,closure);
-  const profile = { schema: 'arena_uci_engine_launch_profile_v1', schema_version: 1,
-    component: { id: 'uci_arena.vector', version, root: '.' },
-    engine: { adapter: 'standard_uci_v1', executable: 'bin/node.exe',
-      arguments: ['--experimental-ffi', 'dist/uci.mjs'], working_directory: '.' },
-    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root, RequireTimingPolicy: true,...(timing?.options??{}) }, expected_runtime: null,
-    evidence: timing?{timing_policy:timing.evidence}:{}, knowledge: {}, diagnostics: [] };
+  const profile=launchProfile(version,timing);
   mkdirSync(path.join(root, 'contracts'), { recursive: true });
   writeFileSync(path.join(root, 'contracts/uci-engine-launch-profile.json'), json(profile));
   writeFileSync(path.join(root, 'contracts/runtime-closure.json'), json(closure));
@@ -263,6 +301,10 @@ export function verifyAtomicComponent(root) {
     throw new Error('component installer integration differs');
   }
   validateClosure(root, closure, manifest.component_version);
+  if(manifest.component_version==='0.1.4'){
+    const prior=JSON.parse(readFileSync(path.join(root,closure.profile_only_release.prior_manifest.path)));
+    if(!isDeepStrictEqual(manifest,{...prior,component_version:'0.1.4',files:manifest.files}))throw Error('profile-only component metadata differs');
+  }
   const evidenceRuntime = validateOptionalEvidenceRuntime(root, closure, manifest.component_version);
   if (evidenceRuntime !== Boolean(manifest.capabilities?.includes('evidence_runtime_contract_v2')) ||
       (evidenceRuntime ? manifest.entrypoints?.evidence_runtime_contract !== 'contracts/evidence-runtime-contract.json' :
@@ -270,7 +312,12 @@ export function verifyAtomicComponent(root) {
     throw new Error('component Evidence runtime contract routing differs');
   }
   const profile = JSON.parse(readFileSync(path.join(root, manifest.entrypoints.uci_launch_profile), 'utf8'));
+  const clockBinding=admitClockOptionBindings(profile.clock_option_bindings,profile.uci_options);
+  if(manifest.component_version==='0.1.4'&&(!isDeepStrictEqual(clockBinding,{schema:'arena_uci_clock_option_bindings_v1',schema_version:1,bindings:{TimingInitialTimeMs:'initial_ms'}})
+    ||profile.state!=='conservative'||profile.expected_runtime!==null))throw Error('profile-only clock binding or baseline identity differs');
+  if(manifest.component_version!=='0.1.4'&&clockBinding!==undefined)throw Error('clock binding release version differs');
   const timing=bundledTiming(root,closure);
+  if(manifest.component_version==='0.1.4'&&!isDeepStrictEqual(profile,launchProfile('0.1.4',timing)))throw Error('profile-only launch metadata differs');
   if(profile.uci_options?.RequireTimingPolicy!==true&&!(['0.1.0','0.1.1','0.1.2'].includes(manifest.component_version)&&!Object.hasOwn(profile.uci_options??{},'RequireTimingPolicy')))throw new Error('Managed engine launch must require a qualified timing policy');
   if(timing?!Object.entries(timing.options).every(([key,value])=>profile.uci_options?.[key]===value)||!isDeepStrictEqual(profile.evidence?.timing_policy,timing.evidence):['TimingPolicyFile','TimingPolicySha256','TimingInitialTimeMs'].some(key=>Object.hasOwn(profile.uci_options??{},key)))throw new Error('Timing launch binding differs from selected policy');
   if (Object.entries(DEFAULT_MODEL).some(([name, value]) => manifest.default_model?.[name] !== value)
