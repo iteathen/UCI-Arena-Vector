@@ -1,7 +1,10 @@
 # Original clock binding in component 0.1.4
 
-**Status:** Source candidate; no 0.1.4 signing, installation or new GPU
-qualification is claimed by this change.
+**Status:** Signed 0.1.4 from release source
+`1752a15eefa17d25d11054b9150415b82d892238` (run `38166421692`) is installed in
+E suite 0.3.59. Manager 0.3.29's original-clock probe and registration passed.
+The original 0.1.3 GPU qualification remains unchanged; no new campaign is
+claimed by this profile overlay. See the [installed delivery record](2026-10-11-installed-e-suite059.md).
 
 The optional launch-profile field is a closed object:
 

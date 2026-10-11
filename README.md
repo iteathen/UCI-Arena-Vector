@@ -15,12 +15,15 @@ or execution failures;32 tested the selected500ms/future32 policy. Native
 lifecycle checks and relocated-payload checks passed. The reported mate sequence was
 replayed through the signed engine and defended. This establishes the measured
 clock/correctness scope, not a rating or support for other time controls.
-Complete-suite installation and installed Bot acceptance remain in progress.
+E suite 0.3.59 is installed with signed component 0.1.4; installed Bot acceptance
+remains pending and the Bot stays stopped. This installation required operator
+E-root DACL preparation; the Installer 0.3.60 repair is not yet built/installed.
 Historical failed campaigns and older payloads retain their original scope.
 See [the clock repair record](docs/development/2026-10-11-zero-increment-clock-failure.md).
-The [0.1.4 profile-only source candidate](docs/development/2026-10-11-profile-clock-binding.md)
+The [signed 0.1.4 profile-only overlay](docs/development/2026-10-11-profile-clock-binding.md)
 declares how consumers supply original clocks before readiness, preserving the
-signed 0.1.3 runtime and qualification without a new GPU claim.
+signed 0.1.3 runtime and qualification without a new GPU claim. See the
+[installed delivery record](docs/development/2026-10-11-installed-e-suite059.md).
 
 Vector owns chess rules, UCI lifecycle, model feature/action meaning, concrete
 search policy and product knowledge. Generic search, tensor mathematics and CUDA
