@@ -1,6 +1,6 @@
 # UCI Arena Vector Status
 
-**Updated: 2026-10-09 — install component 0.1.2 source candidate.**
+**Updated: 2026-10-11 — signed install component 0.1.3; suite installation pending.**
 
 Vector has a runnable provisional Windows cuda-js/MCGS engine. The original
 73091 model, physically qualified chess Domain/model inputs, persistent
@@ -13,19 +13,26 @@ population timing qualification.
 
 Current public library closure: cuda-js alpha.22 protected dc292465,
 cuda-js-tensor alpha.10 protected 759a1a07, CUDA-MCGS dev.3 protected 39a274ac.
-The 0.1.2 candidate adds an optional Installer-selected opening Book binding,
-with immutable identity pins, live refresh only between games, active-game
-generation preservation and explicit degraded absence. Its scope has independent
-source review and portable checks; fresh native, relocated-payload and signed
-release gates are pending. Signed 0.1.1 receipts remain unchanged historical
-evidence and cannot substitute for those new gates.
+Signed 0.1.3/source `31d5873b47ea5d0bcf6a83728902d3a383787f6f` includes
+the optional Installer-selected Book binding and qualified 180+0 policy.
+Independent signed-payload review, native lifecycle gates and relocated-payload
+checks passed. The exact policy completed 80 native games without clock flags
+or execution failures; the archived mate sequence was defended. Other controls,
+playing strength and arbitrarily short admission latency remain unqualified.
+Older source/payload/campaign evidence remains historical and is never relabeled.
 
 The owner-directed goal remains the complete installed engine, compatible
 services and functional Installer, then installed Lichess Bot acceptance.
 Complete-suite transactional deployment and recovery remain in progress.
-Unconfigured production useful-block timing authority performs no discretionary
-time purchase; configured incompatible artifacts fail readiness. No custom
-duration study has been promoted to accepted learned timing strategy.
+Unconfigured useful-block timing authority performs no discretionary time
+purchase; configured incompatible artifacts fail readiness. Managed live clocks
+require qualified policy and the actual original control before readiness.
+The exact 180+0 policy uses the qualified future-capacity strategy; this does not
+promote unrelated experimental treatments or timing artifacts. Profiles are
+admitted between games. Deadline publication reads the completed current-focus
+move from memory without a fresh GPU observation or profile file read.
+The owner's latest bot instruction is to keep it stopped; successful installation
+does not authorize restarting it.
 
 Maintained engine source remains JavaScript and restricted Device-JS through
 public cuda-js, Tensor and MCGS contracts. The C++ engine deployment is cancelled;
