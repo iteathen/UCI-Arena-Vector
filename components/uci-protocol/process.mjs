@@ -3,7 +3,10 @@ import {createUciController} from './index.mjs';
 
 export function runUciProcess({input,output,port,onDiagnostic,experimentalTiming,timingPolicySupport=false}){
   if(typeof input?.on!=='function'||typeof output?.write!=='function')throw new Error('UCI transport requires input/output streams');
-  const write=line=>output.write(line+'\n'),controller=createUciController({port,write,onDiagnostic,experimentalTiming,timingPolicySupport}),lines=createInterface({input,terminal:false,crlfDelay:Infinity}),pending=new Set();
+  let emissionNanoseconds;
+  const write=line=>{if(onDiagnostic&&line.startsWith('bestmove '))emissionNanoseconds=process.hrtime.bigint().toString();return output.write(line+'\n');};
+  const reportPhase=onDiagnostic?row=>onDiagnostic(row.phase==='emit'?{...row,monotonicNanoseconds:emissionNanoseconds}:row):undefined;
+  const controller=createUciController({port,write,onDiagnostic:reportPhase,experimentalTiming,timingPolicySupport}),lines=createInterface({input,terminal:false,crlfDelay:Infinity}),pending=new Set();
   let closing=false,transportFailure,resolve,reject;
   const done=new Promise((yes,no)=>{resolve=yes;reject=no;});
   const diagnostic=error=>write('info string error '+String(error?.message??error).replace(/[\x00-\x1f\x7f]/g,' ').slice(0,512));

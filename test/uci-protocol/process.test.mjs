@@ -9,3 +9,15 @@ test('rejected configuration emits one bounded diagnostic and no false readyok',
 test('quit tears down once and ignores subsequent buffered commands',async()=>{const {runUciProcess}=await api(),f=fixture(),done=runUciProcess(f);f.input.write('quit\nisready\nuci\n');const report=await done;assert.equal(report.graceful,true);assert.deepEqual(f.events,['closed']);assert.equal(f.text(),'');});
 test('stdin completion waits for actual backend resource closure',async()=>{const {runUciProcess}=await api(),f=fixture();let release;f.port.close=()=>new Promise(resolve=>release=resolve);let finished=false;const done=runUciProcess(f);done.then(()=>finished=true);f.input.end();await flush();assert.equal(finished,false);release({graceful:false,retained:['runtime']});assert.deepEqual(await done,{graceful:false,retained:['runtime']});});
 test('transport preserves failed backend teardown instead of claiming successful EOF',async()=>{const {runUciProcess}=await api(),f=fixture();f.port.close=async()=>{throw new Error('unproved cleanup');};const done=runUciProcess(f);f.input.end();await assert.rejects(done,/unproved/);});
+
+test('move output precedes diagnostics but emit timestamp describes the actual write boundary',async()=>{
+ const {runUciProcess}=await api(),f=fixture(),observations=[];let receivedNs;
+ f.output.on('data',bytes=>{if(bytes.toString().startsWith('bestmove '))receivedNs=process.hrtime.bigint();});
+ f.port.readPublication=({rootEpoch,requestId})=>({rootEpoch,requestId,action:1804,legalProof:{rootEpoch,action:1804,legal:true}});
+ const done=runUciProcess({...f,onDiagnostic:row=>observations.push({...row,callbackNs:process.hrtime.bigint(),bestmoveAlreadyWritten:receivedNs!==undefined})});
+ f.input.write('position startpos\ngo infinite\n');await flush();f.input.write('stop\n');await flush();
+ f.input.end();await done;
+ const emission=observations.find(row=>row.phase==='emit');assert(emission);assert.equal(emission.bestmoveAlreadyWritten,true);
+ assert.match(emission.monotonicNanoseconds??'',/^[0-9]+$/);
+ assert(BigInt(emission.monotonicNanoseconds)<=receivedNs);assert(receivedNs<=emission.callbackNs);
+});
