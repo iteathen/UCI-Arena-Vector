@@ -79,6 +79,7 @@ test('one atomic payload inventories the whole runtime and has reproducible byte
   assert.equal(first.manifest.entrypoints.uci_engine, 'bin/node.exe');
   assert.deepEqual(first.profile.engine.arguments, ['--experimental-ffi', 'dist/uci.mjs']);
   assert.equal(first.profile.uci_options.ModelRoot, 'models/default');
+  assert.equal(first.profile.uci_options.RequireTimingPolicy, true);
   assert.equal(first.manifest.default_model.root, 'models/default');
   assert.equal(first.manifest.default_model.input_adapter_id, 'chess_v1_fen_to_dense_planes_v1');
   assert.equal(first.manifest.files.length, options.closure.files.length + 2);
@@ -195,11 +196,11 @@ test('Book locator is optional independently of root tablebase component selecti
 });
 
 test('current component version projects consistently through default packaging and launch identity',async t=>{
- const module=await import('../tools/component-package.mjs');assert.equal(module.VECTOR_COMPONENT_VERSION,'0.1.2');
+ const module=await import('../tools/component-package.mjs');assert.equal(module.VECTOR_COMPONENT_VERSION,'0.1.3');
  const options=fixture(t);options.closure.component_version=module.VECTOR_COMPONENT_VERSION;delete options.version;
  const {manifest}=module.buildAtomicComponent(options);
- assert.equal(manifest.component_version,'0.1.2');
- const profile=JSON.parse(readFileSync(path.join(options.root,'contracts/uci-engine-launch-profile.json')));assert.equal(profile.component.version,'0.1.2');
- assert.equal(JSON.parse(readFileSync(path.join(options.root,'contracts/runtime-closure.json'))).component_version,'0.1.2');
- assert.equal(module.verifyAtomicComponent(options.root).component_version,'0.1.2');
+ assert.equal(manifest.component_version,'0.1.3');
+ const profile=JSON.parse(readFileSync(path.join(options.root,'contracts/uci-engine-launch-profile.json')));assert.equal(profile.component.version,'0.1.3');
+ assert.equal(JSON.parse(readFileSync(path.join(options.root,'contracts/runtime-closure.json'))).component_version,'0.1.3');
+ assert.equal(module.verifyAtomicComponent(options.root).component_version,'0.1.3');
 });

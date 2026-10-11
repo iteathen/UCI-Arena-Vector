@@ -71,6 +71,7 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       {name:'TimingPolicyFile',type:'string',default:''},
       {name:'TimingPolicySha256',type:'string',default:''},
       {name:'TimingInitialTimeMs',type:'spin',default:0,min:0,max:3600000},
+      {name:'RequireTimingPolicy',type:'check',default:false},
       {name:'Move Overhead',type:'spin',default:0,min:0,max:60000}
     ]){
       const key=option.name.toLowerCase();if(options.has(key))throw new Error('Timing option collides with search option');
@@ -89,6 +90,10 @@ export function createUciController({port,write,now=()=>performance.now(),setTim
       const file=optionValues.TimingPolicyFile,sha256=optionValues.TimingPolicySha256;
       if(Boolean(file)!==Boolean(sha256))throw new Error('Timing policy requires both artifact and SHA256');
       if(file){if(!admitPolicy)throw new Error('Timing profile requires isready between games before position admission');if(!runtimeIdentity)throw new Error('Timing policy requires actual runtime identity');policy=admitTimingPolicy(readTimingArtifact(file),{sha256,runtimeIdentitySha256:createHash('sha256').update(runtimeIdentity).digest('hex')});}
+    }
+    if(timingPolicySupport&&optionValues.RequireTimingPolicy){
+      if(!policy)throw new Error('A qualified timing policy is required for managed live play');
+      if(optionValues.TimingInitialTimeMs!==policy.control.initial_time_ms)throw new Error('Actual initial clock control must match the qualified timing policy');
     }
   };
   const optionValues=Object.fromEntries([...options.values()].map(o=>[o.name,o.default]));

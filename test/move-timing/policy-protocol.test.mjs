@@ -22,6 +22,25 @@ function fixture(t){
   const configure=async({initial=180000,overhead=50,digest=sha(text),ready=true}={})=>{for(const [name,value] of [['TimingPolicyFile',file],['TimingPolicySha256',digest],['TimingInitialTimeMs',initial],['Move Overhead',overhead]])await controller.handle(`setoption name ${name} value ${value}`);if(ready)await controller.handle('isready');};
   return{controller,port,output,requests,configures,timers,snapshots,file,text,configure,advance,defer(){let resolve;const promise=new Promise(r=>resolve=r);releaseAdmission={promise,resolve};return resolve;}};
 }
+
+test('managed live play rejects an absent timing policy before position admission',async t=>{
+  const f=fixture(t);let admissions=0;
+  f.port.admitPosition=async({rootEpoch})=>{admissions++;return{rootEpoch,sideToMove:0};};
+  await f.controller.handle('setoption name RequireTimingPolicy value true');
+  await assert.rejects(f.controller.handle('isready'),/required.*timing policy|timing policy.*required/i);
+  assert.equal(f.output.includes('readyok'),false);
+  await assert.rejects(f.controller.handle('position startpos'));
+  assert.equal(admissions,0);
+});
+
+test('managed live play requires actual initial control matching the admitted policy',async t=>{
+  const f=fixture(t);
+  await f.controller.handle('setoption name RequireTimingPolicy value true');
+  await f.configure({initial:0,ready:false});
+  await assert.rejects(f.controller.handle('isready'),/initial.*control/i);
+  await f.controller.handle('setoption name TimingInitialTimeMs value 180000');
+  await assert.doesNotReject(f.controller.handle('isready'));
+});
 test('timing options never enter search configuration or publication intent',async t=>{
   const f=fixture(t);let intent;f.port.preparePublicationIntent=async input=>{intent=input;return{bypassPublicationWait:false};};
   await f.configure();await f.controller.handle('position startpos');await f.controller.handle('go wtime 180000 btime 180000 winc 3000 binc 3000');

@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { buildRuntimeContract } from '../components/evidence-runtime/contract.mjs';
 import {admitTimingPolicy} from '../components/move-timing/policy.mjs';
 
-export const VECTOR_COMPONENT_VERSION='0.1.2';
+export const VECTOR_COMPONENT_VERSION='0.1.3';
 
 const GENERATED = new Set(['arena-component.json', 'contracts/uci-engine-launch-profile.json', 'contracts/runtime-closure.json']);
 const SHA = /^[0-9a-f]{64}$/u;
@@ -188,7 +188,7 @@ export function buildAtomicComponent({ root, closure, version=VECTOR_COMPONENT_V
     component: { id: 'uci_arena.vector', version, root: '.' },
     engine: { adapter: 'standard_uci_v1', executable: 'bin/node.exe',
       arguments: ['--experimental-ffi', 'dist/uci.mjs'], working_directory: '.' },
-    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root,...(timing?.options??{}) }, expected_runtime: null,
+    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root, RequireTimingPolicy: true,...(timing?.options??{}) }, expected_runtime: null,
     evidence: timing?{timing_policy:timing.evidence}:{}, knowledge: {}, diagnostics: [] };
   mkdirSync(path.join(root, 'contracts'), { recursive: true });
   writeFileSync(path.join(root, 'contracts/uci-engine-launch-profile.json'), json(profile));
@@ -271,6 +271,7 @@ export function verifyAtomicComponent(root) {
   }
   const profile = JSON.parse(readFileSync(path.join(root, manifest.entrypoints.uci_launch_profile), 'utf8'));
   const timing=bundledTiming(root,closure);
+  if(profile.uci_options?.RequireTimingPolicy!==true&&!(['0.1.0','0.1.1','0.1.2'].includes(manifest.component_version)&&!Object.hasOwn(profile.uci_options??{},'RequireTimingPolicy')))throw new Error('Managed engine launch must require a qualified timing policy');
   if(timing?!Object.entries(timing.options).every(([key,value])=>profile.uci_options?.[key]===value)||!isDeepStrictEqual(profile.evidence?.timing_policy,timing.evidence):['TimingPolicyFile','TimingPolicySha256','TimingInitialTimeMs'].some(key=>Object.hasOwn(profile.uci_options??{},key)))throw new Error('Timing launch binding differs from selected policy');
   if (Object.entries(DEFAULT_MODEL).some(([name, value]) => manifest.default_model?.[name] !== value)
       || profile.uci_options?.ModelRoot !== DEFAULT_MODEL.root) throw new Error('component model launch identity differs');

@@ -43,3 +43,8 @@ profile. Initial time defaults to unknown zero. A caller that knows the game's
 initial control supplies it explicitly; the package does not infer initial time
 from a remaining clock. Packaging fixtures remain interface tests and cannot
 authorize signing or activation.
+
+From component 0.1.3, the managed profile sets `RequireTimingPolicy=true`.
+Readiness rejects absent policy or missing/mismatched initial-control context;
+an unqualified legal seed is not a usable managed live-clock launch. Explicit
+unconfigured diagnostic execution remains available outside that managed gate.
