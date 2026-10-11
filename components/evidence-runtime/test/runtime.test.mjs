@@ -58,6 +58,14 @@ test('public UCI rejects absent options and deadline loss closes owned process',
   await silent.ready({});await silent.position(undefined,[]);
   await assert.rejects(silent.go({movetime:1},100),/timeout/);await silent.close();assert.equal(silent.closed,true);
 });
+
+test('clock evidence retains diagnostics after bestmove without charging their wait to the move',async()=>{
+ const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
+ const session=new UciSession({executable:process.execPath,args:[script,'late-clock-diagnostic'],cwd:path.dirname(script)},{},{requireClockDiagnostics:true});
+ try{await session.ready();await session.position(undefined,[]);const before=performance.now(),reply=await session.go({movetime:1},1000),total=performance.now()-before;
+ assert(reply.info.some(line=>line.includes('"phase":"emit"')));assert(total-reply.elapsed_ms>=25);
+ }finally{await session.close();}
+});
 test('process close awaits normal retirement and rejects abnormal exit',async()=>{
   const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
   const delayed=new UciSession({executable:process.execPath,args:[script,'delayed-quit'],cwd:path.dirname(script)},{});

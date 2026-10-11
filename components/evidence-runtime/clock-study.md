@@ -4,6 +4,21 @@ Status: implemented pure analysis, portable fixtures qualified only as tests.
 No native study, reserve, useful-block, policy or rating qualification is issued
 by this source change. Historical Evidence v2/continuous-v4 meanings are unchanged.
 
+An explicit treatment may additionally carry `strategy` and exact `experiment_text`.
+The experiment digest, runtime, control, block, rules, reserve and strategy must all
+match before admission. Legacy treatments retain target-only semantics; adding a
+future-capacity declaration cannot relabel their experiment bytes. The existing
+`preserve_future_blocks_v1` strategy is a diagnostic candidate until the full
+independent population and clock-safety gates pass. The producer preserves the
+selected frozen strategy in its policy instead of replacing it with target-only
+allocation. Future-capacity parameters are experiment data, not permanent defaults.
+
+Native clock studies explicitly request `UciSession.requireClockDiagnostics`.
+The evidence adapter collects the exact current-focus emission diagnostic whether
+it precedes or follows `bestmove`. Actual charged elapsed time ends at the move's
+receipt; waiting for optional diagnostics never increases that clock measurement.
+Absent or mismatched diagnostics cannot provide policy qualification.
+
 `clock-study.mjs` performs offline bounded validation and statistical analysis.
 It has no file, process, GPU, active-search or service port. Its callers retain
 and independently verify actual native receipt provenance; a self-declared
