@@ -16,8 +16,9 @@ cuda-js-tensor alpha.10 protected 759a1a07, CUDA-MCGS dev.3 protected 39a274ac.
 Signed 0.1.3/source `31d5873b47ea5d0bcf6a83728902d3a383787f6f` includes
 the optional Installer-selected Book binding and qualified 180+0 policy.
 Independent signed-payload review, native lifecycle gates and relocated-payload
-checks passed. The exact policy completed 80 native games without clock flags
-or execution failures; the archived mate sequence was defended. Other controls,
+checks passed. The qualification campaign completed80 native games without
+clock flags or execution failures;32 tested the selected500ms/future32 policy.
+The archived mate sequence was defended. Other controls,
 playing strength and arbitrarily short admission latency remain unqualified.
 Older source/payload/campaign evidence remains historical and is never relabeled.
 

@@ -9,9 +9,10 @@ hardware/runtime tuple. It does not establish playing strength or population
 latency guarantees.
 
 The signed Windows component **0.1.3** is bound to source
-`31d5873b47ea5d0bcf6a83728902d3a383787f6f`. Its exact 180+0 timing policy
-passed 80 complete native games with no flags or execution failures, native
-lifecycle checks and relocated-payload checks. The reported mate sequence was
+`31d5873b47ea5d0bcf6a83728902d3a383787f6f`. The 180+0 qualification campaign
+completed80 native games across baseline and candidate treatments, with no flags
+or execution failures;32 tested the selected500ms/future32 policy. Native
+lifecycle checks and relocated-payload checks passed. The reported mate sequence was
 replayed through the signed engine and defended. This establishes the measured
 clock/correctness scope, not a rating or support for other time controls.
 Complete-suite installation and installed Bot acceptance remain in progress.

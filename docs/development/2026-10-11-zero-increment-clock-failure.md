@@ -31,7 +31,10 @@ qualified the separately frozen `preserve_future_blocks_v1` strategy for exactly
 target1/future32,100ms local output reserve and650ms transport reserve. Its exact
 policy SHA-256 is
 `df50984d516b9297e7a89ebcd7d2c20a1ba5cc6f5598bfb678a112771562dd20`.
-The native campaign completed80 games without flags or execution failures.
+The native campaign completed80 games without flags or execution failures:
+32baseline trials,32selected500ms/future32 trials (16discovery plus16held-out)
+and16alternate1000ms/future32 trials. The80-game total is campaign evidence,
+not80 trials of the selected policy.
 Signed native lifecycle/relocated checks passed, and the archived mate sequence
 selected `e2d4` with actual graph backup and no opponent mate-in-one reply.
 The failed866dd965 trial remains failed historical evidence.
