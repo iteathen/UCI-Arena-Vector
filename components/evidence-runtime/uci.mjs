@@ -5,6 +5,7 @@ import {validateOwnerTeardown} from './teardown.mjs';
 export class UciSession {
   constructor(launch,options={},requirements={}) {
     if(requirements.requireOwnerTeardown!==undefined&&typeof requirements.requireOwnerTeardown!=='boolean')throw new Error('invalid owner teardown requirement');
+    if(requirements.requireClockDiagnostics!==undefined&&typeof requirements.requireClockDiagnostics!=='boolean')throw new Error('invalid clock diagnostics requirement');
     if((requirements.expectedUciName!==undefined||requirements.referenceInstrumentSha256!==undefined)&&(typeof requirements.expectedUciName!=='string'||!requirements.expectedUciName||requirements.expectedUciName.length>256||/[\x00-\x1f\x7f]/.test(requirements.expectedUciName)||!/^[a-f0-9]{64}$/.test(requirements.referenceInstrumentSha256??'')||requirements.requireOwnerTeardown))throw new Error('reference requires exact independent instrument identity');
     this.requirements={...requirements};this.ownerReports=[];
     this.closed=false;this.options=options;this.lines=[];this.buffer='';this.bytes=0;this.waiter=null;this.failure=null;
@@ -82,6 +83,12 @@ export class UciSession {
     const lines=await this.until(line=>line.startsWith('bestmove '),timeoutMs);const elapsed=performance.now()-start;
     const best=lines.at(-1);const match=/^bestmove (\S+)(?: ponder (\S+))?$/u.exec(best);
     if(!match)throw new Error('malformed UCI bestmove');
+    if(this.requirements.requireClockDiagnostics){
+      const prefix='info string vector_clock_phase ',phases=lines.filter(line=>line.startsWith(prefix)).map(line=>JSON.parse(line.slice(prefix.length))),go=phases.filter(row=>row.phase==='goReceived');
+      if(go.length!==1||go[0].schema!=='vector_uci_clock_phase_v1'||!Number.isSafeInteger(go[0].rootEpoch)||go[0].rootEpoch<1||!Number.isSafeInteger(go[0].requestId)||go[0].requestId<1)throw new Error('missing exact clock diagnostic focus');
+      const matches=row=>row.schema==='vector_uci_clock_phase_v1'&&row.phase==='emit'&&row.rootEpoch===go[0].rootEpoch&&row.requestId===go[0].requestId;
+      if(!phases.some(matches))lines.push(...await this.until(line=>line.startsWith(prefix)&&matches(JSON.parse(line.slice(prefix.length))),Math.max(1,timeoutMs-elapsed)));
+    }
     return {move:match[1],ponder:match[2]??null,elapsed_ms:elapsed,info:lines.filter(l=>l.startsWith('info ')).slice(-256)};
   }
   async close() {
