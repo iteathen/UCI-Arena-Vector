@@ -18,6 +18,9 @@ clock/correctness scope, not a rating or support for other time controls.
 Complete-suite installation and installed Bot acceptance remain in progress.
 Historical failed campaigns and older payloads retain their original scope.
 See [the clock repair record](docs/development/2026-10-11-zero-increment-clock-failure.md).
+The [0.1.4 profile-only source candidate](docs/development/2026-10-11-profile-clock-binding.md)
+declares how consumers supply original clocks before readiness, preserving the
+signed 0.1.3 runtime and qualification without a new GPU claim.
 
 Vector owns chess rules, UCI lifecycle, model feature/action meaning, concrete
 search policy and product knowledge. Generic search, tensor mathematics and CUDA

@@ -29,6 +29,9 @@ private library interface, search fallback or per-file installer GUID is added.
    rebuild, install dependencies or requalify model
    mathematics on a hosted machine. The intake source commit must match the
    protected checkout and `closure.vector_commit`.
+   The explicit 0.1.4 [profile-only overlay](2026-10-11-profile-clock-binding.md)
+   instead matches its current `release_source_commit`, rechecks tracked runtime
+   equivalence, and retains original 0.1.3 qualification/source provenance.
 3. `tools/release-stage.mjs` safely extracts bounded producer ustar data into an
    isolated temporary directory and calls `verifyAtomicComponent`. It validates
    source cleanliness and declared qualification/license identities, then emits

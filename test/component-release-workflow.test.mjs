@@ -8,6 +8,8 @@ test('only manual protected-main delivery can sign; portable fixtures never publ
  assert(source.includes('verify-statement'));assert(source.includes('inspect-intake'));assert(source.includes('--qualification-sha256'));assert(source.includes('--archive-sha256'));
  assert(source.includes('--draft'));assert(source.includes('--prerelease'));assert(source.includes('gh release download'));assert(source.includes('gh release create'));assert(!source.includes('gh release edit'));assert(!source.includes('npm install'));assert(!source.includes('npm ci'));assert(!source.includes('self-hosted'));assert(!source.includes('download-artifact@'));
  assert(source.includes('test/release-stage.test.mjs'));assert(source.includes('test/component-package.test.mjs'));assert(!source.includes('inputs.')||!/^\s+run:.*\$\{\{\s*inputs\./mu.test(source),'dispatch input must enter typed argv through environment, never interpolated shell source');
+ assert(source.includes('test/clock-option-bindings.test.mjs'));assert(source.includes('test/profile-only-release.test.mjs'));
+ assert(source.slice(source.indexOf('  stage-sign-draft:')).includes('fetch-depth: 0'),'profile-only signing must compare actual maintained tree to the qualified source object');
 });
 
 test('draft intake routes through the authenticated CLI and a same-owner numeric release ID',()=>{

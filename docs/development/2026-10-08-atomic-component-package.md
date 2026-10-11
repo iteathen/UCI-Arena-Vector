@@ -48,3 +48,8 @@ From component 0.1.3, the managed profile sets `RequireTimingPolicy=true`.
 Readiness rejects absent policy or missing/mismatched initial-control context;
 an unqualified legal seed is not a usable managed live-clock launch. Explicit
 unconfigured diagnostic execution remains available outside that managed gate.
+
+Component 0.1.4 adds the optional original-clock binding declaration while
+preserving the exact signed 0.1.3 runtime and qualification. Its narrowly closed
+[profile-only overlay](2026-10-11-profile-clock-binding.md) records release source
+separately; it does not issue a new native pass receipt.
