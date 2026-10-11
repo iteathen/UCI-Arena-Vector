@@ -1,4 +1,4 @@
-# Separate 180+3 clock-study producer
+# Separate declared 180+0 or 180+3 clock-study producer
 
 Status: implemented pure analysis, portable fixtures qualified only as tests.
 No native study, reserve, useful-block, policy or rating qualification is issued
@@ -56,7 +56,10 @@ native cohort; the reference digest binds the separately verified signed
 Stockfish instrument/configuration evidence. No source identity is guessed from
 an engine name. Driver launches and option-setting receipts remain retained.
 
-Control is `{initial_time_ms:180000,increment_ms:3000}`. Rules are
+Control is exactly `{initial_time_ms:180000,increment_ms:0}` or
+`{initial_time_ms:180000,increment_ms:3000}`. A study selects one control before
+execution. Actual trial controls, decisions and clock recurrence must match it;
+180+3 records cannot qualify 180+0 by relabeling. Rules are
 `orthodoxy-live-claims-v1`. Reference settings are exactly:
 
 ```json
@@ -110,7 +113,7 @@ joined game precedes the next start. Held-out starts after discovery completion.
 all per-move `records[].info` retained. Complete/legal booleans alone cannot pass:
 the independent referee replays every move/FEN/turn and verifies the final real
 terminal/result. Flags, illegal moves, failures, max-ply and duration bounds fail.
-Actual clocks start180000 and charge measured elapsed before the3000 increment;
+Actual clocks start180000 and charge measured elapsed before the declared increment;
 every charged clock stays positive. Every charged candidate clock retains at
 least local-publication plus transport reserve. Actual final clocks remain in
 the original hash-bound receipt, separate from acceptance floors.

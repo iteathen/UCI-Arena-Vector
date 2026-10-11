@@ -89,6 +89,12 @@ allocation strategy; the no-purchase path publishes the completed current-focus
 move immediately. A configured missing, invalid or incompatible policy still
 fails explicit between-game readiness before position admission.
 
+Managed launch profiles additionally set `RequireTimingPolicy=true`. This
+explicit operational gate rejects missing policy or unknown/mismatched initial
+control at readiness, before admitting a position. The diagnostic default is
+false, preserving explicit movetime and unsupported no-purchase observations.
+This flag neither chooses a duration nor changes search or deadline memory reads.
+
 `decideUnqualifiedPublication(input)` in `allocation.mjs` accepts the existing
 closed clock/focus input with a required actual remaining clock; initial control
 may be unknown. It returns immutable `vector_unconfigured_timing_decision_v1`
