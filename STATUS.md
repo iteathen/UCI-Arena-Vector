@@ -1,6 +1,6 @@
 # UCI Arena Vector Status
 
-**Updated: 2026-10-11 — signed install component 0.1.3; suite installation pending.**
+**Updated: 2026-10-11 — signed component 0.1.4 installed in E suite 0.3.59; Bot remains stopped.**
 
 Vector has a runnable provisional Windows cuda-js/MCGS engine. The original
 73091 model, physically qualified chess Domain/model inputs, persistent
@@ -22,14 +22,31 @@ The archived mate sequence was defended. Other controls,
 playing strength and arbitrarily short admission latency remain unqualified.
 Older source/payload/campaign evidence remains historical and is never relabeled.
 
-Component 0.1.4 is a profile/packaging source candidate for original-clock binding
-before consumer readiness. It preserves the signed 0.1.3 runtime, identity and
-policy and records new release source separately. No 0.1.4 release or new GPU
-qualification is claimed. See [the bounded contract](docs/development/2026-10-11-profile-clock-binding.md).
+Component 0.1.4 is the signed profile/packaging overlay from release source
+`1752a15eefa17d25d11054b9150415b82d892238`, signed run `38166421692`.
+It preserves the qualified 0.1.3 runtime, identity and policy at source `31d5873`;
+547 prior inventoried files remain byte-identical. Manager 0.3.29's installed
+probe and registration supplied original 180000/0 clocks before readiness while
+retaining the stored initial-clock baseline zero. This is consumer integration
+evidence, not a new GPU campaign. See [the bounded contract](docs/development/2026-10-11-profile-clock-binding.md).
+
+Complete suite 0.3.59 committed transaction `17917516509559016` with exit zero.
+Programs are under `E:/UCI Arena/Programs/Manager` and data under
+`E:/UCI Arena/Data`; all eight installed inventories (990 declared files) passed.
+Manager cold restart/doctor and engine registration passed. Installed archive
+replay defended the reported mate with `e2d4` and published `c1d1` in the
+future-capacity case; owned GPU teardown joined with zero live/orphan resources.
+The restored Bot archive contains 713 games and 51128 plies with zero leases.
+Bot 1.0.45 remains stopped, with no startup Task/instances and its scheduler
+disabled/paused at target zero. Book 0.4.10 and Evidence 0.3.19 are active with
+old work paused. See [the installed delivery record](docs/development/2026-10-11-installed-e-suite059.md).
 
 The owner-directed goal remains the complete installed engine, compatible
 services and functional Installer, then installed Lichess Bot acceptance.
-Complete-suite transactional deployment and recovery remain in progress.
+The installed 0.3.59 acceptance is bounded: it required operator E-root DACL
+preparation. Installer 0.3.60's fresh-root permission repair is in progress and
+has not been built or installed. Stable-suite promotion, installed Bot play,
+other clock controls and playing strength remain unqualified.
 Unconfigured useful-block timing authority performs no discretionary time
 purchase; configured incompatible artifacts fail readiness. Managed live clocks
 require qualified policy and the actual original control before readiness.

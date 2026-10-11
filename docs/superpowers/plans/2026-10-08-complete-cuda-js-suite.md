@@ -48,7 +48,12 @@
 8. **Atomic package and installer** — Vector owns `arena-component.json`, `contracts/uci-engine-launch-profile.json`, official Node binary and complete JS/model/library payload. A declared provider renderer emits the absolute Manager launch configuration into preserved product data; its configuration receipt and `uci_engine_launch_profile_v1` capability make the verified candidate discoverable with the script argv. Existing installer entrypoint/component-path bindings supply Bot's portable form. Assemble one fresh signed composition with exact compatible artifacts, leaving legacy engine outside the selected default path.
 9. **Installed end-to-end acceptance** — validate staging, transaction, receipt inventories, discovery, startup, reboot/recovery and teardown; verify Manager/Bot/Book/Evidence operation, real legal chess games and timeout safety. Start Lichess bot only against this qualified installed cuda-js package. Report completion after these checks pass.
 
-## Live Execution Record
+## Historical Execution Record (2026-10-08)
+
+The checkpoint below is retained history. The current installed E suite 0.3.59
+checkpoint and pending fresh-root permission repair are recorded in
+[STATUS.md](../../../STATUS.md) and the
+[installed delivery note](../../development/2026-10-11-installed-e-suite059.md).
 
 - Root integration worktree: `E:/uci-arena-task-builds/vector-engine-delivery-20261008`.
 - Public Vector test fix merged as `1cc9503`; all four hosted host/Node combinations passed. Owner exception was already configured; no branch protection was changed.
