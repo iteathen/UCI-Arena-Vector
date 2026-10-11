@@ -115,11 +115,11 @@ Conceptual mapping:
 
 ```text
 new game / game replacement -> create/replace product session
-position initial root        -> establish initial root
-played ready successor       -> minimum-work advance when legal
-unrelated/replaced position  -> general reroot/replacement
-ponder/emphasis              -> product control/attention where selected
-stop                         -> publication/cancel semantics, not hidden host search progression
+position initial root        -> admit initial focus in the persistent graph
+played ready successor       -> minimum-work focus advance when legal
+other admitted position      -> fenced focus admission; no mandatory graph recreation
+ponder / ponderhit           -> publication permission for the same continuous search
+stop                         -> publish the compatible completed move already in memory
 quit                         -> terminal close
 ```
 
@@ -129,6 +129,16 @@ quit                         -> terminal close
 - no observation -> host decision -> search-control loop required for internal progress;
 - stale root/control generations fail closed;
 - UCI `searchmoves` remains product root authority.
+
+Search owns attention and progresses continuously after ignition. Timing and
+publication urgency do not steer that attention. The protocol continuously
+accepts fenced completed moves; a deadline uses the latest compatible completed
+move already in memory, without a new GPU call. Timing artifacts are admitted
+between games. Explicit graph replacement/teardown has its own lifecycle cause
+and is not implied by ordinary focus changes, `stop` or `ponderhit`.
+The owning [engine runtime](../../components/engine-runtime/contract.md) and
+[move timing](../../components/move-timing/contract.md) contracts define the
+actual public operations and failure dispositions.
 
 ## P0 connector 6 — Vector -> Book Forge opening-book snapshots
 

@@ -8,12 +8,16 @@ retained graph work, root knowledge and joined GPU teardown on the measured
 hardware/runtime tuple. It does not establish playing strength or population
 latency guarantees.
 
-The current source targets install component **0.1.2**, adding optional selected
-Book binding with enforced live-channel and immutable-snapshot authority.
-Its fresh native, relocated-payload and signing qualification is pending.
-Historical signed 0.1.1 payloads and receipts retain their original scope.
-Complete-suite transactional installation and installed Bot acceptance remain
-in progress; this is not a stable general release.
+The signed Windows component **0.1.3** is bound to source
+`31d5873b47ea5d0bcf6a83728902d3a383787f6f`. The 180+0 qualification campaign
+completed80 native games across baseline and candidate treatments, with no flags
+or execution failures;32 tested the selected500ms/future32 policy. Native
+lifecycle checks and relocated-payload checks passed. The reported mate sequence was
+replayed through the signed engine and defended. This establishes the measured
+clock/correctness scope, not a rating or support for other time controls.
+Complete-suite installation and installed Bot acceptance remain in progress.
+Historical failed campaigns and older payloads retain their original scope.
+See [the clock repair record](docs/development/2026-10-11-zero-increment-clock-failure.md).
 
 Vector owns chess rules, UCI lifecycle, model feature/action meaning, concrete
 search policy and product knowledge. Generic search, tensor mathematics and CUDA
