@@ -3,13 +3,14 @@ graph_id: uci_arena_vector
 version: 1
 status: initial_owner_directed
 component: uci_arena_vector
+concern_areas: [C01, C02, C03, C04, C05, C07, C08, C09, C12]
 global_graph:
   repository: iteathen/uci-arena-installer
   path: reasoning/suite_graph_v1.yaml
 
 imports:
   objectives: [G-O1, G-O2]
-  premises: [G-P4, G-P5, G-P6, G-P8, G-P10, G-P11, G-P12, G-P13, G-P15, G-P17, G-P19, G-P20, G-P22, G-P23, G-P25, G-P27, G-P28]
+  premises: [G-P4, G-P5, G-P6, G-P8, G-P10, G-P15, G-P17, G-P19, G-P20, G-P22, G-P23, G-P25, G-P27, G-P28]
   targets: [G-T1, G-T4, G-T5, G-T6, G-T10, G-T13, G-T15]
 
 local_objectives:
@@ -95,6 +96,21 @@ premises:
       distinct evidence layers even when they exercise the same public contract.
     confidence: 0.999
 
+premise_metadata:
+  V-P1: {kind: structural}
+  V-P2: {kind: structural}
+  V-P3: {kind: structural}
+  V-P4: {kind: structural}
+  V-P5: {kind: structural}
+  V-P6: {kind: structural}
+  V-P7: {kind: empirical_regular}
+  V-P8: {kind: structural}
+  V-P9: {kind: structural}
+  V-P10: {kind: material_risk}
+  V-P11: {kind: structural}
+  V-P12: {kind: structural}
+  V-P13: {kind: structural}
+
 implicit_assertions:
   - id: V-A1
     statement: >
@@ -119,7 +135,7 @@ implicit_assertions:
       Candidate instability, close alternatives, decisive stable candidates, temporal value,
       and clock scarcity are distinct potential timing pressures and should not be flattened
       into a guessed multiplier without evidence.
-    derived_from: [V-P2, G-P6, G-P12]
+    derived_from: [V-P2, V-P8, G-P6]
     confidence: 0.98
   - id: V-A5
     statement: >
@@ -180,18 +196,101 @@ implicit_assertions:
     derived_from: [V-P13, G-P28]
     confidence: 0.999
 
+assertion_metadata:
+  V-A1: {inference: structural, boundary: "Runtime efficiency remains valuable when it improves decision quality or clock use; the assertion rejects proxy-only success."}
+  V-A2: {inference: structural, boundary: "A bounded safety policy can remain valid as a fallback within its qualified scope."}
+  V-A3: {inference: structural, boundary: "The assertion does not prove that multiple blocks are useful; that remains an empirical allocation question."}
+  V-A4: {inference: conditional, boundary: "No specific pressure variable or combination rule is required unless evidence supports it."}
+  V-A5: {inference: conditional, boundary: "Observation remains desirable when its perturbation is bounded relative to its evidentiary value."}
+  V-A6: {inference: structural, boundary: "Reusable historical search knowledge may remain valid; only the move publication must match current authority."}
+  V-A7: {inference: structural, boundary: "Internal performance proxies can still be useful optimization signals after downstream correlation is established."}
+  V-A8: {inference: structural, boundary: "Local oracle/tactical evidence remains valid for local correctness claims."}
+  V-A9: {inference: structural, boundary: "Multi-factor experiments are valid when the treatment explicitly includes those factors and attribution claims match the design."}
+  V-A10: {inference: conditional, boundary: "Not every runtime/model change invalidates timing; only materially relevant changes require renewed optimality evidence."}
+  V-A11: {inference: structural, boundary: "Explicit transition experiments may study mid-game changes when the transition is itself the treatment."}
+  V-A12: {inference: structural, boundary: "Implementation-derived expected outputs can still provide regression coverage but not independent-oracle authority."}
+  V-A13: {inference: structural, boundary: "Portable tests remain authoritative for portable contract behavior they genuinely execute."}
+
 implementation_targets:
-  - {id: V-T1, name: exact_chess_truth_and_legality, supports: [V-O1, G-T1]}
-  - {id: V-T2, name: strongest_search_decision_quality, supports: [V-O1]}
-  - {id: V-T3, name: evidence_driven_clock_allocation, supports: [V-O1, G-T13]}
-  - {id: V-T4, name: exact_model_and_value_semantics, supports: [V-O1, G-T1]}
-  - {id: V-T5, name: qualified_book_and_tablebase_use, supports: [V-O1]}
-  - {id: V-T6, name: uci_protocol_and_lifecycle_correctness, supports: [V-O2, G-T5]}
-  - {id: V-T7, name: gpu_search_efficiency, supports: [V-O1, G-T10]}
-  - {id: V-T8, name: bounded_nonperturbing_observation, supports: [G-T4, G-T10]}
-  - {id: V-T9, name: continuous_resource_and_search_lifecycle_integrity, supports: [V-O1, G-T8]}
-  - {id: V-T10, name: public_replaceable_library_boundaries, supports: [V-O2, G-T5, G-T12]}
-  - {id: V-T11, name: late_current_evidence_publication, supports: [V-O1, G-T1]}
+  - id: V-T1
+    name: preserve_exact_chess_truth
+    statement: >
+      Produce moves and terminal interpretations consistent with the admitted chess rules,
+      legal state, history, and current game authority.
+    supports: [V-O1, G-T1]
+  - id: V-T2
+    name: maximize_practical_decision_quality
+    statement: >
+      Maximize downstream chess decision quality under the actual clock, compute, model,
+      knowledge, and resource conditions of play.
+    supports: [V-O1]
+  - id: V-T3
+    name: allocate_clock_from_qualified_value_and_live_constraints
+    statement: >
+      Convert evidence-supported timing value and useful search opportunities into publication
+      timing that respects authoritative live clock constraints and maximizes practical chess value.
+    supports: [V-O1, G-T13]
+  - id: V-T4
+    name: preserve_model_semantic_truth
+    statement: >
+      Preserve the exact meaning of model inputs, outputs, policy/value perspective, and
+      selected model identity across execution and comparison.
+    supports: [V-O1, G-T1]
+  - id: V-T5
+    name: use_external_chess_knowledge_with_correct_scope
+    statement: >
+      Use books, tablebases, and other admitted chess knowledge only according to their exact
+      authority and applicability without converting hints or unavailable knowledge into false resolution.
+    supports: [V-O1]
+  - id: V-T6
+    name: remain_faithfully_testable_through_uci
+    statement: >
+      Present predictable protocol and lifecycle behavior so external arenas and providers can
+      test the engine without product-private assumptions.
+    supports: [V-O2, G-T5]
+  - id: V-T7
+    name: convert_resources_into_useful_search_progress_efficiently
+    statement: >
+      Minimize avoidable compute, memory, synchronization, and latency costs that reduce useful
+      search progress or chess quality under real resource budgets.
+    supports: [V-O1, G-T10]
+  - id: V-T8
+    name: obtain_needed_observations_without_material_search_distortion
+    statement: >
+      Expose the bounded observations required for diagnosis and evidence without materially
+      changing the search behavior those observations are intended to characterize.
+    supports: [G-T4, G-T10]
+  - id: V-T9
+    name: preserve_coherent_game_search_and_resource_lifecycle
+    statement: >
+      Maintain coherent ownership, focus, cancellation, retained knowledge, and cleanup across
+      position changes and complete game lifecycles.
+    supports: [V-O1, G-T8]
+  - id: V-T10
+    name: keep_reusable_infrastructure_replaceable_without_semantic_leakage
+    statement: >
+      Allow reusable execution/search/tensor infrastructure to evolve or be replaced without
+      moving Vector-specific chess, model, timing, or knowledge semantics into generic layers.
+    supports: [V-O2, G-T5, G-T12]
+  - id: V-T11
+    name: publish_best_completed_current_decision_at_the_selected_time
+    statement: >
+      At the selected publication time, return the best already-completed decision compatible
+      with the current authoritative position without requiring new catch-up computation.
+    supports: [V-O1, G-T1]
+
+target_semantics:
+  status: problem_characterized
+  solution_selected_by_reasoning_graph: false
+
+causal_relations:
+  - {id: V-C1, cause: V-T1, effect: V-T2, relation: necessary_condition, confidence: 0.999}
+  - {id: V-C2, cause: V-T4, effect: V-T2, relation: necessary_condition_for_model_based_quality, confidence: 0.99}
+  - {id: V-C3, cause: V-T5, effect: V-T2, relation: enabler, confidence: 0.92}
+  - {id: V-C4, cause: V-T7, effect: V-T2, relation: enabler, confidence: 0.94}
+  - {id: V-C5, cause: V-T3, effect: V-T2, relation: clock_resource_allocation_path, confidence: 0.98}
+  - {id: V-C6, cause: V-T9, effect: V-T1, relation: necessary_condition_for_continuous_game_validity, confidence: 0.98}
+  - {id: V-C7, cause: V-T8, effect: G-T4, relation: evidence_enabler, confidence: 0.92}
 
 target_derivations:
   V-T1: [V-O1, V-P1, V-P12, V-P13, G-P20, G-P23, G-P27, G-P28]
@@ -203,7 +302,7 @@ target_derivations:
   V-T7: [V-O1, V-P7, V-P9, G-P15]
   V-T8: [V-O1, V-P13, G-P10, G-P25, G-P28]
   V-T9: [V-O1, V-P3, V-P11, G-P20]
-  V-T10: [V-O2, G-P5, G-P11, G-P23]
+  V-T10: [V-O2, G-P5, G-P23]
   V-T11: [V-O1, V-P3, V-P6, G-P22]
 
 assertion_relevance:
@@ -222,11 +321,11 @@ assertion_relevance:
   V-A13: [V-T1, V-T4, V-T7, V-T8]
 
 dominance_relations:
-  - {id: V-D1, stronger: V-T1, weaker: V-T2, context: apparent_strength_requires_invalid_chess_truth, confidence: 0.999, consequence: critical}
-  - {id: V-D2, stronger: V-T3, weaker: V-T7, context: raw_throughput_optimization_would_worsen_real_clock_allocation, confidence: 0.94, consequence: major}
-  - {id: V-D3, stronger: V-T9, weaker: V-T8, context: diagnostics_would_break_search_resource_lifecycle, confidence: 0.99, consequence: critical}
-  - {id: V-D4, stronger: V-T11, weaker: V-T8, context: rich_snapshot_or_diagnostic_work_delays_current_move_publication, confidence: 0.96, consequence: major}
-  - {id: V-D5, stronger: V-T3, weaker: V-T6, context: protocol_convenience_would_replace_engine_owned_chess_timing_with_external_fixed_delay, confidence: 0.98, consequence: major}
+  - {id: V-D1, stronger: V-T1, weaker: V-T2, context: apparent_strength_requires_invalid_chess_truth, strength: strict_necessary_condition, basis: [V-P1], confidence: 0.999, consequence: critical}
+  - {id: V-D2, stronger: V-T3, weaker: V-T7, context: raw_throughput_optimization_would_worsen_real_clock_allocation, strength: strong_conditional, basis: [V-P2, V-P7, V-A7], confidence: 0.94, consequence: major}
+  - {id: V-D3, stronger: V-T9, weaker: V-T8, context: diagnostics_would_break_search_resource_lifecycle, strength: strict_necessary_condition, basis: [V-P3, V-P11], confidence: 0.99, consequence: critical}
+  - {id: V-D4, stronger: V-T11, weaker: V-T8, context: rich_snapshot_or_diagnostic_work_delays_current_move_publication, strength: strong_conditional, basis: [V-P3, V-A5, V-A6], confidence: 0.96, consequence: major}
+  - {id: V-D5, stronger: V-T3, weaker: V-T6, context: protocol_convenience_would_replace_engine_owned_chess_timing_with_external_fixed_delay, strength: strong_conditional, basis: [V-P4, V-P5, V-A2], confidence: 0.98, consequence: major}
 
 importance_relations:
   - {id: V-I1, more_important: V-T2, less_important: V-T7, context: equal_clock_strength_optimization, confidence: 0.97}
