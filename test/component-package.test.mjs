@@ -39,6 +39,13 @@ function fixture(t) {
       receipt_sha256: sha(files['contracts/runtime-qualification.json']) } };
   return { root, closure, version: '0.1.0', sourceDateEpoch: 1791489600 };
 }
+function addRuleIdentity(options,automaticThreefold){
+ const name='contracts/runtime-identity.json',bytes=JSON.stringify({schema:'vector_engine_runtime_identity_v1',vectorRevision:options.closure.vector_commit,nodeVersion:options.closure.node_version,rules:{schema:'vector_chess_rule_context_v1',automaticThreefold,claimPolicy:automaticThreefold?'lichess-bot-automatic-threefold-v1':'orthodoxy-live-claims-v1'}});
+ writeFileSync(path.join(options.root,name),bytes);options.closure.files.push({path:name,sha256:sha(bytes)});const receiptPath=path.join(options.root,options.closure.qualification.receipt),receipt=JSON.parse(readFileSync(receiptPath));receipt.files.push({path:name,sha256:sha(bytes)});const updated=JSON.stringify(receipt);writeFileSync(receiptPath,updated);options.closure.qualification.receipt_sha256=sha(updated);options.closure.files.find(row=>row.path===options.closure.qualification.receipt).sha256=sha(updated);
+}
+test('ordinary profile options derive exact qualified rules independent of release version',t=>{
+ for(const [version,automaticThreefold]of [['0.1.5',true],['0.1.6',true],['0.1.5',false]]){const options=fixture(t);options.version=version;options.closure.component_version=version;addRuleIdentity(options,automaticThreefold);const r=buildAtomicComponent(options);assert.equal(r.profile.uci_options.AutomaticThreefold,automaticThreefold);assert.equal(r.profile.expected_runtime,null);assert.equal(r.profile.state,'conservative');}
+});
 
 test('optional Evidence capability is published only for a qualified inventoried runtime contract', t => {
   const options = fixture(t);
@@ -99,15 +106,17 @@ test('an inventoried external root selection adds only declared optional provide
 });
 
 test('bundled timing declarations require exact runtime compatibility before launch projection',t=>{
-  const options=fixture(t),identity={schema:'vector_engine_runtime_identity_v1',vectorRevision:options.closure.vector_commit,nodeVersion:'26.11.1'};
+ for(const version of ['0.1.0','0.1.5','0.1.6']){
+  const options=fixture(t);options.version=version;options.closure.component_version=version;const identity={schema:'vector_engine_runtime_identity_v1',vectorRevision:options.closure.vector_commit,nodeVersion:'26.11.1',rules:{schema:'vector_chess_rule_context_v1',automaticThreefold:true,claimPolicy:'lichess-bot-automatic-threefold-v1'}};
   // Logical declarations only, with the enclosing synthetic package fixture.
   // This test does not create native evidence or a signed candidate.
   const policy={schema:'vector_timing_policy_v1',producer:'vector-evidence-runtime/clock-allocation-v1',runtime_identity_sha256:sha(JSON.stringify(identity)),control:{initial_time_ms:180000,increment_ms:3000},strategy:{kind:'target_blocks_v1',target_blocks:1},useful_blocks_ms:[500],local_publication_reserve_ms:100,unsupported_fallback:'publish-current',qualification:{status:'qualified',study_sha256:'a'.repeat(64),discovery_sha256:'b'.repeat(64),held_out_sha256:'c'.repeat(64),reserve_sha256:'d'.repeat(64),allocation:true,useful_blocks:true,clock_safety:true,discovery:{opening_units:8,mean_score_gain:.25,directional_p:1/256},held_out:{opening_units:8,mean_score_gain:.25,directional_p:1/256}}};
   for(const [name,bytes]of Object.entries({'contracts/runtime-identity.json':JSON.stringify(identity),'contracts/timing-policy.json':JSON.stringify(policy)})){writeFileSync(path.join(options.root,name),bytes);options.closure.files.push({path:name,sha256:sha(bytes)});}
   const receiptPath=path.join(options.root,options.closure.qualification.receipt),receipt=JSON.parse(readFileSync(receiptPath));receipt.files=options.closure.files.filter(row=>row.path!==options.closure.qualification.receipt).map(row=>({...row}));const bytes=JSON.stringify(receipt);writeFileSync(receiptPath,bytes);options.closure.qualification.receipt_sha256=sha(bytes);options.closure.files.find(row=>row.path===options.closure.qualification.receipt).sha256=sha(bytes);
-  const built=buildAtomicComponent(options);assert.equal(built.profile.uci_options.TimingPolicyFile,'contracts/timing-policy.json');assert.equal(built.profile.uci_options.TimingPolicySha256,sha(JSON.stringify(policy)));assert.equal(built.profile.uci_options.TimingInitialTimeMs,0);
+  const built=buildAtomicComponent(options);assert.equal(built.profile.uci_options.TimingPolicyFile,'contracts/timing-policy.json');assert.equal(built.profile.uci_options.TimingPolicySha256,sha(JSON.stringify(policy)));assert.equal(built.profile.uci_options.TimingInitialTimeMs,0);assert.equal(built.profile.uci_options.AutomaticThreefold,true);assert.equal(built.profile.clock_option_bindings.bindings.TimingInitialTimeMs,'initial_ms');
   const profilePath='contracts/uci-engine-launch-profile.json',profile=JSON.parse(readFileSync(path.join(options.root,profilePath)));profile.uci_options.TimingPolicySha256='e'.repeat(64);const changed=JSON.stringify(profile);writeFileSync(path.join(options.root,profilePath),changed);const manifest=JSON.parse(readFileSync(path.join(options.root,'arena-component.json')));Object.assign(manifest.files.find(row=>row.path===profilePath),{sha256:sha(changed),size_bytes:Buffer.byteLength(changed)});writeFileSync(path.join(options.root,'arena-component.json'),JSON.stringify(manifest));
   assert.throws(()=>verifyAtomicComponent(options.root));
+ }
 });
 
 test('managed discovery can resolve the script launch through preserved provider configuration', t => {
@@ -196,9 +205,8 @@ test('Book locator is optional independently of root tablebase component selecti
 });
 
 test('current component version projects consistently through default packaging and launch identity',async t=>{
- const module=await import('../tools/component-package.mjs');assert.equal(module.VECTOR_COMPONENT_VERSION,'0.1.4');
+ const module=await import('../tools/component-package.mjs');assert.equal(module.VECTOR_COMPONENT_VERSION,'0.1.5');
  const options=fixture(t);options.closure.component_version=module.VECTOR_COMPONENT_VERSION;delete options.version;
- // An old synthetic receipt cannot become a current profile-only release.
- assert.throws(()=>module.buildAtomicComponent(options),/profile-only/);
- assert.equal(fs.existsSync(path.join(options.root,'arena-component.json')),false);
+ // This synthetic fixture tests metadata projection only, never actual runtime qualification.
+ addRuleIdentity(options,true);const r=module.buildAtomicComponent(options);assert.equal(r.manifest.component_version,'0.1.5');assert.equal(r.profile.uci_options.AutomaticThreefold,true);
 });

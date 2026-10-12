@@ -1,5 +1,16 @@
 # Separate declared 180+0 or 180+3 clock-study producer
 
+Automatic bot rule context is additive and explicit. New studies may select
+`lichess-bot-automatic-threefold-v1`; they must supply matching immutable
+`trial_controls.rulesProfile` to `playClockExperimentGame`. That value selects
+the actual referee and emitted game rules. Omitted controls retain historical
+`orthodoxy-live-claims-v1` and cannot supply automatic-context trial authority.
+The native driver calls `assertClockRuntimeRules` on actual readiness before
+preregistration/every game and also matches the complete runtime identity digest.
+Automatic third repetition, optional fifty, automatic seventy-five and mate
+precedence match the declared Domain context. Legacy referee defaults and old
+study/trial/reserve bytes are unchanged and cannot be relabeled.
+
 Status: implemented pure analysis, portable fixtures qualified only as tests.
 No native study, reserve, useful-block, policy or rating qualification is issued
 by this source change. Historical Evidence v2/continuous-v4 meanings are unchanged.

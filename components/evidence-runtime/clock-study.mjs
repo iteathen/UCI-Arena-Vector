@@ -10,6 +10,14 @@ import {admitTimingExperiment,decideExperimentalPublication} from '../move-timin
 
 const studies=new WeakSet(),reports=new WeakMap(),hex=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v),hash=v=>createHash('sha256').update(v).digest('hex');
 const fail=label=>{throw new Error('clock study: '+label);};
+export function assertClockRuntimeRules(runtime,rulesProfile){
+ const descriptor=runtime&&Object.getOwnPropertyDescriptor(runtime,'rules'),schema=runtime&&Object.getOwnPropertyDescriptor(runtime,'schema');
+ if(!descriptor||!Object.hasOwn(descriptor,'value')||schema?.value!=='vector_engine_runtime_identity_v1'||!['orthodoxy-live-claims-v1','lichess-bot-automatic-threefold-v1'].includes(rulesProfile))fail('actual runtime rule context');
+ const fields=descriptor.value&&Object.getOwnPropertyDescriptors(descriptor.value),keys=['schema','automaticThreefold','claimPolicy'];
+ if(!fields||Reflect.ownKeys(fields).length!==3||keys.some(k=>!Object.hasOwn(fields,k)||!Object.hasOwn(fields[k],'value')))fail('runtime rule fields');
+ const rules=Object.fromEntries(keys.map(k=>[k,fields[k].value]));if(rules.schema!=='vector_chess_rule_context_v1'||rules.automaticThreefold!==(rulesProfile==='lichess-bot-automatic-threefold-v1')||rules.claimPolicy!==rulesProfile)fail('actual runtime rule mismatch');
+ return Object.freeze(rules);
+}
 function closed(v,keys,label){if(!v||typeof v!=='object'||Array.isArray(v))fail(label+' fields');const descriptors=Object.getOwnPropertyDescriptors(v);if(Reflect.ownKeys(descriptors).length!==keys.length||keys.some(k=>!Object.hasOwn(descriptors,k)||!Object.hasOwn(descriptors[k],'value')))fail(label+' fields');}
 function integer(v,min,max,label){if(!Number.isSafeInteger(v)||v<min||v>max)fail(label);return v;}
 function finite(v,min,max,label){if(!Number.isFinite(v)||v<min||v>max)fail(label);return v;}
@@ -33,7 +41,7 @@ export function createClockStudyOrders({openings,treatments,discoverySeed,heldOu
 
 export function admitClockStudy(artifact,{runtimeIdentitySha256,referenceIdentitySha256,hardwareIdentitySha256}){
  const s=read(artifact,262144);closed(s,['schema','campaign_id','evidence_class','preregistered_at_ms','runtime_identity_sha256','hardware_identity_sha256','reference_identity_sha256','reference_settings','control','rules_profile','transport_reserve_ms','reserve','treatments','openings','orders'],'preregistration');
- if(s.schema!=='vector_clock_study_v1'||!['native','fixture'].includes(s.evidence_class)||s.rules_profile!=='orthodoxy-live-claims-v1')fail('unsupported preregistration');token(s.campaign_id);integer(s.preregistered_at_ms,1,Number.MAX_SAFE_INTEGER,'preregistration time');
+ if(s.schema!=='vector_clock_study_v1'||!['native','fixture'].includes(s.evidence_class)||!['orthodoxy-live-claims-v1','lichess-bot-automatic-threefold-v1'].includes(s.rules_profile))fail('unsupported preregistration');token(s.campaign_id);integer(s.preregistered_at_ms,1,Number.MAX_SAFE_INTEGER,'preregistration time');
  for(const [value,want]of [[s.runtime_identity_sha256,runtimeIdentitySha256],[s.reference_identity_sha256,referenceIdentitySha256],[s.hardware_identity_sha256,hardwareIdentitySha256]])if(!hex(want)||value!==want)fail('exact identity binding');
  closed(s.control,['initial_time_ms','increment_ms'],'control');
  if(s.control.initial_time_ms!==180000||![0,3000].includes(s.control.increment_ms)||!isDeepStrictEqual(s.reference_settings,{id_name:'Stockfish 15.1',movetime_ms:10,SkillLevel:0,Threads:1,Hash:16,Ponder:false,UseNNUE:true}))fail('supported control/reference settings');integer(s.transport_reserve_ms,0,10000,'transport reserve');
@@ -68,7 +76,7 @@ function actualDecision(s,r,treatment,remaining){
 function validateGame(s,trial,opening,treatment){
  const g=trial.game;closed(g,['schema','diagnostic','rules_profile','trial_controls','opening_id','candidate_color','result','termination','complete','legal','records','clocks_ms','final_fen','pgn','failure','qualification'],'game');
  if(g.schema!=='vector_clock_experiment_game_v1'||g.diagnostic!==true||g.complete!==true||g.legal!==true||g.failure!==null||g.opening_id!==opening.id||g.rules_profile!==s.rules_profile||!['white','black'].includes(g.candidate_color)||!isDeepStrictEqual(g.qualification,{timing:false,strength:false,useful_blocks:false,publication:false}))fail('complete legal diagnostic game');
- const c=g.trial_controls;closed(c,['opening','candidateColor','initialTimeMs','incrementMs','maxPlies','responseTimeoutMs','maxDurationMs','referenceGo'],'game controls');if(!isDeepStrictEqual(c.opening,opening)||c.candidateColor!==g.candidate_color||c.initialTimeMs!==180000||c.incrementMs!==s.control.increment_ms||!isDeepStrictEqual(c.referenceGo,{movetime:10}))fail('actual treatment controls');integer(c.maxPlies,1,2048,'ply bound');integer(c.responseTimeoutMs,100,300000,'response bound');integer(c.maxDurationMs,1000,3600000,'game duration bound');
+ const c=g.trial_controls;closed(c,['opening','candidateColor','initialTimeMs','incrementMs','maxPlies','responseTimeoutMs','maxDurationMs','referenceGo',...(Object.hasOwn(c??{},'rulesProfile')?['rulesProfile']:[])],'game controls');if((c.rulesProfile??'orthodoxy-live-claims-v1')!==s.rules_profile)fail('actual rule controls');if(!isDeepStrictEqual(c.opening,opening)||c.candidateColor!==g.candidate_color||c.initialTimeMs!==180000||c.incrementMs!==s.control.increment_ms||!isDeepStrictEqual(c.referenceGo,{movetime:10}))fail('actual treatment controls');integer(c.maxPlies,1,2048,'ply bound');integer(c.responseTimeoutMs,100,300000,'response bound');integer(c.maxDurationMs,1000,3600000,'game duration bound');
  if(!Array.isArray(g.records)||g.records.length<1||g.records.length>c.maxPlies||typeof g.pgn!=='string'||g.pgn.length>262144)fail('game extent');const ref=createReferee(opening.fen,{rulesProfile:s.rules_profile});opening.moves.forEach(m=>ref.play(m));const clocks={white:180000,black:180000};let elapsed=0;
  for(const [i,r]of g.records.entries()){
   closed(r,['ply','owner','color','fen','move','elapsed_ms','clock_before_ms','clock_after_ms','info'],'move observation');const color=ref.turn()==='w'?'white':'black',owner=color===g.candidate_color?'candidate':'reference';

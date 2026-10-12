@@ -9,7 +9,8 @@ function dataRecord(value,keys,required=keys){
   for(const key of Object.keys(descriptors))result[key]=descriptors[key].value;return result;
 }
 function snapshotConfig(value){
-  const config=dataRecord(value,['opening','candidateColor','initialTimeMs','incrementMs','maxPlies','responseTimeoutMs','maxDurationMs','referenceGo']);
+  const keys=['opening','candidateColor','initialTimeMs','incrementMs','maxPlies','responseTimeoutMs','maxDurationMs','referenceGo'],config=dataRecord(value,[...keys,'rulesProfile'],keys);
+  if(Object.hasOwn(config,'rulesProfile')&&!['orthodoxy-live-claims-v1','lichess-bot-automatic-threefold-v1'].includes(config.rulesProfile))throw new Error('unsupported clock experiment rules profile');
   config.opening=dataRecord(config.opening,['id','fen','moves'],['id','moves']);config.referenceGo=dataRecord(config.referenceGo,['movetime']);
   const moves=config.opening.moves;if(!Array.isArray(moves))throw new Error('invalid opening history');
   const length=Object.getOwnPropertyDescriptor(moves,'length')?.value;bound(length,0,1024,'opening history extent');const copy=[];
@@ -22,7 +23,7 @@ export async function playClockExperimentGame(config,candidate,reference){
   bound(config.initialTimeMs,1,3600000,'initial time');bound(config.incrementMs,0,60000,'increment');bound(config.maxPlies,1,2048,'ply bound');bound(config.responseTimeoutMs,100,300000,'response timeout');bound(config.maxDurationMs,1000,3600000,'duration');
   if(!config.opening||typeof config.opening.id!=='string'||!config.opening.id||!Array.isArray(config.opening.moves)||config.opening.moves.length>1024)throw new Error('invalid clock experiment opening');
   if(!config.referenceGo||Object.keys(config.referenceGo).length!==1||!Object.hasOwn(config.referenceGo,'movetime'))throw new Error('unsupported reference treatment');bound(config.referenceGo.movetime,1,60000,'reference movetime');
-  const ref=createReferee(config.opening.fen,{rulesProfile:'orthodoxy-live-claims-v1'}),moves=[...config.opening.moves];for(const move of moves)ref.play(move);
+  const rulesProfile=config.rulesProfile??'orthodoxy-live-claims-v1',ref=createReferee(config.opening.fen,{rulesProfile}),moves=[...config.opening.moves];for(const move of moves)ref.play(move);
   const clocks={white:config.initialTimeMs,black:config.initialTimeMs},records=[],started=performance.now();let outcome=ref.terminal(),failure=null;
   const updateFocus=async()=>{await candidate.position(config.opening.fen,[...moves]);await reference.position(config.opening.fen,[...moves]);};
   try{
@@ -45,5 +46,5 @@ export async function playClockExperimentGame(config,candidate,reference){
     }
   }catch(error){outcome={result:null,termination:'engine_failure'};failure=String(error?.message??error).slice(0,2048);}
   outcome??={result:null,termination:'max_plies'};
-  return {schema:'vector_clock_experiment_game_v1',diagnostic:true,rules_profile:'orthodoxy-live-claims-v1',trial_controls:config,opening_id:config.opening.id,candidate_color:config.candidateColor,...outcome,complete:!['flag_fall','max_plies','duration_bound','illegal_move','engine_failure'].includes(outcome.termination),legal:!['illegal_move','engine_failure'].includes(outcome.termination),records,clocks_ms:clocks,final_fen:ref.fen(),pgn:ref.pgn(),failure,qualification:{timing:false,strength:false,useful_blocks:false,publication:false}};
+  return {schema:'vector_clock_experiment_game_v1',diagnostic:true,rules_profile:rulesProfile,trial_controls:config,opening_id:config.opening.id,candidate_color:config.candidateColor,...outcome,complete:!['flag_fall','max_plies','duration_bound','illegal_move','engine_failure'].includes(outcome.termination),legal:!['illegal_move','engine_failure'].includes(outcome.termination),records,clocks_ms:clocks,final_fen:ref.fen(),pgn:ref.pgn(),failure,qualification:{timing:false,strength:false,useful_blocks:false,publication:false}};
 }

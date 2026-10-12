@@ -1,5 +1,11 @@
 # Diagnostic clock experiment port
 
+An explicit `lichess-bot-automatic-threefold-v1` rules profile is also admitted
+for new source-bound diagnostic artifacts. It does not change either allocation
+strategy, reserves, qualification flags or production authority. Producer game
+controls/referee and actual runtime readiness must match that selected context;
+the old orthodoxy artifacts remain bound to their original meaning.
+
 This owner controls only publication waiting. It does not import search, chess,
 model, knowledge or GPU components. `admitTimingExperiment(text, {sha256,
 runtimeIdentitySha256})` accepts at most 16 KiB of exact hash-bound JSON and

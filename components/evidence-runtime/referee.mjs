@@ -1,7 +1,7 @@
 import { Chess } from 'chess.js';
 
 export function createReferee(fen,{rulesProfile='adjudicated-claims-as-draw'}={}) {
-  if(!['adjudicated-claims-as-draw','orthodoxy-live-claims-v1'].includes(rulesProfile))throw new Error('unsupported referee rules profile');
+  if(!['adjudicated-claims-as-draw','orthodoxy-live-claims-v1','lichess-bot-automatic-threefold-v1'].includes(rulesProfile))throw new Error('unsupported referee rules profile');
   const chess = fen ? new Chess(fen) : new Chess();
   const positions=new Map(),key=()=>chess.fen().split(' ').slice(0,4).join(' ');
   const count=()=>{const current=key();positions.set(current,(positions.get(current)??0)+1);};count();
@@ -12,7 +12,7 @@ export function createReferee(fen,{rulesProfile='adjudicated-claims-as-draw'}={}
       if(chess.isThreefoldRepetition())return {result:'1/2-1/2',termination:'threefold_repetition'};
       if(chess.isDrawByFiftyMoves())return {result:'1/2-1/2',termination:'rule_50'};
     }else{
-      if((positions.get(key())??0)>=5)return {result:'1/2-1/2',termination:'fivefold_repetition'};
+      if((positions.get(key())??0)>=(rulesProfile==='lichess-bot-automatic-threefold-v1'?3:5))return {result:'1/2-1/2',termination:rulesProfile==='lichess-bot-automatic-threefold-v1'?'threefold_repetition':'fivefold_repetition'};
       if(Number(chess.fen().split(' ')[4])>=150)return {result:'1/2-1/2',termination:'rule_75'};
     }
     if(chess.isInsufficientMaterial())return {result:'1/2-1/2',termination:'insufficient_material'};
