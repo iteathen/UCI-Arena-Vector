@@ -2,17 +2,18 @@ import {createHash} from 'node:crypto';
 import fs from 'node:fs';
 import * as cuda from 'cuda-js';
 import {admitPosition} from '../chess-domain/admission.mjs';
-import {buildChessPolicyHooks} from './policy-hooks.mjs';
+import {buildChessPolicyHooks,CLAIM_SCRATCH_WORDS} from './policy-hooks.mjs';
+import {buildDomainDeviceModule} from '../chess-domain/device.mjs';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 export async function qualifyPolicyHooks({evaluatorLayout}){
   if(process.version!=='v26.11.1'||cuda.CUDA_JS_COMPATIBILITY.package.version!=='0.1.0-alpha.22')throw new Error('Policy physical exact cohort mismatch');
-  const policy=buildChessPolicyHooks({evaluatorLayout});
-  const kernel=`function qualifyPolicy(state,records,numeric,results,output,mode){
+  const policy=buildChessPolicyHooks({evaluatorLayout}),domain=buildDomainDeviceModule();
+  const kernel=`function qualifyPolicy(state,records,numeric,results,output,claimScratch,mode){
     vPolicyInitializeNode(state,gpu.u32(0),records,gpu.u32(0),numeric,gpu.u32(0));
     vPolicyInitializeCandidate(state,gpu.u32(0),records,gpu.u32(32),records,gpu.u32(6),numeric,gpu.u32(4));
     vPolicyInitializeCandidate(state,gpu.u32(0),records,gpu.u32(33),records,gpu.u32(12),numeric,gpu.u32(8));
     if(mode===gpu.u32(1)){results[gpu.u32(${policy.resultLayout.valueOffset})]=gpu.f32(1.5);}
-    output[gpu.u32(0)]=vPolicyConsumeEvaluation(state,gpu.u32(0),records,gpu.u32(0),numeric,gpu.u32(0),records,gpu.u32(32),records,gpu.u32(6),numeric,gpu.u32(4),gpu.u32(2),results,gpu.u32(0),numeric,gpu.u32(20));
+    output[gpu.u32(0)]=vPolicyConsumeEvaluation(state,gpu.u32(0),records,gpu.u32(0),numeric,gpu.u32(0),records,gpu.u32(32),records,gpu.u32(6),numeric,gpu.u32(4),gpu.u32(2),results,gpu.u32(0),numeric,gpu.u32(20),claimScratch);
     if(mode===gpu.u32(1)){return;}
     output[gpu.u32(1)]=vPolicyClassifyFrontier(state,gpu.u32(0),records,gpu.u32(0),numeric,gpu.u32(0),numeric,gpu.u32(20),gpu.u32(0),gpu.u32(0),gpu.u32(0));
     output[gpu.u32(2)]=vPolicyClassifyFrontier(state,gpu.u32(0),records,gpu.u32(0),numeric,gpu.u32(0),numeric,gpu.u32(20),gpu.u32(4),gpu.u32(2),gpu.u32(0));
@@ -30,12 +31,12 @@ export async function qualifyPolicyHooks({evaluatorLayout}){
       output[gpu.u32(17)]=vPolicyEvaluateStop(records,gpu.u32(40),numeric,gpu.u32(0));records[gpu.u32(40)]=gpu.u32(10000000);output[gpu.u32(18)]=vPolicyEvaluateStop(records,gpu.u32(40),numeric,gpu.u32(0));records[gpu.u32(40)]=gpu.u32(10000001);output[gpu.u32(19)]=vPolicyEvaluateStop(records,gpu.u32(40),numeric,gpu.u32(0));records[gpu.u32(40)]=gpu.u32(9999999);output[gpu.u32(20)]=vPolicyEvaluateStop(records,gpu.u32(0),numeric,gpu.u32(0));
     }
   }`;
-  const signatures=[...policy.evaluator.functions,...policy.functions].map(({calls,...signature})=>signature);
-  const request={source:policy.evaluator.source+policy.source+kernel,functions:[...signatures,{name:'qualifyPolicy',kind:'kernel',parameters:[{name:'state',type:'ptr<u32>'},{name:'records',type:'ptr<u32>'},{name:'numeric',type:'ptr<f32>'},{name:'results',type:'ptr<f32>'},{name:'output',type:'ptr<u32>'},{name:'mode',type:'u32'}],returns:'void'}]};cuda.inspectDeviceProgram(request);
+  const signatures=[...domain.functions,...policy.evaluator.functions,...policy.functions].map(({calls,...signature})=>signature);
+  const request={source:domain.source+policy.evaluator.source+policy.source+kernel,functions:[...signatures,{name:'qualifyPolicy',kind:'kernel',parameters:[{name:'state',type:'ptr<u32>'},{name:'records',type:'ptr<u32>'},{name:'numeric',type:'ptr<f32>'},{name:'results',type:'ptr<f32>'},{name:'output',type:'ptr<u32>'},{name:'claimScratch',type:'ptr<u32>'},{name:'mode',type:'u32'}],returns:'void'}]};cuda.inspectDeviceProgram(request);
   const state=admitPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1').words,records=new Uint32Array(80),numeric=new Float32Array(40),results=new Float32Array(evaluatorLayout.resultOutputPartition.elementCount),output=new Uint32Array(64).fill(0xdeadbeef);
   records[32]=1804;records[33]=1739;numeric[20]=0.5;results[policy.resultLayout.policyOffset+3364]=0;results[policy.resultLayout.policyOffset+3299]=Math.log(3);results[policy.resultLayout.valueOffset]=0.5;
-  const values=[state,records,numeric,results,output],sizes=values.map(v=>v.byteLength),resources=[],observations=[];
-  const runtime=await cuda.openCudaRuntime({compiler:true,driver:{memory:{maxDeviceBytes:sizes.reduce((a,b)=>a+b,0),maxAllocationBytes:Math.max(...sizes),maxTransferBytes:Math.max(...sizes)},execution:{maxArguments:6,maxModuleBytes:8*1024*1024,maxCompletionMilliseconds:30000}}});let report;
+  const values=[state,records,numeric,results,output,new Uint32Array(CLAIM_SCRATCH_WORDS)],sizes=values.map(v=>v.byteLength),resources=[],observations=[];
+  const runtime=await cuda.openCudaRuntime({compiler:true,driver:{memory:{maxDeviceBytes:sizes.reduce((a,b)=>a+b,0),maxAllocationBytes:Math.max(...sizes),maxTransferBytes:Math.max(...sizes)},execution:{maxArguments:7,maxModuleBytes:8*1024*1024,maxCompletionMilliseconds:30000}}});let report;
   try{
     const compiled=await cuda.compileDeviceProgram(runtime,request),memories=[];for(const v of values){const m=await runtime.allocateDevice({byteLength:v.byteLength});resources.push(m);memories.push(m);}
     const module=await runtime.loadModule({format:compiled.compiler.artifact.format,bytes:compiled.compiler.artifact.bytes});resources.push(module);const k=compiled.deviceProgram.kernels[0],fn=await module.getFunction({name:k.functionName,parameters:k.parameters});resources.push(fn);

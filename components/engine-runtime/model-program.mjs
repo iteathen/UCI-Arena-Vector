@@ -16,13 +16,13 @@ export function buildAdmittedModelProgram(){
   if(built.program.nodes.length!==2216||built.parameterLayout.byteLength!==MODEL_IDENTITY.parameterBytes||built.program.outputs[0].spec.capacityShape[1]!==4162)throw new Error('Original model program structure mismatch');
   return Object.freeze({...built,cohort:Object.freeze({tensor:CUDA_JS_TENSOR_COMPATIBILITY.package.version,cudaJs:CUDA_JS_COMPATIBILITY.package.version,cudaJsRevision:CUDA_JS_TENSOR_COMPATIBILITY.cudaJs.protectedMainRevision})});
 }
-export function createAdmittedEvaluatorContribution(deviceProgram){
+export function createAdmittedEvaluatorContribution(deviceProgram,{automaticThreefold=false}={}){
   if(deviceProgram?.library?.sha256!==MODEL_LIBRARY_IDENTITY.librarySha256||deviceProgram.itemCapacity!==2||deviceProgram.totalWorkspaceBytes!==MODEL_IDENTITY.workspaceBytes)throw new Error('Actual admitted model Tensor capability required');
   const connector=createTensorEvaluatorConnector(deviceProgram,{requestCapacity:1}),options={id:'evaluator.vector-latticeknight.runtime',participation:{kind:'collective-block',blockSize:32}},base=createTensorEvaluatorRuntimeContribution(connector,options);
   const select=(partitions,elements)=>{const matches=partitions.flatMap(partition=>partition.members.filter(member=>member.perItemElements===elements).map(member=>({partition,member})));if(matches.length!==1)throw new Error('Original model Evaluator member layout is ambiguous');return matches[0];};
   const features=select(base.requestInputPartitions,1088),policy=select(base.resultOutputPartitions,4162),value=select(base.resultOutputPartitions,1);
   if(policy.partition.id!==value.partition.id)throw new Error('Original model atomic result heads require the same selected partition');
-  const hooks=buildChessPolicyHooks({evaluatorLayout:{requestInputPartition:features.partition,resultOutputPartition:policy.partition,featureParameter:features.member.parameterName,policyParameter:policy.member.parameterName,valueParameter:value.member.parameterName}});
+  const hooks=buildChessPolicyHooks({automaticThreefold,evaluatorLayout:{requestInputPartition:features.partition,resultOutputPartition:policy.partition,featureParameter:features.member.parameterName,policyParameter:policy.member.parameterName,valueParameter:value.member.parameterName}});
   const runtime=createTensorEvaluatorRuntimeContribution(connector,{...options,inputEncoder:{source:hooks.evaluator.source,functions:hooks.evaluator.functions,entryPoint:hooks.evaluator.hooks.encodeEvaluation,externalFunctions:[]}});
   return Object.freeze({connector,runtime,policy:hooks,deviceImports:Object.freeze([runtime.device.createDeviceImport()])});
 }

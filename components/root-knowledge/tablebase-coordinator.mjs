@@ -13,6 +13,7 @@ export function createTablebaseCoordinator({loadBinding=loadRootTablebaseBinding
  const abandon=()=>{try{clearResolution();}finally{ticket?.abandon();ticket=undefined;ticketKey=undefined;}};
  const key=(context,searchmoves)=>JSON.stringify([bindingPath,context.rootEpoch,context.rootFence,context.input,context.legalActions,context.terminal,context.claimPolicy,searchmoves]);
  const eligible=context=>{
+  if(context.claimPolicy!=='orthodoxy-live-claims-v1'){report({state:'not-applicable',reason:'rule-context-incompatible',claimPolicy:context.claimPolicy});return false;}
   if(context.terminal||!provider||provider.describe().status!=='ready')return false;
   const maximum=provider.describe().provider_identity?.dataset?.admitted_cardinality;if(!Number.isInteger(maximum)||maximum<3||maximum>6)return false;
   // External root-knowledge metadata only, never canonical state or active search.

@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import * as cuda from 'cuda-js';
 import {buildEngineDomainModule} from './domain-device.mjs';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
-export async function qualifyLiveDomain(states){
+export async function qualifyLiveDomain(states,options={}){
   if(process.version!=='v26.11.1'||cuda.CUDA_JS_COMPATIBILITY.package.version!=='0.1.0-alpha.22')throw new Error('Live Domain exact cohort mismatch');
-  const domain=buildEngineDomainModule();
+  const domain=buildEngineDomainModule(options);
   if(!Array.isArray(states)||!states.length||states.length>32||states.some(s=>!(s instanceof Uint32Array)||s.length!==domain.stateWords))throw new Error('Live Domain qualification requires bounded complete states');
   const input=new Uint32Array(states.length*domain.stateWords),output=new Uint32Array(states.length*8).fill(0xdeadbeef);states.forEach((s,i)=>input.set(s,i*domain.stateWords));
   // Qualification executes one case at a time, preserving the product scratch-base-zero ABI.

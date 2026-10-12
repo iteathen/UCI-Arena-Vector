@@ -8,7 +8,7 @@ import {admitTimingPolicy} from '../components/move-timing/policy.mjs';
 import {admitClockOptionBindings} from './clock-option-bindings.mjs';
 import {validateProfileOnlyRuntime,admitPriorRuntimeAdmission,assertMaintainedRuntimeSource,profileOnlyReleaseMetadata,PRIOR_013} from './profile-only-release.mjs';
 
-export const VECTOR_COMPONENT_VERSION='0.1.4';
+export const VECTOR_COMPONENT_VERSION='0.1.5';
 
 const GENERATED = new Set(['arena-component.json', 'contracts/uci-engine-launch-profile.json', 'contracts/runtime-closure.json']);
 const SHA = /^[0-9a-f]{64}$/u;
@@ -205,18 +205,27 @@ function validateOptionalEvidenceRuntime(root, closure, version) {
   return true;
 }
 
-function launchProfile(version,timing){
+function selectedRuleContext(root,closure){
+  if(!closure.files.some(row=>row.path==='contracts/runtime-identity.json'))return null;
+  const bytes=readFileSync(path.join(root,'contracts/runtime-identity.json'));if(bytes.length>16384)throw new Error('Rule runtime identity extent');
+  const identity=JSON.parse(bytes),rules=identity.rules;if(rules===undefined)return null;
+  if(identity.schema!=='vector_engine_runtime_identity_v1'||identity.vectorRevision!==closure.vector_commit||identity.nodeVersion!==closure.node_version||!rules||Object.keys(rules).sort().join(',')!=='automaticThreefold,claimPolicy,schema'||rules.schema!=='vector_chess_rule_context_v1'||typeof rules.automaticThreefold!=='boolean'||rules.claimPolicy!==(rules.automaticThreefold?'lichess-bot-automatic-threefold-v1':'orthodoxy-live-claims-v1'))throw new Error('Qualified rule context differs');
+  return rules;
+}
+function launchProfile(version,timing,rules){
+  if(Object.hasOwn(timing?.options??{},'AutomaticThreefold')&&(!rules||timing.options.AutomaticThreefold!==rules.automaticThreefold))throw new Error('Timing options contradict qualified rule context');
   const profile = { schema: 'arena_uci_engine_launch_profile_v1', schema_version: 1,
     component: { id: 'uci_arena.vector', version, root: '.' },
     engine: { adapter: 'standard_uci_v1', executable: 'bin/node.exe',
       arguments: ['--experimental-ffi', 'dist/uci.mjs'], working_directory: '.' },
-    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root, RequireTimingPolicy: true,...(timing?.options??{}) }, expected_runtime: null,
+    state: 'conservative', enabled: true, uci_options: { ModelRoot: DEFAULT_MODEL.root, RequireTimingPolicy: true,...(timing?.options??{}),...(rules?{AutomaticThreefold:rules.automaticThreefold}:{}) }, expected_runtime: null,
     evidence: timing?{timing_policy:timing.evidence}:{}, knowledge: {}, diagnostics: [] };
   if(version==='0.1.4'){
     if(!timing)throw new Error('profile-only release requires original timing policy');
     profile.clock_option_bindings=admitClockOptionBindings({schema:'arena_uci_clock_option_bindings_v1',schema_version:1,
       bindings:{TimingInitialTimeMs:'initial_ms'}},profile.uci_options);
   }
+  if(timing)profile.clock_option_bindings=admitClockOptionBindings({schema:'arena_uci_clock_option_bindings_v1',schema_version:1,bindings:{TimingInitialTimeMs:'initial_ms'}},profile.uci_options);
   return profile;
 }
 
@@ -227,7 +236,7 @@ export function buildAtomicComponent({ root, closure, version=VECTOR_COMPONENT_V
   const evidenceRuntime = validateOptionalEvidenceRuntime(root, closure, version);
   const rootProvider = rootProviderSelected(root,closure);
   const timing = bundledTiming(root,closure);
-  const profile=launchProfile(version,timing);
+  const profile=launchProfile(version,timing,selectedRuleContext(root,closure));
   mkdirSync(path.join(root, 'contracts'), { recursive: true });
   writeFileSync(path.join(root, 'contracts/uci-engine-launch-profile.json'), json(profile));
   writeFileSync(path.join(root, 'contracts/runtime-closure.json'), json(closure));
@@ -315,8 +324,10 @@ export function verifyAtomicComponent(root) {
   const clockBinding=admitClockOptionBindings(profile.clock_option_bindings,profile.uci_options);
   if(manifest.component_version==='0.1.4'&&(!isDeepStrictEqual(clockBinding,{schema:'arena_uci_clock_option_bindings_v1',schema_version:1,bindings:{TimingInitialTimeMs:'initial_ms'}})
     ||profile.state!=='conservative'||profile.expected_runtime!==null))throw Error('profile-only clock binding or baseline identity differs');
-  if(manifest.component_version!=='0.1.4'&&clockBinding!==undefined)throw Error('clock binding release version differs');
   const timing=bundledTiming(root,closure);
+  const rules=selectedRuleContext(root,closure);
+  if(clockBinding!==undefined&&!timing)throw Error('clock binding lacks qualified timing authority');
+  if(rules&&(profile.uci_options?.AutomaticThreefold!==rules.automaticThreefold||!isDeepStrictEqual(clockBinding,timing?{schema:'arena_uci_clock_option_bindings_v1',schema_version:1,bindings:{TimingInitialTimeMs:'initial_ms'}}:undefined)))throw Error('launch context differs from qualified rule/timing authority');
   if(manifest.component_version==='0.1.4'&&!isDeepStrictEqual(profile,launchProfile('0.1.4',timing)))throw Error('profile-only launch metadata differs');
   if(profile.uci_options?.RequireTimingPolicy!==true&&!(['0.1.0','0.1.1','0.1.2'].includes(manifest.component_version)&&!Object.hasOwn(profile.uci_options??{},'RequireTimingPolicy')))throw new Error('Managed engine launch must require a qualified timing policy');
   if(timing?!Object.entries(timing.options).every(([key,value])=>profile.uci_options?.[key]===value)||!isDeepStrictEqual(profile.evidence?.timing_policy,timing.evidence):['TimingPolicyFile','TimingPolicySha256','TimingInitialTimeMs'].some(key=>Object.hasOwn(profile.uci_options??{},key)))throw new Error('Timing launch binding differs from selected policy');

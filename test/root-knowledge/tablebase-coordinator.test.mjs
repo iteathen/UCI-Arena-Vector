@@ -19,6 +19,10 @@ test('same admitted scope retains accepted raw safety and source identity across
  assert.equal(next.result.requestSha256,f.accepted.requestSha256);assert.equal(next.result.providerGeneration,f.accepted.providerGeneration);assert.equal(next.result.failureDisposition,'provider-failed-after-raw');assert.equal(f.provider.describe().status,'failed');assert.equal(f.counts().probes,1);assert.equal(f.counts().abandoned,0);assert.equal(f.statuses.filter(s=>s.status.state==='ready').length,1);
  const close=await c.close();assert.equal(close.provider.failed,true);assert.equal(close.process.code,1);assert.equal(f.counts().closed,1);
 });
+test('automatic threefold cannot borrow optional-claim provider proof authority',async()=>{
+ const f=fixture(),c=f.coordinator;c.configure('C:/managed/binding.json');await c.ready();const r=c.prepare({context:{...context(),claimPolicy:'lichess-bot-automatic-threefold-v1'},requestId:1,searchmoves:[],enabled:true});
+ assert.equal(r.applicable,false);assert.equal(r.result,null);assert.equal(f.counts().probes,0);assert(f.statuses.some(s=>s.status.reason==='rule-context-incompatible'));await c.close();
+});
 
 test('changed fence history legal set restrictions or disabled policy retires the old safety instead of relabeling it',async()=>{
  const variants=[{context:r=>({...r,rootFence:[1,2,3,5]})},{context:r=>({...r,input:{...r.input,moves:[577]}})},{context:r=>({...r,legalActions:[577,1153]})},{context:r=>({...r,claimPolicy:'different-policy'})},{searchmoves:[577]},{enabled:false}];

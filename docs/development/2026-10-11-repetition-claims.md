@@ -1,0 +1,17 @@
+# Current and intended draw claims
+
+The public archive of [V7zjDUiL](https://lichess.org/V7zjDUiL) contains the same rule position after plies 55, 59 and 63. White's final Kb2 produces the third occurrence. Full history was delivered; former selected Policy ignored claim facts. Material advantage is not a proved forced win.
+
+Selected Policy 1.1 retains ordinary optional threefold/fifty claims, automatic fivefold/seventy-five draws and mate precedence. Node u32 word 4 stores claim union 0..15; edge u32 word 5 stores intended rights {0,4,8,12}. Edge word 4 remains action; node word 5 remains completed work. Flags: current fifty=1, current threefold=2, intended fifty=4, intended threefold=8. Initialization clears masks; one successful matching ready-result consumption sets them with evaluation readiness. They remain immutable until exact owner-incarnation retirement, including abandonment/off-focus retention. State/history/action/rule identity governs reuse.
+
+Claims floor negative STM estimates at zero. Optional claims preserve positive estimates/proved wins. An intended claim belongs to its actual mover edge: max(0, ordinary parent utility); ordinary proved loss becomes draw. Unknown estimates remain unknown proofs. A node floor cannot grant another losing action claim authority. A current virtual claim has no standard UCI board-move representation; returned legal moves are not draw-claim commands, and `0000` never represents an optional claim.
+
+Public lila revision `7370914942f30f1a77321ff6e5bc0ad3e4dd5841` implements different bot semantics: [Drawer.autoThreefold](https://github.com/lichess-org/lila/blob/7370914942f30f1a77321ff6e5bc0ad3e4dd5841/modules/round/src/main/Drawer.scala) chooses a claimant when either participant is a bot, and [RoundAsyncActor](https://github.com/lichess-org/lila/blob/7370914942f30f1a77321ff6e5bc0ad3e4dd5841/modules/round/src/main/RoundAsyncActor.scala) invokes DrawClaim. A bot's own repeating move draws even with positive NN value.
+
+`AutomaticThreefold` is a startup check, standalone default false. True selects Domain 1.3 `lichess_bot_automatic_threefold_v1`: third occurrence terminal draw, mate first, intended-third edges exact draw regardless of positive estimates. Configuration is immutable in game, rejected replacement preserves prior configuration, and readiness carries `vector_chess_rule_context_v1`. The shipped Lichess-oriented profile must qualify true; baseline options derive actual inventoried rule identity, not version branches.
+
+Policy-owned scratch is 17,550 u32/70,200 bytes: 71 Domain scratch, 17,223-word opaque successor and 256 temporary masks. The consume hook appends this declared typed capability after its required public prefix. Existing Domain cApply/cRepetitions/cType own meaning. Pawn moves/captures cannot enable a claim; fewer than three history records or clock below 99 safely excludes the corresponding intended possibility. Failed preparation writes no owner masks/priors/cache. No CPU search/legality/NN is introduced.
+
+The current Syzygy provider advertises optional orthodoxy only. Automatic context reports nonfatal `rule-context-incompatible`, without borrowing exact-move authority; optional mode remains intact.
+
+Spec clarification proposal: external game rules participate in Domain/Policy/runtime identity; optional virtual claims remain distinct from board-action publication. Generic MCGS needs no schema change. Search-semantic candidate 0.1.5 needs exact native evidence and compatible timing seal; old 0.1.4/31d receipts stay historical.
