@@ -1,0 +1,139 @@
+schema: uci_arena_component_reasoning_graph_v1
+graph_id: uci_arena_vector
+version: 1
+status: initial_owner_directed
+component: uci_arena_vector
+global_graph:
+  repository: iteathen/uci-arena-installer
+  path: reasoning/suite_graph_v1.yaml
+
+imports:
+  objectives: [G-O1, G-O2]
+  premises: [G-P4, G-P6, G-P8, G-P10, G-P12, G-P13]
+  targets: [G-T1, G-T4, G-T5, G-T6, G-T10, G-T13, G-T15]
+
+local_objectives:
+  - id: V-O1
+    statement: >
+      Produce the strongest practical legal chess decisions possible from the available
+      model, search, knowledge, compute, and clock resources.
+    derived_from: [G-O1]
+    confidence: 0.995
+  - id: V-O2
+    statement: >
+      Behave as a predictable conforming UCI engine that can be fairly tested and replaced
+      inside or outside UCI Arena.
+    derived_from: [G-O2, G-T5]
+    confidence: 0.97
+
+premises:
+  - id: V-P1
+    statement: Chess-rule and legal-move truth is a prerequisite for every strength claim.
+    confidence: 0.999
+  - id: V-P2
+    statement: >
+      Search quality, model quality, knowledge, time allocation, and runtime efficiency are
+      different mechanisms whose value is ultimately measured by downstream chess outcome.
+    confidence: 0.98
+  - id: V-P3
+    statement: >
+      Continuous search should improve chess evidence as effectively as possible; publication
+      timing may observe search but must not command search attention merely because a
+      deadline approaches.
+    confidence: 0.98
+  - id: V-P4
+    statement: >
+      Current game clock facts and evidence-qualified useful timing structure are distinct
+      timing authorities and must be composed rather than substituted for one another.
+    confidence: 0.995
+  - id: V-P5
+    statement: >
+      A minimum useful timing block identifies a meaningful additional search-time purchase,
+      not an optimal maximum move duration.
+    confidence: 0.999
+  - id: V-P6
+    statement: >
+      Resolved book/tablebase/sole-authority moves and search-derived moves can have different
+      timing applicability without changing search truth.
+    confidence: 0.97
+  - id: V-P7
+    statement: >
+      GPU residency, low latency, and throughput are valuable only insofar as they improve
+      chess quality, clock efficiency, or usability without invalidating semantics.
+    confidence: 0.97
+
+implicit_assertions:
+  - id: V-A1
+    statement: >
+      A faster search implementation that produces worse decisions under equal real clock
+      resources is not a successful chess optimization.
+    derived_from: [V-O1, V-P2]
+    confidence: 0.98
+  - id: V-A2
+    statement: >
+      A local clock-safety repair cannot become general timing authority without evidence
+      that its allocation behavior serves downstream chess strength.
+    derived_from: [G-P8, V-P4, V-P5]
+    confidence: 0.999
+  - id: V-A3
+    statement: >
+      One qualified 500 ms block demonstrates at most that the block was useful in its
+      qualified regime; it does not prove that additional blocks lack value.
+    derived_from: [V-P5, G-P6]
+    confidence: 0.999
+  - id: V-A4
+    statement: >
+      Candidate instability, close alternatives, decisive stable candidates, temporal value,
+      and clock scarcity are distinct potential timing pressures and should not be flattened
+      into a guessed multiplier without evidence.
+    derived_from: [V-P2, G-P6, G-P12]
+    confidence: 0.98
+  - id: V-A5
+    statement: >
+      Rich diagnostics or host observations that materially stall device search can reduce
+      the strength being measured and therefore require bounded evidence of value.
+    derived_from: [G-P10, V-O1]
+    confidence: 0.95
+  - id: V-A6
+    statement: >
+      A legal current move must remain publication-fenced to the current root/focus even when
+      reusable search knowledge from earlier positions remains valid.
+    derived_from: [G-T1, V-P3]
+    confidence: 0.99
+
+implementation_targets:
+  - {id: V-T1, name: exact_chess_truth_and_legality, supports: [V-O1, G-T1]}
+  - {id: V-T2, name: strongest_search_decision_quality, supports: [V-O1]}
+  - {id: V-T3, name: evidence_driven_clock_allocation, supports: [V-O1, G-T13]}
+  - {id: V-T4, name: exact_model_and_value_semantics, supports: [V-O1, G-T1]}
+  - {id: V-T5, name: qualified_book_and_tablebase_use, supports: [V-O1]}
+  - {id: V-T6, name: uci_protocol_and_lifecycle_correctness, supports: [V-O2, G-T5]}
+  - {id: V-T7, name: gpu_search_efficiency, supports: [V-O1, G-T10]}
+  - {id: V-T8, name: bounded_nonperturbing_observation, supports: [G-T4, G-T10]}
+  - {id: V-T9, name: continuous_resource_and_search_lifecycle_integrity, supports: [V-O1, G-T8]}
+  - {id: V-T10, name: public_replaceable_library_boundaries, supports: [V-O2, G-T5, G-T12]}
+  - {id: V-T11, name: late_current_evidence_publication, supports: [V-O1, G-T1]}
+
+dominance_relations:
+  - {id: V-D1, stronger: V-T1, weaker: V-T2, context: apparent_strength_requires_invalid_chess_truth, confidence: 0.999, consequence: critical}
+  - {id: V-D2, stronger: V-T3, weaker: V-T7, context: raw_throughput_optimization_would_worsen_real_clock_allocation, confidence: 0.94, consequence: major}
+  - {id: V-D3, stronger: V-T9, weaker: V-T8, context: diagnostics_would_break_search_resource_lifecycle, confidence: 0.99, consequence: critical}
+  - {id: V-D4, stronger: V-T11, weaker: V-T8, context: rich_snapshot_or_diagnostic_work_delays_current_move_publication, confidence: 0.96, consequence: major}
+  - {id: V-D5, stronger: V-T3, weaker: V-T6, context: protocol_convenience_would_replace_engine_owned_chess_timing_with_external_fixed_delay, confidence: 0.98, consequence: major}
+
+importance_relations:
+  - {id: V-I1, more_important: V-T2, less_important: V-T7, context: equal_clock_strength_optimization, confidence: 0.97}
+  - {id: V-I2, more_important: V-T3, less_important: V-T7, context: live_games_show_systematic_clock_underuse, confidence: 0.98}
+  - {id: V-I3, more_important: V-T7, less_important: V-T8, context: hot_path_after_correctness_is_established, confidence: 0.91}
+  - {id: V-I4, more_important: V-T6, less_important: V-T8, context: interoperability_or_arena_admission_failure, confidence: 0.93}
+
+exports:
+  - id: V-X1
+    statement: legal current UCI move and current-root publication authority
+    supports_global: [G-T1, G-T3]
+  - id: V-X2
+    statement: engine-owned timing applicability and qualified publication decision
+    supports_global: [G-T1, G-T6, G-T13]
+  - id: V-X3
+    statement: bounded neutral search/runtime observations suitable for later evidence
+    supports_global: [G-T4, G-T13]
