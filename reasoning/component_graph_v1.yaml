@@ -11,7 +11,7 @@ global_graph:
 imports:
   objectives: [G-O1, G-O2]
   premises: [G-P4, G-P5, G-P6, G-P8, G-P10, G-P15, G-P17, G-P19, G-P20, G-P22, G-P23, G-P25, G-P27, G-P28]
-  targets: [G-T1, G-T4, G-T5, G-T6, G-T10, G-T13, G-T15]
+  targets: [G-T1, G-T3, G-T4, G-T5, G-T6, G-T8, G-T10, G-T12, G-T13, G-T15]
 
 local_objectives:
   - id: V-O1
@@ -44,8 +44,9 @@ premises:
     confidence: 0.98
   - id: V-P4
     statement: >
-      Current game clock facts and evidence-qualified useful timing structure are distinct
-      timing authorities and must be composed rather than substituted for one another.
+      Current game clocks constrain feasible move duration, while qualified useful timing
+      structure describes evidence-supported search opportunities; neither establishes
+      the other or removes the need to account for both.
     confidence: 0.995
   - id: V-P5
     statement: >
@@ -81,8 +82,8 @@ premises:
     confidence: 0.99
   - id: V-P11
     statement: >
-      Behavior-affecting game inputs such as model, rule context, book/tablebase binding, and
-      timing policy must remain latched over the game scope whose result they explain.
+      A game with changes to behavior-affecting model, rule, book/tablebase, or timing inputs
+      during play is not evidence for one unchanged configuration across that game.
     confidence: 0.995
 
   - id: V-P12
