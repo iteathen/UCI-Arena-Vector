@@ -26,14 +26,16 @@ test('physical optional claim floor, mover perspective and actual claim-enabling
  const cases=[archivedClaimCase(62,'intended-losing',-0.8),archivedClaimCase(62,'intended-winning',0.8),archivedClaimCase(62,'intended-all-ordinary-loss',-0.8,2),archivedClaimCase(63,'current-losing',-0.8),archivedClaimCase(63,'current-winning',0.8),archivedClaimCase(62,'win-dominates-claim',0.8,1),archivedClaimCase(0,'no-claim',-0.8)];
  const child=archivedClaimCase(63,'opponent-winning-after-mover-claim',0.8);child.parentState=cases[0].state;child.incomingClaimMask=8;cases.push(child);
  cases.push(fenCase('1r2k3/8/8/8/8/8/P7/1R2K3 w - - 99 60','intended-fifty',-0.8),fenCase('1r2k3/8/8/8/8/8/P7/1R2K3 w - - 100 60','current-fifty-winning',0.8));
+ cases.push({...archivedClaimCase(0,'invalid-incoming-current-claim-bits',0.8),incomingClaimMask:1});
  const r=await qualifyDrawClaims(cases,evaluatorLayout),o=Object.fromEntries(r.observations.map(o=>[o.name,o]));
- for(const row of r.observations){assert.deepEqual(row.statuses,[0,0,0]);assert.equal(row.guardsPassed,true);}
+ for(const row of r.observations){assert.deepEqual(row.statuses,row.name==='invalid-incoming-current-claim-bits'?[0,0,1]:[0,0,0]);assert.equal(row.guardsPassed,true);}
  assert.equal(o['intended-losing'].claimMask,8);assert.equal(o['intended-losing'].cacheValue,0);assert.equal(o['intended-losing'].nodeSum,0);assert.equal(o['intended-winning'].cacheValue,Math.fround(0.8));
  assert.equal(o['current-losing'].claimMask,10);assert.equal(o['current-losing'].cacheValue,0);assert.equal(o['current-winning'].cacheValue,Math.fround(0.8));
  assert.equal(o['intended-all-ordinary-loss'].nodeProof,3);assert.equal(o['intended-all-ordinary-loss'].selectedAction,packed('c2b2'));assert.equal(o['intended-all-ordinary-loss'].encodedAction,packed('c2b2'));
  assert.equal(o['win-dominates-claim'].nodeProof,1);assert.equal(o['no-claim'].claimMask,0);assert.equal(o['no-claim'].cacheValue,Math.fround(-0.8));
  assert.equal(o['opponent-winning-after-mover-claim'].nodeSum,Math.fround(0.8));assert.equal(o['opponent-winning-after-mover-claim'].incomingSum,0);
  assert.equal(o['intended-fifty'].claimMask,4);assert.equal(o['intended-fifty'].cacheValue,0);for(const move of ['a2a3','b1b8'])assert.equal(o['intended-fifty'].edges.find(e=>e.action===packed(move)).claimMask,0);assert.equal(o['intended-fifty'].edges.find(e=>e.action===packed('b1b2')).claimMask,4);assert.equal(o['current-fifty-winning'].claimMask,5);assert.equal(o['current-fifty-winning'].cacheValue,Math.fround(0.8));
+ assert.equal(o['invalid-incoming-current-claim-bits'].nodeSum,0);assert.equal(o['invalid-incoming-current-claim-bits'].incomingSum,0);assert.equal(o['invalid-incoming-current-claim-bits'].nodeProof,0);
  assert.equal(r.terminal.graceful,true);assert.equal(r.terminal.driver.resourceCounts.live,0);assert.equal(r.terminal.driver.resourceCounts.orphaned,0);
 });
 test('bounded added claim work measures public submit-to-completion separately from result transfers',{skip:process.env.VECTOR_DRAW_CLAIM_COST_NATIVE!=='1'},async()=>{
