@@ -23,12 +23,14 @@ test('archived exact history exposes the intended third occurrence before White 
 test('physical optional claim floor, mover perspective and actual claim-enabling selection',{skip:process.env.VECTOR_DRAW_CLAIM_NATIVE!=='1'},async()=>{
  const {qualifyDrawClaims}=await import('../../components/engine-runtime/draw-claim-qualification.mjs');
  const cases=[archivedClaimCase(62,'intended-losing',-0.8),archivedClaimCase(62,'intended-winning',0.8),archivedClaimCase(62,'intended-all-ordinary-loss',-0.8,2),archivedClaimCase(63,'current-losing',-0.8),archivedClaimCase(63,'current-winning',0.8),archivedClaimCase(62,'win-dominates-claim',0.8,1),archivedClaimCase(0,'no-claim',-0.8)];
+ const child=archivedClaimCase(63,'opponent-winning-after-mover-claim',0.8);child.parentState=cases[0].state;child.incomingClaimMask=8;cases.push(child);
  const r=await qualifyDrawClaims(cases,evaluatorLayout),o=Object.fromEntries(r.observations.map(o=>[o.name,o]));
  for(const row of r.observations){assert.deepEqual(row.statuses,[0,0,0]);assert.equal(row.guardsPassed,true);}
  assert.equal(o['intended-losing'].claimMask,8);assert.equal(o['intended-losing'].cacheValue,0);assert.equal(o['intended-losing'].nodeSum,0);assert.equal(o['intended-winning'].cacheValue,Math.fround(0.8));
  assert.equal(o['current-losing'].claimMask,10);assert.equal(o['current-losing'].cacheValue,0);assert.equal(o['current-winning'].cacheValue,Math.fround(0.8));
  assert.equal(o['intended-all-ordinary-loss'].nodeProof,3);assert.equal(o['intended-all-ordinary-loss'].selectedAction,packed('c2b2'));assert.equal(o['intended-all-ordinary-loss'].encodedAction,packed('c2b2'));
  assert.equal(o['win-dominates-claim'].nodeProof,1);assert.equal(o['no-claim'].claimMask,0);assert.equal(o['no-claim'].cacheValue,Math.fround(-0.8));
+ assert.equal(o['opponent-winning-after-mover-claim'].nodeSum,Math.fround(0.8));assert.equal(o['opponent-winning-after-mover-claim'].incomingSum,0);
  assert.equal(r.terminal.graceful,true);assert.equal(r.terminal.driver.resourceCounts.live,0);assert.equal(r.terminal.driver.resourceCounts.orphaned,0);
 });
 test('physical automatic threefold makes the actual repeating action draw even for positive winning NN value',{skip:process.env.VECTOR_DRAW_CLAIM_AUTO_NATIVE!=='1'},async()=>{

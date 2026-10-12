@@ -29,9 +29,9 @@ export async function qualifyDrawClaims(cases,evaluatorLayout,{automaticThreefol
   cuda.inspectDeviceProgram(request);const compiled=await cuda.compileDeviceProgram(runtime,request),artifact=compiled.linker?.artifact??compiled.compiler.artifact;
   const module=await runtime.loadModule({format:artifact.format,bytes:artifact.bytes});resources.push(module);const k=compiled.deviceProgram.kernels[0],fn=await module.getFunction({name:k.functionName,parameters:k.parameters});resources.push(fn);
   for(const c of cases){
-   const state=new Uint32Array(stateWords*2);state.set(c.state);state.set(c.state,stateWords);state[stateWords+64]=1-state[64];
+   const state=new Uint32Array(stateWords*2);state.set(c.state);state.set(c.parentState??c.state,stateWords);if(!c.parentState)state[stateWords+64]=1-state[64];
    const actions=new Uint32Array(capacity);actions.set(c.actions);const records=new Uint32Array(readyBase+capacity),numeric=new Float32Array(valueBase+2),results=new Float32Array(evaluatorLayout.resultOutputPartition.elementCount),scratch=new Uint32Array(scratchWords+2).fill(0xdeadbeef),out=new Uint32Array(7).fill(0xdeadbeef),rows=new Uint32Array(capacity*6),restriction=new Uint32Array(capacity+1);
-   results[policy.resultLayout.valueOffset]=c.scalar;const values=[state,actions,records,numeric,results,scratch,out,rows,restriction],memories=[];
+   records[incoming+5]=c.incomingClaimMask??0;results[policy.resultLayout.valueOffset]=c.scalar;const values=[state,actions,records,numeric,results,scratch,out,rows,restriction],memories=[];
    for(const value of values){const m=await runtime.allocateDevice({byteLength:value.byteLength});resources.push(m);memories.push(m);await m.write(new Uint8Array(value.buffer));}
    const started=performance.now(),op=await fn.submit({grid:{x:1,y:1,z:1},block:{x:1,y:1,z:1},arguments:[...memories,c.actions.length,c.proofMode??0],accesses:values.map((v,argumentIndex)=>({argumentIndex,byteOffset:0,byteLength:argumentIndex===5?scratchWords*4:v.byteLength,mode:argumentIndex<2||argumentIndex===4?'read':'read-write'}))});resources.push(op);
    if((await op.wait()).status!=='completed')throw new Error('Draw-claim policy probe did not complete');await op.close();resources.pop();
