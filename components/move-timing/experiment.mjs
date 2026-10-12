@@ -14,7 +14,7 @@ export function admitTimingExperiment(text,{sha256,runtimeIdentitySha256}){
   if(typeof text!=='string'||Buffer.byteLength(text)>16384||!hex(sha256)||hash(text)!==sha256)throw new Error('timing experiment digest mismatch');
   const value=JSON.parse(text);
   closed(value,['schema','diagnostic','campaign_id','runtime_identity_sha256','rules_profile','strategy','candidate_blocks_ms','local_publication_reserve_ms','supported_inputs','qualification'],'experiment');
-  if(value.schema!=='vector_timing_experiment_v1'||value.diagnostic!==true||typeof value.campaign_id!=='string'||!/^[a-zA-Z0-9_+.-]{1,128}$/.test(value.campaign_id)||value.rules_profile!=='orthodoxy-live-claims-v1')throw new Error('unsupported diagnostic experiment');
+  if(value.schema!=='vector_timing_experiment_v1'||value.diagnostic!==true||typeof value.campaign_id!=='string'||!/^[a-zA-Z0-9_+.-]{1,128}$/.test(value.campaign_id)||!['orthodoxy-live-claims-v1','lichess-bot-automatic-threefold-v1'].includes(value.rules_profile))throw new Error('unsupported diagnostic experiment');
   if(!hex(runtimeIdentitySha256)||value.runtime_identity_sha256!==runtimeIdentitySha256)throw new Error('timing experiment runtime identity mismatch');
   closed(value.qualification,['timing','strength','useful_blocks','publication'],'qualification');
   if(Object.values(value.qualification).some(v=>v!==false))throw new Error('experiment cannot grant qualification');

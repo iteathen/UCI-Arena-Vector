@@ -7,6 +7,9 @@ const identity=digest('exact physical cohort');
 const candidate=(kind='target_blocks_v1')=>({schema:'vector_timing_experiment_v1',diagnostic:true,campaign_id:'clock-discovery-180+3',runtime_identity_sha256:identity,rules_profile:'orthodoxy-live-claims-v1',strategy:{kind,target_blocks:2,...(kind==='preserve_future_blocks_v1'?{future_decisions:8}:{})},candidate_blocks_ms:[500,500],local_publication_reserve_ms:100,supported_inputs:{initial_time_ms:180000,increment_ms:3000},qualification:{timing:false,strength:false,useful_blocks:false,publication:false}});
 const admit=value=>module.admitTimingExperiment(JSON.stringify(value),{sha256:digest(JSON.stringify(value)),runtimeIdentitySha256:identity});
 const input=extra=>({initialTimeMs:180000,remainingMs:180000,incrementMs:3000,movesToGo:null,explicitLimitMs:null,transportReserveMs:50,elapsedMs:0,applicability:'search_derived',focusIdentity:{rootEpoch:1,requestId:1},...extra});
+test('automatic bot rules are an explicit diagnostic context without changing allocation semantics',()=>{
+ const v=candidate();v.rules_profile='lichess-bot-automatic-threefold-v1';const automatic=admit(v);assert.equal(automatic.rules_profile,v.rules_profile);assert.deepEqual(module.decideExperimentalPublication(automatic,input()),module.decideExperimentalPublication(automatic,input()));const bad={...v,rules_profile:'guessed-auto'};assert.throws(()=>admit(bad),/unsupported/);
+});
 test('public diagnostic experiment port exists without granting production timing authority',()=>{
   assert.equal(typeof module.admitTimingExperiment,'function');
   const handle=admit(candidate());assert.equal(handle.diagnostic,true);assert.equal(handle.qualification.useful_blocks,false);
