@@ -11,7 +11,10 @@ CUDA-MCGS owns universal search/evaluator/resource/session semantics. CUDA-JS-Te
 ## Decision reasoning
 
 Before a substantive architecture, design, implementation-selection, or cross-component
-decision, read `reasoning/component_graph_v1.yaml` and the canonical suite graph at
+decision, read `reasoning/component_graph_v1.yaml` plus the canonical suite methodology,
+concern census, and suite graph at
+`iteathen/uci-arena-installer/reasoning/README.md`,
+`iteathen/uci-arena-installer/reasoning/concern_census_v1.yaml`, and
 `iteathen/uci-arena-installer/reasoning/suite_graph_v1.yaml`.
 
 Use the graph to expose relevant implicit assertions rather than promoting a local repair or
