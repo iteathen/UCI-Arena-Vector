@@ -46,7 +46,7 @@ premises:
     statement: >
       Current game clocks constrain feasible move duration, while qualified useful timing
       structure describes evidence-supported search opportunities; neither establishes
-      the other or removes the need to account for both.
+      the other, and ignoring either can distort the resulting allocation.
     confidence: 0.995
   - id: V-P5
     statement: >
