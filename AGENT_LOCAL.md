@@ -8,6 +8,17 @@ Vector is an independent GPU-resident UCI chess-engine product. It owns UCI/prod
 
 CUDA-MCGS owns universal search/evaluator/resource/session semantics. CUDA-JS-Tensor owns generic Tensor semantics. CUDA-JS owns CUDA compiler/runtime/memory/provider/lifecycle mechanisms.
 
+## Decision reasoning
+
+Before a substantive architecture, design, implementation-selection, or cross-component
+decision, read `reasoning/component_graph_v1.yaml` and the canonical suite graph at
+`iteathen/uci-arena-installer/reasoning/suite_graph_v1.yaml`.
+
+Use the graph to expose relevant implicit assertions rather than promoting a local repair or
+performance result into global authority. Accepted Vector specifications/contracts remain
+behavior authority. A reasoning/spec contradiction triggers review and evidence work rather
+than silent divergence.
+
 ## Local routing
 
 - `STATUS.md` and `next_step.yaml` — current execution/dependency state.
