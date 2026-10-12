@@ -37,9 +37,9 @@ premises:
     confidence: 0.98
   - id: V-P3
     statement: >
-      Continuous search should improve chess evidence as effectively as possible; publication
-      timing may observe search but must not command search attention merely because a
-      deadline approaches.
+      Continuous search progress and downstream publication timing are separable authorities:
+      timing can observe bounded completed search evidence without requiring timing commands
+      to control search attention, topology, or queues.
     confidence: 0.98
   - id: V-P4
     statement: >
