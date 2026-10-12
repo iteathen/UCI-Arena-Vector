@@ -34,10 +34,14 @@ test('actual official prior input record and original bytes admit; substituted p
   }
   for(const name of Object.keys(inputs))assert.throws(()=>admitPriorRuntimeAdmission({recordBytes,inputs:{...inputs,[name]:Buffer.from('substituted')}}));
 });
-test('maintained runtime proof uses actual clean Git tree, rejects dirty and committed runtime drift',t=>{
+const historical014Source='4462a469ff69aceb8b2c7827de0498e67bf2b7e3';
+test('maintained runtime proof uses historical clean 0.1.4 Git tree, rejects dirty and committed runtime drift',t=>{
  try{execFileSync('git',['cat-file','-e',`${PRIOR_013.runtimeCommit}^{commit}`],{stdio:'pipe'});}catch{t.skip('historical qualified source object unavailable in shallow checkout');return;}
  const base=owned(t),repo=path.join(base,'source');execFileSync('git',['clone','--quiet','--shared','--no-hardlinks','.',repo],{windowsHide:true});
- const git=args=>execFileSync('git',['-C',repo,...args],{encoding:'utf8',windowsHide:true}).trim(),releaseCommit=git(['rev-parse','HEAD']);
+ const git=args=>execFileSync('git',['-C',repo,...args],{encoding:'utf8',windowsHide:true}).trim();
+ assert.throws(()=>assertMaintainedRuntimeSource({repositoryRoot:repo,releaseCommit:git(['rev-parse','HEAD'])}),'Current semantic repair cannot be promoted through the historical overlay');
+ try{git(['cat-file','-e',historical014Source+'^{commit}']);}catch{t.skip('historical 0.1.4 source object unavailable in shallow checkout');return;}
+ git(['checkout','--quiet','--detach',historical014Source]);const releaseCommit=git(['rev-parse','HEAD']);
  assert.equal(assertMaintainedRuntimeSource({repositoryRoot:repo,releaseCommit}).runtime_source_commit,PRIOR_013.runtimeCommit);
  const file=path.join(repo,'components/evidence-runtime/contract.mjs');writeFileSync(file,readFileSync(file,'utf8')+'\n// owned source-drift falsifier\n');
  assert.throws(()=>assertMaintainedRuntimeSource({repositoryRoot:repo,releaseCommit}));
@@ -48,10 +52,11 @@ test('actual prior atomic input permits only bounded metadata overlay and retain
  const proof=process.env.VECTOR_014_PRIOR_ADMISSION,candidate=process.env.VECTOR_014_PRIOR_CANDIDATE,priorRoot=process.env.VECTOR_014_PRIOR_PAYLOAD;
  if(!proof||!candidate||!priorRoot){t.skip('requires externally verified original 0.1.3 atomic payload');return;}
  const base=owned(t),repo=path.join(base,'source');execFileSync('git',['clone','--quiet','--shared','--no-hardlinks','.',repo],{windowsHide:true});
+ execFileSync('git',['-C',repo,'checkout','--quiet','--detach',historical014Source],{windowsHide:true});
  const releaseCommit=execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8',windowsHide:true}).trim(),recordBytes=readFileSync(proof),record=JSON.parse(recordBytes),inputs=Object.fromEntries(record.assets.map(row=>[row.name,readFileSync(path.join(candidate,row.name))]));
  const plan=deriveProfileOnlyOverlay({priorRoot,admissionBytes:recordBytes,priorInputs:inputs,repositoryRoot:repo,releaseCommit}),root=path.join(base,'payload');cpSync(priorRoot,root,{recursive:true});
  for(const row of plan.metadataFiles)writeFileSync(path.join(root,row.path),row.bytes);
- const built=buildAtomicComponent({root,closure:plan.closure,sourceDateEpoch:1791700000});
+ const built=buildAtomicComponent({root,closure:plan.closure,version:'0.1.4',sourceDateEpoch:1791700000});
  assert.equal(built.manifest.component_version,'0.1.4');assert.equal(built.profile.state,'conservative');assert.equal(built.profile.expected_runtime,null);assert.equal(built.profile.uci_options.TimingInitialTimeMs,0);
  assert.deepEqual(built.profile.clock_option_bindings,{schema:'arena_uci_clock_option_bindings_v1',schema_version:1,bindings:{TimingInitialTimeMs:'initial_ms'}});
  for(const name of ['contracts/runtime-qualification.json','contracts/runtime-identity.json','contracts/timing-policy.json','dist/uci.mjs','dist/installer-integration.mjs'])assert.deepEqual(readFileSync(path.join(root,name)),readFileSync(path.join(priorRoot,name)));
