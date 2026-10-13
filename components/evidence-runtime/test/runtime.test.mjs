@@ -50,6 +50,11 @@ test('public UCI subprocess handshake captures identity and bounded bestmove',as
   }finally{await session.close();}
   assert.equal(session.closed,true);
 });
+
+test('default UCI transport retains opaque info without interpreting opt-in diagnostic framing',async()=>{
+ const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url)),session=new UciSession({executable:process.execPath,args:[script,'opaque-clock-info'],cwd:path.dirname(script)});
+ try{await session.ready();await session.position(undefined,[]);const reply=await session.go({movetime:1},1000);assert.equal(reply.move,'e2e4');assert(reply.info.includes('info string vector_clock_phase ordinary opaque text'));assert.equal(reply.clock_observation,undefined);}finally{await session.close();}
+});
 test('public UCI rejects absent options and deadline loss closes owned process',async()=>{
   const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
   const session=new UciSession({executable:process.execPath,args:[script],cwd:path.dirname(script)},{Threads:4});

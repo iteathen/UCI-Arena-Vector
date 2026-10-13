@@ -91,7 +91,7 @@ export class UciSession {
       const matches=row=>row.schema==='vector_uci_clock_phase_v1'&&row.phase==='emit'&&row.rootEpoch===go[0].rootEpoch&&row.requestId===go[0].requestId;
       if(!phases.some(matches)){lines.push(...await this.until(line=>line.startsWith(prefix)&&matches(JSON.parse(line.slice(prefix.length))),Math.max(1,timeoutMs-elapsed)));received.push(...this.lastUntilObservations);}
     }
-    const emit=received.find(v=>v.line.startsWith('info string vector_clock_phase ')&&JSON.parse(v.line.slice('info string vector_clock_phase '.length)).phase==='emit');
+    const emit=this.requirements.requireReceiveClock&&this.requirements.requireClockDiagnostics?received.find(v=>v.line.startsWith('info string vector_clock_phase ')&&JSON.parse(v.line.slice('info string vector_clock_phase '.length)).phase==='emit'):undefined;
     const clock_observation=this.requirements.requireReceiveClock?{schema:'vector_uci_receive_clock_v1',command_sent_ns:commandSent.toString(),bestmove_received_ns:bestmoveReceived.toString(),...(emit?{emit_received_ns:emit.received.toString()}:{} )}:undefined;
     return {move:match[1],ponder:match[2]??null,elapsed_ms:elapsed,info:lines.filter(l=>l.startsWith('info ')).slice(-256),...(clock_observation?{clock_observation}:{})};
   }
