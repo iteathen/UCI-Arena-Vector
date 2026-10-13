@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {consumeClockInput,chooseElapsedBlocks} from './allocation.mjs';
+import {admitOperationalExperiment,isOperationalExperiment,decideOperationalExperiment} from './operational-experiment.mjs';
 
 const admitted=new WeakSet();
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -13,6 +14,7 @@ function freeze(value){if(value&&typeof value==='object'){for(const child of Obj
 export function admitTimingExperiment(text,{sha256,runtimeIdentitySha256}){
   if(typeof text!=='string'||Buffer.byteLength(text)>16384||!hex(sha256)||hash(text)!==sha256)throw new Error('timing experiment digest mismatch');
   const value=JSON.parse(text);
+  if(value?.schema==='vector_operational_timing_experiment_v1')return admitOperationalExperiment(text,{sha256,runtimeIdentitySha256});
   closed(value,['schema','diagnostic','campaign_id','runtime_identity_sha256','rules_profile','strategy','candidate_blocks_ms','local_publication_reserve_ms','supported_inputs','qualification'],'experiment');
   if(value.schema!=='vector_timing_experiment_v1'||value.diagnostic!==true||typeof value.campaign_id!=='string'||!/^[a-zA-Z0-9_+.-]{1,128}$/.test(value.campaign_id)||!['orthodoxy-live-claims-v1','lichess-bot-automatic-threefold-v1'].includes(value.rules_profile))throw new Error('unsupported diagnostic experiment');
   if(!hex(runtimeIdentitySha256)||value.runtime_identity_sha256!==runtimeIdentitySha256)throw new Error('timing experiment runtime identity mismatch');
@@ -32,6 +34,7 @@ export function admitTimingExperiment(text,{sha256,runtimeIdentitySha256}){
 }
 
 export function decideExperimentalPublication(handle,input){
+  if(isOperationalExperiment(handle))return decideOperationalExperiment(handle,input);
   if(!admitted.has(handle))throw new Error('unadmitted timing experiment');
   input=consumeClockInput(input);
   const reserve=handle.local_publication_reserve_ms+input.transportReserveMs;

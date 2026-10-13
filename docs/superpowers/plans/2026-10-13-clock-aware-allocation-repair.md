@@ -1,0 +1,24 @@
+# Clock-aware allocation repair
+
+Owner request: stop the Lichess Bot, repair its time allocation, validate/deploy the repair, and restart it. Base source: `242c0e457cc5d6179b84f7436631ddce6fc98dcc`. Bot is paused, startup uninstalled and zero provider processes verified. Existing immutable Vector 0.1.5 stays available for recovery.
+
+Confirmed counterexample: public game Qv70URVg, 180+0, black checkmated with 133 seconds remaining. Installed policy SHA `e46195f45c26c2e562a3d28677dee26c899236ce6da76b54e5a30e5db26ae8b2` buys exactly one 500 ms block. Correct original-clock handoff does not correct this maximum. V-P4/V-P5, V-O1, G-T4 and G-D8 distinguish useful minimum, clock feasibility and unsupported optimum claims.
+
+Candidates: increasing one fixed cap ignores changing clock availability; copying old qualification onto repeated blocks falsifies its support; a fully new population optimizer requires a separate discovery/held-out campaign and remains a future strength study. Selected repair: a separately specified operational clock-budget contract, with fresh exact-runtime native execution/safety evidence and explicit absence of useful-block/strength/optimality claims. Preserve legacy v1 policy/producer/receipts unchanged.
+
+Design: successor `vector_operational_timing_policy_v1` uses exact source/runtime identity, supported 180000/0 control, frozen future-decision horizon 32, measured local reserve, named receipt digests and `native_clock_execution` qualification scope. For an unresolved move, allocate the remaining safe clock divided by the declared horizon. The deadline is absolute from `go`; already elapsed admission/search is charged once. Hard clock/explicit limits and transport/local reserves always constrain purchases. Resolved moves bypass waiting, unsupported controls publish current without invented authority, and managed readiness still requires matching admitted policy/initial control. The horizon is an operational parameter, not a learned optimum or generalized strength claim.
+
+Ruling: use a visible successor contract rather than alter historical qualified v1 semantics. It costs broader schema/packaging review, but prevents laundering the old weak-reference/single-block study into new evidence.
+
+- [x] Add failing deterministic tests for clock-responsive allocation, elapsed accounting, low clocks/explicit limits, unsupported controls, resolved bypass, policy/runtime/digest integrity and truthful qualification admission.
+- [x] Implement the pure allocator and successor admission/producer contract; preserve legacy tests and deadline/search ownership.
+- [x] Update packaging projection to distinguish native clock-execution qualification from historical population-qualified useful blocks. Run the complete portable suites and repository gates.
+- [ ] Obtain non-author whole-diff review and protected integration at exact head.
+- [ ] Stage version 0.1.6 from unchanged verified libraries/model plus maintained new source, with a fresh runtime identity. Exercise actual GPU search, legal game/replay, clock allocation/deadlines, tactical safety and genuine joined closure; measure fresh local publication reserve and retain raw observations. Produce a native-qualified policy and exact ordinary runtime closure. Do not invent passing flags or reuse old records as new execution.
+- [ ] Sign the exact native-qualified archive through the existing protected main/dispatch workflow; verify the three original signed assets with the Installer common provenance verifier. No trust/signing bypass or public draft publication.
+- [ ] Build/apply an Installer-owned component update through existing contracts; verify inventory, render consumer configuration, prove new active timing-policy digest and installed native behavior.
+- [ ] Restore bot startup via its public CLI using existing credential references, resume scheduler, and verify connected runtime/new engine. Record the final exact identities and evidence on GitHub.
+
+Failure disposition: keep Bot stopped and evidence honest until the required gates pass. Credentials/private keys are never read, copied or logged. No cancelled C++ chess/search work or generic-library internals are introduced. Historical native, timing and release meanings remain immutable.
+
+Portable checkpoint: Node 26.11.1, 455 tests / 420 pass / 35 hardware skips / zero failures; repository policy and whitespace gates pass. Independent review found producer coverage, charge/phase, nested fixture, rule-context and hosted verifier dependency gaps. Rejection tests now reproduce and reject the first four; locked script-free verifier setup fixes hosted imports. Receiver observations retain literal hrtime command/bestmove/emit receipt values; no UTC/QPC conversion or diagnostic-wait charging. Reserve samples are bound to actual allocation responses and independent process partitions. Revised whole-diff review and all native/deployment gates remain pending.

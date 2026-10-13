@@ -66,6 +66,14 @@ test('clock evidence retains diagnostics after bestmove without charging their w
  assert(reply.info.some(line=>line.includes('"phase":"emit"')));assert(total-reply.elapsed_ms>=25);
  }finally{await session.close();}
 });
+
+test('opted-in receiver captures literal command/bestmove clocks and excludes later diagnostic wait',async()=>{
+ const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
+ const session=new UciSession({executable:process.execPath,args:[script,'late-clock-diagnostic'],cwd:path.dirname(script)},{},{requireClockDiagnostics:true,requireReceiveClock:true});
+ try{await session.ready();await session.position(undefined,[]);const reply=await session.go({movetime:1},1000),c=reply.clock_observation;
+ assert.equal(c.schema,'vector_uci_receive_clock_v1');assert.equal(reply.elapsed_ms,Number(BigInt(c.bestmove_received_ns)-BigInt(c.command_sent_ns))/1e6);assert(BigInt(c.emit_received_ns)-BigInt(c.bestmove_received_ns)>=25000000n);
+ }finally{await session.close();}
+});
 test('process close awaits normal retirement and rejects abnormal exit',async()=>{
   const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
   const delayed=new UciSession({executable:process.execPath,args:[script,'delayed-quit'],cwd:path.dirname(script)},{});

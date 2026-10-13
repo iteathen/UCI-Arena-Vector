@@ -32,11 +32,11 @@ export async function playClockExperimentGame(config,candidate,reference){
       const remainingDuration=config.maxDurationMs-(performance.now()-started);if(remainingDuration<=0){outcome={result:null,termination:'duration_bound'};break;}
       const color=ref.turn()==='w'?'white':'black',owner=color===config.candidateColor?'candidate':'reference',session=owner==='candidate'?candidate:reference,prior={...clocks},before=ref.fen();
       const control=owner==='candidate'?{wtime:Math.max(0,Math.floor(clocks.white)),btime:Math.max(0,Math.floor(clocks.black)),winc:config.incrementMs,binc:config.incrementMs}:{...config.referenceGo};
-      const {move,elapsed_ms,info=[]}=await session.go(control,Math.min(config.responseTimeoutMs,Math.max(1,remainingDuration)));
+      const {move,elapsed_ms,info=[],clock_observation}=await session.go(control,Math.min(config.responseTimeoutMs,Math.max(1,remainingDuration)));
       if(!Number.isFinite(elapsed_ms)||elapsed_ms<0)throw new Error('invalid actual elapsed measurement');
       if(!Array.isArray(info)||info.length>256||info.some(line=>typeof line!=='string'||line.length>32768))throw new Error('invalid bounded UCI observations');
       clocks[color]-=elapsed_ms;
-      const record={ply:moves.length,owner,color,fen:before,move,elapsed_ms,clock_before_ms:prior,info:[...info]};records.push(record);
+      const record={ply:moves.length,owner,color,fen:before,move,elapsed_ms,clock_before_ms:prior,info:[...info],...(clock_observation?{clock_observation:{...clock_observation}}:{})};records.push(record);
       if(clocks[color]<=0){outcome={result:color==='white'?'0-1':'1-0',termination:'flag_fall'};record.clock_after_ms={...clocks};break;}
       try{ref.play(move);}catch{outcome={result:null,termination:'illegal_move'};failure='engine returned illegal move';break;}
       clocks[color]+=config.incrementMs;record.clock_after_ms={...clocks};moves.push(move);outcome=ref.terminal();
