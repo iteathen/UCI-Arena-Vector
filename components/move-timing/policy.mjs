@@ -1,12 +1,15 @@
 import {createHash} from 'node:crypto';
 import {consumeClockInput,chooseElapsedBlocks} from './allocation.mjs';
+import {admitOperationalTimingPolicy,isOperationalTimingPolicy,decideOperationalPublication} from './operational-policy.mjs';
 const admitted=new WeakSet(),hex=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 function closed(value,keys){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!keys.includes(key))||keys.some(key=>!Object.hasOwn(value,key)))throw new Error('invalid timing policy fields');}
 function integer(value,min,max){if(!Number.isSafeInteger(value)||value<min||value>max)throw new Error('invalid timing policy integer');}
 function freeze(value){if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}return value;}
 export function admitTimingPolicy(text,{sha256,runtimeIdentitySha256}){
   if(typeof text!=='string'||Buffer.byteLength(text)>16384||!hex(sha256)||createHash('sha256').update(text).digest('hex')!==sha256)throw new Error('timing policy artifact digest mismatch');
-  const value=JSON.parse(text);closed(value,['schema','producer','runtime_identity_sha256','control','strategy','useful_blocks_ms','local_publication_reserve_ms','unsupported_fallback','qualification']);
+  const value=JSON.parse(text);
+  if(value?.schema==='vector_operational_timing_policy_v1')return admitOperationalTimingPolicy(text,{sha256,runtimeIdentitySha256});
+  closed(value,['schema','producer','runtime_identity_sha256','control','strategy','useful_blocks_ms','local_publication_reserve_ms','unsupported_fallback','qualification']);
   if(value.schema!=='vector_timing_policy_v1'||value.producer!=='vector-evidence-runtime/clock-allocation-v1'||value.unsupported_fallback!=='publish-current')throw new Error('unsupported timing policy producer');
   if(!hex(runtimeIdentitySha256)||value.runtime_identity_sha256!==runtimeIdentitySha256)throw new Error('timing policy runtime identity mismatch');
   closed(value.control,['initial_time_ms','increment_ms']);integer(value.control.initial_time_ms,1,3600000);integer(value.control.increment_ms,0,60000);integer(value.local_publication_reserve_ms,1,10000);
@@ -18,6 +21,7 @@ export function admitTimingPolicy(text,{sha256,runtimeIdentitySha256}){
   const handle=freeze({...value,sha256,diagnostic:false});admitted.add(handle);return handle;
 }
 export function decidePolicyPublication(handle,value){
+  if(isOperationalTimingPolicy(handle))return decideOperationalPublication(handle,value);
   if(!admitted.has(handle))throw new Error('unadmitted qualified timing policy');const input=consumeClockInput(value,{allowUnknownInitial:true});
   const reserve=handle.local_publication_reserve_ms+input.transportReserveMs,safe=Math.max(0,Math.min(input.remainingMs,input.explicitLimitMs??input.remainingMs)-reserve);
   let result,usefulBlockAuthority=true;

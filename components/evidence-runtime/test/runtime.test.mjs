@@ -50,6 +50,11 @@ test('public UCI subprocess handshake captures identity and bounded bestmove',as
   }finally{await session.close();}
   assert.equal(session.closed,true);
 });
+
+test('default UCI transport retains opaque info without interpreting opt-in diagnostic framing',async()=>{
+ const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url)),session=new UciSession({executable:process.execPath,args:[script,'opaque-clock-info'],cwd:path.dirname(script)});
+ try{await session.ready();await session.position(undefined,[]);const reply=await session.go({movetime:1},1000);assert.equal(reply.move,'e2e4');assert(reply.info.includes('info string vector_clock_phase ordinary opaque text'));assert.equal(reply.clock_observation,undefined);}finally{await session.close();}
+});
 test('public UCI rejects absent options and deadline loss closes owned process',async()=>{
   const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
   const session=new UciSession({executable:process.execPath,args:[script],cwd:path.dirname(script)},{Threads:4});
@@ -64,6 +69,14 @@ test('clock evidence retains diagnostics after bestmove without charging their w
  const session=new UciSession({executable:process.execPath,args:[script,'late-clock-diagnostic'],cwd:path.dirname(script)},{},{requireClockDiagnostics:true});
  try{await session.ready();await session.position(undefined,[]);const before=performance.now(),reply=await session.go({movetime:1},1000),total=performance.now()-before;
  assert(reply.info.some(line=>line.includes('"phase":"emit"')));assert(total-reply.elapsed_ms>=25);
+ }finally{await session.close();}
+});
+
+test('opted-in receiver captures literal command/bestmove clocks and excludes later diagnostic wait',async()=>{
+ const script=fileURLToPath(new URL('fixtures/uci.mjs',import.meta.url));
+ const session=new UciSession({executable:process.execPath,args:[script,'late-clock-diagnostic'],cwd:path.dirname(script)},{},{requireClockDiagnostics:true,requireReceiveClock:true});
+ try{await session.ready();await session.position(undefined,[]);const reply=await session.go({movetime:1},1000),c=reply.clock_observation;
+ assert.equal(c.schema,'vector_uci_receive_clock_v1');assert.equal(reply.elapsed_ms,Number(BigInt(c.bestmove_received_ns)-BigInt(c.command_sent_ns))/1e6);assert(BigInt(c.emit_received_ns)-BigInt(c.bestmove_received_ns)>=25000000n);
  }finally{await session.close();}
 });
 test('process close awaits normal retirement and rejects abnormal exit',async()=>{

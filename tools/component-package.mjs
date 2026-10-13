@@ -4,6 +4,7 @@ import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { isDeepStrictEqual } from 'node:util';
 import { buildRuntimeContract } from '../components/evidence-runtime/contract.mjs';
+import {produceOperationalTimingPolicy} from '../components/evidence-runtime/operational-clock-policy.mjs';
 import {admitTimingPolicy} from '../components/move-timing/policy.mjs';
 import {admitClockOptionBindings} from './clock-option-bindings.mjs';
 import {validateProfileOnlyRuntime,admitPriorRuntimeAdmission,assertMaintainedRuntimeSource,profileOnlyReleaseMetadata,PRIOR_013} from './profile-only-release.mjs';
@@ -33,6 +34,14 @@ function bundledTiming(root,closure){
   if(identityBytes.length>16384||policyBytes.length>16384)throw new Error('Timing compatibility document extent');
   const identity=JSON.parse(identityBytes);if(identity.schema!=='vector_engine_runtime_identity_v1'||identity.vectorRevision!==closure.vector_commit||identity.nodeVersion!==closure.node_version)throw new Error('Timing runtime compatibility differs');
   const sha256=hash(policyBytes),policy=admitTimingPolicy(new TextDecoder('utf-8',{fatal:true}).decode(policyBytes),{sha256,runtimeIdentitySha256:hash(JSON.stringify(identity))});
+  if(policy.schema==='vector_operational_timing_policy_v1'){
+    const receiptName='evidence/timing/operational-execution.json',row=closure.files.find(v=>v.path===receiptName);
+    if(!row||row.sha256!==policy.qualification.receipt_sha256)throw new Error('operational policy lacks its exact inventoried execution receipt');
+    const receipt=readFileSync(path.join(root,receiptName));if(receipt.length>16*1024*1024||hash(receipt)!==row.sha256)throw new Error('operational execution receipt digest/extent differs');
+    const produced=produceOperationalTimingPolicy({text:new TextDecoder('utf-8',{fatal:true}).decode(receipt),sha256:row.sha256});
+    if(produced.sha256!==sha256)throw new Error('operational policy differs from its native execution producer');
+    return {options:{TimingPolicyFile:name,TimingPolicySha256:sha256,TimingInitialTimeMs:0},evidence:{status:'native-clock-execution-qualified',qualification_scope:'native_clock_execution',sha256,control:policy.control,receipt_sha256:row.sha256,reserve_sha256:produced.reserve_sha256,useful_block_authority:false,strength_qualified:false,optimality:false}};
+  }
   return {options:{TimingPolicyFile:name,TimingPolicySha256:sha256,TimingInitialTimeMs:0},evidence:{status:'producer-qualified-for-declared-control',sha256,control:policy.control,study_sha256:policy.qualification.study_sha256}};
 }
 

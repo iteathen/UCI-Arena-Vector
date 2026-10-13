@@ -138,3 +138,33 @@ Ponder and infinite commands retain their external publication gates. Replayed
 completion, stale callbacks, replacement, new game and shutdown are fenced;
 subscription release failures still allow backend closure and fail the aggregate
 teardown. The timing layer neither selects the resolved action nor changes search.
+
+## Operational clock-budget successor
+
+`vector_operational_timing_policy_v1` is a distinct, source/runtime-bound
+`native_clock_execution` contract. It does not reinterpret the old population
+policy, useful minimum blocks, strength, or optimum claims. Its producer is
+`vector-evidence-runtime/operational-clock-budget-v1`; fixture output is forbidden.
+The exact native receipt must be inventoried as
+`evidence/timing/operational-execution.json`, and packaging recomputes the policy
+from that receipt before emitting a truthful clock-execution evidence projection.
+
+The supported control is 180000 milliseconds with zero increment. A frozen
+future-decision horizon distributes the remaining clock, after separate external
+transport and measured local-publication reserves, over remaining opportunities.
+The selected operational horizon is 32; it is not a learned optimum. Explicit
+maximums constrain the current move independently. Already elapsed admission
+counts once toward the deadline from go receipt. If already expired, publication
+is immediate; no declaration pretends to recover previously spent clock.
+Invalid original controls, increments, moves-to-go, or a remaining zero-increment
+clock above its original control acquire no allocation authority. Resolved moves
+bypass waiting. `RequireTimingPolicy` still requires exact policy and initial
+control at readiness; publication neither reads files nor commands search.
+
+The separately admitted `vector_operational_timing_experiment_v1` runs the same
+arithmetic for frozen native execution capture, with all qualification fields
+false. It cannot activate managed Bot play. Its producer validates actual phase,
+clock, legal replay, high/mid/low and unsupported/explicit cases, separate reserve
+populations, two complete games/colors, and genuine joined owner closures. Native
+execution supports only the observed control/runtime/hardware envelope; no
+population superiority or broader playing-strength claim follows.

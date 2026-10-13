@@ -6,9 +6,10 @@ export class UciSession {
   constructor(launch,options={},requirements={}) {
     if(requirements.requireOwnerTeardown!==undefined&&typeof requirements.requireOwnerTeardown!=='boolean')throw new Error('invalid owner teardown requirement');
     if(requirements.requireClockDiagnostics!==undefined&&typeof requirements.requireClockDiagnostics!=='boolean')throw new Error('invalid clock diagnostics requirement');
+    if(requirements.requireReceiveClock!==undefined&&typeof requirements.requireReceiveClock!=='boolean')throw new Error('invalid receive clock requirement');
     if((requirements.expectedUciName!==undefined||requirements.referenceInstrumentSha256!==undefined)&&(typeof requirements.expectedUciName!=='string'||!requirements.expectedUciName||requirements.expectedUciName.length>256||/[\x00-\x1f\x7f]/.test(requirements.expectedUciName)||!/^[a-f0-9]{64}$/.test(requirements.referenceInstrumentSha256??'')||requirements.requireOwnerTeardown))throw new Error('reference requires exact independent instrument identity');
     this.requirements={...requirements};this.ownerReports=[];
-    this.closed=false;this.options=options;this.lines=[];this.buffer='';this.bytes=0;this.waiter=null;this.failure=null;
+    this.closed=false;this.options=options;this.lines=[];this.receivedNs=[];this.buffer='';this.bytes=0;this.waiter=null;this.failure=null;
     this.process=spawn(launch.executable,launch.args,{cwd:launch.cwd,env:{...process.env},stdio:['pipe','pipe','pipe'],windowsHide:true});
     this.exited=new Promise(resolve=>this.process.once('close',(code,signal)=>{
       this.exitObservation={exit_code:code,signal,stdio_closed:true};resolve();
@@ -29,7 +30,7 @@ export class UciSession {
       this.buffer+=bytes.toString('utf8');
       if(this.buffer.length>1048576){this.failure=new Error('UCI line exceeded limit');this.wake();this.process.kill();return;}
       let offset;
-      while((offset=this.buffer.indexOf('\n'))!==-1){const line=this.buffer.slice(0,offset).replace(/\r$/u,'');this.lines.push(line);this.buffer=this.buffer.slice(offset+1);
+      while((offset=this.buffer.indexOf('\n'))!==-1){const line=this.buffer.slice(0,offset).replace(/\r$/u,'');this.lines.push(line);this.receivedNs.push(process.hrtime.bigint());this.buffer=this.buffer.slice(offset+1);
         if(line.startsWith('info string vector_teardown ')){
           try{if(this.ownerReports.length||Buffer.byteLength(line)>32832)throw new Error('ambiguous owner teardown');this.ownerReports.push(JSON.parse(line.slice('info string vector_teardown '.length)));}
           catch{this.ownerTeardownFailure=new Error('invalid owner teardown framing');}
@@ -42,9 +43,9 @@ export class UciSession {
   wake(){if(this.waiter){const waiter=this.waiter;this.waiter=null;waiter();}}
   send(line){if(this.closed||this.failure)throw this.failure??new Error('UCI session closed');this.process.stdin.write(`${line}\n`);}
   async until(predicate,timeoutMs) {
-    const deadline=performance.now()+timeoutMs;const seen=[];
+    const deadline=performance.now()+timeoutMs;const seen=[],observations=[];
     while(true) {
-      while(this.lines.length){const line=this.lines.shift();seen.push(line);if(predicate(line))return seen;}
+      while(this.lines.length){const line=this.lines.shift(),received=this.receivedNs.shift();seen.push(line);observations.push({line,received});if(predicate(line)){this.lastUntilObservations=observations;return seen;}}
       if(this.failure)throw this.failure;
       const remaining=deadline-performance.now();if(remaining<=0)throw new Error('UCI response timeout');
       await new Promise(resolve=>{const timer=setTimeout(()=>{this.waiter=null;resolve();},remaining);this.waiter=()=>{clearTimeout(timer);resolve();};});
@@ -79,17 +80,20 @@ export class UciSession {
   async go(control,timeoutMs) {
     const fields=Object.entries(control);
     if(!fields.length||fields.some(([name,value])=>!['wtime','btime','winc','binc','movetime'].includes(name)||!Number.isSafeInteger(value)||value<0))throw new Error('invalid UCI go control');
-    const start=performance.now();this.send(`go ${fields.map(([k,v])=>`${k} ${v}`).join(' ')}`);
-    const lines=await this.until(line=>line.startsWith('bestmove '),timeoutMs);const elapsed=performance.now()-start;
+    const start=performance.now(),commandSent=process.hrtime.bigint();this.send(`go ${fields.map(([k,v])=>`${k} ${v}`).join(' ')}`);
+    const lines=await this.until(line=>line.startsWith('bestmove '),timeoutMs),received=[...this.lastUntilObservations],bestmoveReceived=received.at(-1).received;
+    const elapsed=this.requirements.requireReceiveClock?Number(bestmoveReceived-commandSent)/1e6:performance.now()-start;
     const best=lines.at(-1);const match=/^bestmove (\S+)(?: ponder (\S+))?$/u.exec(best);
     if(!match)throw new Error('malformed UCI bestmove');
     if(this.requirements.requireClockDiagnostics){
       const prefix='info string vector_clock_phase ',phases=lines.filter(line=>line.startsWith(prefix)).map(line=>JSON.parse(line.slice(prefix.length))),go=phases.filter(row=>row.phase==='goReceived');
       if(go.length!==1||go[0].schema!=='vector_uci_clock_phase_v1'||!Number.isSafeInteger(go[0].rootEpoch)||go[0].rootEpoch<1||!Number.isSafeInteger(go[0].requestId)||go[0].requestId<1)throw new Error('missing exact clock diagnostic focus');
       const matches=row=>row.schema==='vector_uci_clock_phase_v1'&&row.phase==='emit'&&row.rootEpoch===go[0].rootEpoch&&row.requestId===go[0].requestId;
-      if(!phases.some(matches))lines.push(...await this.until(line=>line.startsWith(prefix)&&matches(JSON.parse(line.slice(prefix.length))),Math.max(1,timeoutMs-elapsed)));
+      if(!phases.some(matches)){lines.push(...await this.until(line=>line.startsWith(prefix)&&matches(JSON.parse(line.slice(prefix.length))),Math.max(1,timeoutMs-elapsed)));received.push(...this.lastUntilObservations);}
     }
-    return {move:match[1],ponder:match[2]??null,elapsed_ms:elapsed,info:lines.filter(l=>l.startsWith('info ')).slice(-256)};
+    const emit=this.requirements.requireReceiveClock&&this.requirements.requireClockDiagnostics?received.find(v=>v.line.startsWith('info string vector_clock_phase ')&&JSON.parse(v.line.slice('info string vector_clock_phase '.length)).phase==='emit'):undefined;
+    const clock_observation=this.requirements.requireReceiveClock?{schema:'vector_uci_receive_clock_v1',command_sent_ns:commandSent.toString(),bestmove_received_ns:bestmoveReceived.toString(),...(emit?{emit_received_ns:emit.received.toString()}:{} )}:undefined;
+    return {move:match[1],ponder:match[2]??null,elapsed_ms:elapsed,info:lines.filter(l=>l.startsWith('info ')).slice(-256),...(clock_observation?{clock_observation}:{})};
   }
   async close() {
     if(this.closePromise)return this.closePromise;
