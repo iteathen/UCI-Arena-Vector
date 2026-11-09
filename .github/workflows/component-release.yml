@@ -157,7 +157,7 @@ jobs:
             Set-Content -LiteralPath (Join-Path $taskRoot 'stage-result.json') -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Exact runtime/source/qualification/license closure rejected' }
       - name: Install pinned Cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532
         with:
           cosign-release: v3.0.6
       - name: Sign and verify exact full provider predicate
